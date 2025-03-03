@@ -1,0 +1,4 @@
+__pycache__/*
+*.log
+config.yaml
+notes.txt
