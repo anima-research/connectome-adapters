@@ -1,0 +1,36 @@
+adapter:
+  adapter_type: "zulip"
+  zuliprc_path: "adapters/zulip_adapter/zuliprc"
+  site: "https://example.com"
+  retry_delay: 5
+  connection_check_interval: 300  # Seconds to check connection
+  max_message_length: 9000
+  chunk_size: 8192
+  max_history_limit: 100
+attachments:
+  storage_dir: "adapters/zulip_adapter/attachments"
+  max_age_days: 30
+  max_total_attachments: 1000
+  cleanup_interval_hours: 24
+  large_file_threshold_mb: 5 # in MB
+  max_file_size_mb: 25 # in MB
+caching:
+  max_messages_per_conversation: 100
+  max_total_messages: 1000
+  max_age_hours: 24
+  cache_maintenance_interval: 3600
+  cache_fetched_history: True
+logging:
+  logging_level: "info"  # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  log_file_path: "adapters/zulip_adapter/logs/development.log"
+  log_format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  max_log_size: 5242880
+  backup_count: 3
+rate_limit:
+  global_rpm: 50 # Requests per minute globally
+  per_conversation_rpm: 5 # Requests per minute per conversation
+  message_rpm: 5 # Messages per minute
+socketio:
+  host: "127.0.0.1"
+  port: 8081
+  cors_allowed_origins: "*"
