@@ -40,6 +40,94 @@ class Manager(BaseManager):
         self.message_builder = MessageBuilder(self.config)
         self.thread_handler = ThreadHandler(self.message_cache)
 
+    async def migrate_between_conversations(self, event: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle a supergroup that was migrated from a regular group
+
+        Args:
+            event: Event object
+
+        Returns:
+            Dictionary with delta information
+        """
+        old_conversation = await self._get_conversation_to_migrate_from(event)
+        new_conversation = await self._get_conversation_to_migrate_to(event)
+
+        if not new_conversation:
+            return {}
+
+        async with self._lock:
+            delta = self._create_conversation_delta(event, new_conversation)
+
+            if not old_conversation:
+                return delta.to_dict()
+
+            messages = self.message_cache.get_messages_by_conversation_id(
+                old_conversation.conversation_id
+            )
+
+            for message_id in messages:
+                delta.deleted_message_ids.append(message_id)
+
+                await self.message_cache.migrate_message(
+                    old_conversation.conversation_id,
+                    new_conversation.conversation_id,
+                    message_id
+                )
+                self.conversations[old_conversation.conversation_id].pinned_messages.discard(message_id)
+                self.conversations[new_conversation.conversation_id].pinned_messages.add(message_id)
+
+                if not delta.fetch_history:
+                    await self._update_delta_list(
+                        conversation_id=new_conversation.conversation_id,
+                        delta=delta,
+                        list_to_update="added_messages",
+                        message_id=message_id
+                    )
+
+        return delta.to_dict()
+
+    async def _get_conversation_to_migrate_from(self, event: Any) -> Optional[ConversationInfo]:
+        """Get the old conversation from an event
+
+        Args:
+            event: Event object
+
+        Returns:
+            Conversation info object or None if conversation not found
+        """
+        message = event.get("message", None)
+
+        if not message:
+            return None
+
+        return self.get_conversation(await self._get_conversation_id(message.peer_id))
+
+    async def _get_conversation_to_migrate_to(self, event: Any) -> Optional[ConversationInfo]:
+        """Get the new conversation from an event
+
+        Args:
+            event: Event object
+
+        Returns:
+            Conversation info object or None if conversation not found
+        """
+        action = event.get("action", None)
+        if not action:
+            return None
+
+        new_conversation_id = await self._get_conversation_id(action)
+        if not new_conversation_id:
+            return None
+
+        conversation = self.get_conversation(new_conversation_id)
+        if conversation:
+            return conversation
+
+        return self._create_conversation_info(
+            conversation_id=new_conversation_id,
+            conversation_type="supergroup"
+        )
+
     def attachment_download_required(self, message: Any) -> bool:
         """Check if attachment download or upload is required for a message
 
@@ -401,75 +489,3 @@ class Manager(BaseManager):
                 best_match_count = match_count
 
         return best_match
-
-    async def _get_conversation_to_migrate_from(self, event: Any) -> Optional[ConversationInfo]:
-        """Get the old conversation from an event
-
-        Args:
-            event: Event object
-
-        Returns:
-            Conversation info object or None if conversation not found
-        """
-        message = event.get("message", None)
-
-        if not message:
-            return None
-
-        return self.get_conversation(await self._get_conversation_id(message.peer_id))
-
-    async def _get_conversation_to_migrate_to(self, event: Any) -> Optional[ConversationInfo]:
-        """Get the new conversation from an event
-
-        Args:
-            event: Event object
-
-        Returns:
-            Conversation info object or None if conversation not found
-        """
-        action = event.get("action", None)
-        if not action:
-            return None
-
-        new_conversation_id = await self._get_conversation_id(action)
-        if not new_conversation_id:
-            return None
-
-        conversation = self.get_conversation(new_conversation_id)
-        if conversation:
-            return conversation
-
-        return self._create_conversation_info(
-            conversation_id=new_conversation_id,
-            conversation_type="supergroup"
-        )
-
-    def _get_messages_to_migrate(self,
-                                 event: Any,
-                                 old_conversation: Optional[ConversationInfo] = None) -> List[str]:
-        """Get the messages to migrate from an old conversation
-
-        Args:
-            event: Event object (unused for Telegram)
-            old_conversation: Conversation info object of the old conversation
-
-        Returns:
-            List of message IDs
-        """
-        if not old_conversation:
-            return []
-        return self.message_cache.get_messages_by_conversation_id(old_conversation.conversation_id)
-
-    def _perform_migration_related_updates(self,
-                                           old_conversation_id: str,
-                                           new_conversation_id: str,
-                                           message_id: str) -> None:
-        """Perform migration related updates
-
-        Args:
-            old_conversation_id: ID of the old conversation
-            new_conversation_id: ID of the new conversation
-            message_id: ID of the message
-        """
-        self.conversations[old_conversation_id].pinned_messages.discard(message_id)
-        self.conversations[new_conversation_id].pinned_messages.add(message_id)

@@ -215,16 +215,15 @@ class TestHistoryFetcher:
 
     @pytest.mark.asyncio
     async def test_fetch_with_before(self,
-                                     history_fetcher,
-                                     mock_messages,
-                                     mock_attachments):
+                                history_fetcher,
+                                mock_messages,
+                                mock_attachments):
         """Test fetching history with before timestamp"""
-        fetcher = history_fetcher("123_456", before=1627984200)
-        fetcher.downloader.download_attachment.return_value = mock_attachments
-        fetcher.client.get_messages.return_value = {
-            "result": "success",
-            "messages": mock_messages
-        }
+        fetcher = history_fetcher("123_456", before=1627984200, history_limit=50)
+        fetcher._fetch_history_in_batches = AsyncMock(return_value=mock_messages)
+        fetcher._download_attachments = AsyncMock(
+            return_value={0: mock_attachments, 1: mock_attachments}
+        )
 
         formatted_messages = []
         for msg in mock_messages:
@@ -247,16 +246,18 @@ class TestHistoryFetcher:
 
         history = await fetcher.fetch()
 
-        fetcher.rate_limiter.limit_request.assert_called_once()
-        fetcher.client.get_messages.assert_called_once()
-        call_args = fetcher.client.get_messages.call_args[0][0]
-
-        assert call_args["anchor"] == "newest"
-        assert call_args["num_before"] == 300  # 3x limit for better filtering
-        assert call_args["num_after"] == 0
-
+        # Check cache was checked first
         fetcher.conversation_manager.get_conversation_cache.assert_called_once()
+
+        # Verify _fetch_history_in_batches was called with correct parameters
+        fetcher._fetch_history_in_batches.assert_called_once()
+        call_args = fetcher._fetch_history_in_batches.call_args[0]
+        assert call_args[0] == 0  # index
+        assert call_args[1] > 0  # num_before
+        assert call_args[2] == 0  # num_after
+
         assert len(history) == 2  # Both messages are before the timestamp
+        assert fetcher.conversation_manager.add_to_conversation.call_count == 2
 
     @pytest.mark.asyncio
     async def test_fetch_with_after(self,
@@ -264,12 +265,11 @@ class TestHistoryFetcher:
                                     mock_messages,
                                     mock_attachments):
         """Test fetching history with after timestamp"""
-        fetcher = history_fetcher("123_456", after=1627983900)
-        fetcher.downloader.download_attachment.return_value = mock_attachments
-        fetcher.client.get_messages.return_value = {
-            "result": "success",
-            "messages": mock_messages
-        }
+        fetcher = history_fetcher("123_456", after=1627983900, history_limit=50)
+        fetcher._fetch_history_in_batches = AsyncMock(return_value=mock_messages)
+        fetcher._download_attachments = AsyncMock(
+            return_value={0: mock_attachments, 1: mock_attachments}
+        )
 
         formatted_messages = []
         for msg in mock_messages:
@@ -291,71 +291,25 @@ class TestHistoryFetcher:
         ]
 
         history = await fetcher.fetch()
-        fetcher.client.get_messages.assert_called_once()
-        call_args = fetcher.client.get_messages.call_args[0][0]
 
-        assert call_args["anchor"] == "oldest"
-        assert call_args["num_before"] == 0
-        assert call_args["num_after"] == 300  # 3x limit for better filtering
-        assert len(history) == 2  # Both messages are after the timestamp
+        # Check cache was checked first
+        fetcher.conversation_manager.get_conversation_cache.assert_called_once()
 
-    @pytest.mark.asyncio
-    async def test_cache_plus_api_fetch(self,
-                                        history_fetcher,
-                                        mock_cached_messages,
-                                        mock_attachments):
-        """Test fetching history with partial cache and API call"""
-        fetcher = history_fetcher("123_456", after=1627983000, history_limit=3)
-        fetcher.conversation_manager.get_conversation_cache.return_value = mock_cached_messages
-        fetcher.client.get_messages.return_value = {
-            "result": "success",
-            "messages": [{"id": 1002}]
-        }
-        fetcher.downloader.download_attachment.return_value = mock_attachments
-        fetcher.conversation_manager.add_to_conversation.return_value = {
-            "added_messages": [
-                {
-                    "message_id": "1002",  # This should be different from cache message
-                    "conversation_id": "123_456",
-                    "sender": {
-                        "user_id": "456",
-                        "display_name": "User Two"
-                    },
-                    "text": "Reply to message",
-                    "thread_id": None,
-                    "timestamp": 1627984100,
-                    "attachments": mock_attachments
-                }
-            ]
-        }
+        # Verify _fetch_history_in_batches was called with correct parameters
+        fetcher._fetch_history_in_batches.assert_called_once()
+        call_args = fetcher._fetch_history_in_batches.call_args[0]
+        assert call_args[0] == -1  # index
+        assert call_args[1] == 0  # num_before
+        assert call_args[2] > 0  # num_after
 
-        history = await fetcher.fetch()
-
-        assert len(history) == 2
-        assert history[0]["message_id"] == "1001"  # From cache
-        assert history[1]["message_id"] == "1002"  # From API
+        assert len(history) == 2  # Both messages are before the timestamp
+        assert fetcher.conversation_manager.add_to_conversation.call_count == 2
 
     @pytest.mark.asyncio
     async def test_fetch_no_conversation(self, history_fetcher):
         """Test fetching history with no conversation"""
         fetcher = history_fetcher("nonexistent_id")
         assert await fetcher.fetch() == []
-
-    def test_update_limits(self, history_fetcher, mock_cached_messages):
-        """Test _update_limits method"""
-        fetcher = history_fetcher("123_456", before=1627984200, history_limit=10)
-        original_limit = fetcher.history_limit
-        fetcher._update_limits(mock_cached_messages)
-
-        assert fetcher.anchor == "1001"  # First message ID from cache
-        assert fetcher.history_limit == original_limit - 1  # Reduced by cache size
-
-        fetcher = history_fetcher("123_456", after=1627983900, history_limit=10)
-        original_limit = fetcher.history_limit
-        fetcher._update_limits(mock_cached_messages)
-
-        assert fetcher.anchor == "1001"  # Last message ID from cache (only one in this case)
-        assert fetcher.history_limit == original_limit - 1  # Reduced by cache size
 
     def test_extract_reply_to_id(self, history_fetcher):
         """Test extracting reply to ID from content"""

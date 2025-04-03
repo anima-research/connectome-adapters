@@ -1,5 +1,4 @@
 import asyncio
-import emoji
 import json
 import logging
 import os
@@ -12,6 +11,7 @@ from adapters.zulip_adapter.adapter.event_processors.history_fetcher import Hist
 
 from core.event_processors.base_outgoing_event_processor import BaseOutgoingEventProcessor
 from core.utils.config import Config
+from core.utils.emoji_converter import EmojiConverter
 
 class OutgoingEventProcessor(BaseOutgoingEventProcessor):
     """Processes events from socket.io and sends them to Zulip"""
@@ -145,7 +145,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
 
         reaction_data = {
             "message_id": int(data["message_id"]),
-            "emoji_name": self._get_emoji_name(data["emoji"])
+            "emoji_name": EmojiConverter.get_instance().standard_to_platform_specific(data["emoji"])
         }
 
         if not self._check_api_request_success(
@@ -170,7 +170,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
 
         reaction_data = {
             "message_id": int(data["message_id"]),
-            "emoji_name": self._get_emoji_name(data["emoji"])
+            "emoji_name": EmojiConverter.get_instance().standard_to_platform_specific(data["emoji"])
         }
 
         if not self._check_api_request_success(
@@ -229,22 +229,3 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         error_msg = result.get("msg", "Unknown error") if result else "No response"
         logging.error(f"Failed to {operation}: {error_msg}")
         return False
-
-    def _get_emoji_name(self, unicode_emoji: str) -> str:
-        """Convert Unicode emoji to its name for Zulip
-
-        Args:
-            unicode_emoji: Unicode emoji
-
-        Returns:
-            str: Zulip emoji name
-        """
-        emoji_name = emoji.demojize(unicode_emoji).strip(":")
-
-        # Handle special cases for Zulip
-        if emoji_name == "+1":
-            emoji_name = "thumbs_up"
-        elif emoji_name == "-1":
-            emoji_name = "thumbs_down"
-
-        return emoji_name

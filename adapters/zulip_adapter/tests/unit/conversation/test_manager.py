@@ -13,7 +13,7 @@ from adapters.zulip_adapter.adapter.conversation.user_builder import UserBuilder
 from core.cache.message_cache import MessageCache, CachedMessage
 from core.cache.attachment_cache import AttachmentCache
 from core.conversation.base_data_classes import ThreadInfo, UserInfo
-from core.utils.config import Config
+from core.utils.emoji_converter import EmojiConverter
 
 class TestManager:
     """Tests for the Zulip conversation manager class"""
@@ -251,19 +251,23 @@ class TestManager:
             manager.message_cache.get_message_by_id.return_value = cached_private_message_mock
             manager.conversations["101_102"] = conversation_info_mock
 
-            delta = await manager.update_conversation({
-                "event_type": ZulipEventType.REACTION,
-                "message": reaction_message_mock
-            })
+            instance_mock = MagicMock()
+            instance_mock.platform_specific_to_standard.return_value = "thumbs_up"
 
-            assert delta["conversation_id"] == "101_102"
-            assert delta["message_id"] == "12346"
+            with patch.object(EmojiConverter, "_instance", instance_mock):
+                delta = await manager.update_conversation({
+                    "event_type": ZulipEventType.REACTION,
+                    "message": reaction_message_mock
+                })
 
-            assert len(delta["added_reactions"]) == 1
-            assert delta["added_reactions"][0] == "👍"
+                assert delta["conversation_id"] == "101_102"
+                assert delta["message_id"] == "12346"
 
-            assert len(cached_private_message_mock.reactions) == 1
-            assert cached_private_message_mock.reactions["👍"] == 1
+                assert len(delta["added_reactions"]) == 1
+                assert delta["added_reactions"][0] == "thumbs_up"
+
+                assert len(cached_private_message_mock.reactions) == 1
+                assert cached_private_message_mock.reactions["thumbs_up"] == 1
 
         @pytest.mark.asyncio
         async def test_update_nonexistent_message(self, manager, edited_message_mock):

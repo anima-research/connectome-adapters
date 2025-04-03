@@ -6,7 +6,9 @@ adapter:
   connection_check_interval: 300  # Seconds to check connection
   max_message_length: 9000
   chunk_size: 8192
-  max_history_limit: 100
+  max_history_limit: 800
+  max_pagination_iterations: 5
+  emoji_mappings: "adapters/zulip_adapter/config/emoji_mappings.csv"
 attachments:
   storage_dir: "adapters/zulip_adapter/attachments"
   max_age_days: 30

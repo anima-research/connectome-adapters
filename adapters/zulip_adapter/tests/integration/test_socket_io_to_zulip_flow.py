@@ -13,6 +13,7 @@ from adapters.zulip_adapter.adapter.conversation.data_classes import Conversatio
 from adapters.zulip_adapter.adapter.event_processors.outgoing_event_processor import OutgoingEventProcessor
 from adapters.zulip_adapter.adapter.event_processors.incoming_event_processor import IncomingEventProcessor
 from core.conversation.base_data_classes import UserInfo
+from core.utils.emoji_converter import EmojiConverter
 
 class TestSocketIOToZulipFlowIntegration:
     """Integration tests for socket.io to Zulip flow"""
@@ -71,10 +72,33 @@ class TestSocketIOToZulipFlowIntegration:
         return rate_limiter
 
     @pytest.fixture
-    def adapter(self, patch_config, socketio_mock, zulip_client_mock, uploader_mock, rate_limiter_mock):
+    def emoji_converter_mock(self):
+        """Create a fully mocked EmojiConverter"""
+        converter = MagicMock()
+        converter.platform_specific_to_standard.side_effect = lambda x: {
+            "+1": "thumbs_up",
+            "-1": "thumbs_down",
+            "heart": "red_heart"
+        }.get(x, x)
+        converter.standard_to_platform_specific.side_effect = lambda x: {
+            "thumbs_up": "+1",
+            "thumbs_down": "-1",
+            "red_heart": "heart"
+        }.get(x, x)
+        return converter
+
+    @pytest.fixture
+    def adapter(self,
+                patch_config,
+                socketio_mock,
+                zulip_client_mock,
+                uploader_mock,
+                rate_limiter_mock,
+                emoji_converter_mock):
         """Create a Zulip adapter with mocked dependencies"""
         with patch.object(ZulipClient, "__new__", return_value=zulip_client_mock), \
-            patch.object(Uploader, "__new__", return_value=uploader_mock):
+            patch.object(Uploader, "__new__", return_value=uploader_mock), \
+            patch.object(EmojiConverter, "get_instance", return_value=emoji_converter_mock):
 
             adapter = Adapter(patch_config, socketio_mock)
             adapter.client = zulip_client_mock
@@ -269,40 +293,38 @@ class TestSocketIOToZulipFlowIntegration:
         setup_private_conversation()
         await setup_message("101_102")
 
-        with patch("emoji.demojize", return_value=":thumbs_up:"):
-            response = await adapter.outgoing_events_processor.process_event(
-                "add_reaction",
-                {
-                    "conversation_id": "101_102",
-                    "message_id": "12345",
-                    "emoji": "👍"
-                }
-            )
-            assert response["request_completed"] is True
+        response = await adapter.outgoing_events_processor.process_event(
+            "add_reaction",
+            {
+                "conversation_id": "101_102",
+                "message_id": "12345",
+                "emoji": "thumbs_up"
+            }
+        )
+        assert response["request_completed"] is True
 
-            zulip_client_mock.add_reaction.assert_called_once_with({
-                "message_id": 12345,
-                "emoji_name": "thumbs_up"
-            })
+        zulip_client_mock.add_reaction.assert_called_once_with({
+            "message_id": 12345,
+            "emoji_name": "+1"
+        })
 
     @pytest.mark.asyncio
     async def test_remove_reaction_flow(self, adapter, zulip_client_mock, setup_private_conversation, setup_message):
         """Test the complete flow from socket.io remove_reaction to Zulip call"""
         setup_private_conversation()
-        await setup_message("101_102", reactions={"👍": 1})
+        await setup_message("101_102", reactions={"thumbs_up": 1})
 
-        with patch("emoji.demojize", return_value=":thumbs_up:"):
-            response = await adapter.outgoing_events_processor.process_event(
-                "remove_reaction",
-                {
-                    "conversation_id": "101_102",
-                    "message_id": "12345",
-                    "emoji": "👍"
-                }
-            )
-            assert response["request_completed"] is True
+        response = await adapter.outgoing_events_processor.process_event(
+            "remove_reaction",
+            {
+                "conversation_id": "101_102",
+                "message_id": "12345",
+                "emoji": "thumbs_up"
+            }
+        )
+        assert response["request_completed"] is True
 
-            zulip_client_mock.remove_reaction.assert_called_once_with({
-                "message_id": 12345,
-                "emoji_name": "thumbs_up"
-            })
+        zulip_client_mock.remove_reaction.assert_called_once_with({
+            "message_id": 12345,
+            "emoji_name": "+1"
+        })

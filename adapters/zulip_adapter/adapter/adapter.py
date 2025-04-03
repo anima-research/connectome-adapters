@@ -2,7 +2,7 @@ import asyncio
 import logging
 import zulip
 
-from typing import Any
+from typing import Any, Optional
 
 from adapters.zulip_adapter.adapter.conversation.manager import Manager
 from adapters.zulip_adapter.adapter.event_processors.incoming_event_processor import IncomingEventProcessor
@@ -65,11 +65,11 @@ class Adapter(BaseAdapter):
         """Perform post setup tasks"""
         await self.client.start_polling()
 
-    async def _connection_exists(self) -> bool:
+    async def _connection_exists(self) -> Optional[Any]:
         """Check connection
 
         Returns:
-            bool: True if connection exists, False otherwise
+            Any: True if connection exists, False otherwise
         """
         await self.rate_limiter.limit_request("get_profile")
         response = self.client.client.get_profile()

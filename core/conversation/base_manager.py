@@ -64,7 +64,6 @@ class BaseManager(ABC):
 
             result.append(msg_dict)
 
-        result.sort(key=lambda x: x["timestamp"])
         return result
 
     async def add_to_conversation(self, event: Dict[str, Any]) -> Dict[str, Any]:
@@ -180,53 +179,12 @@ class BaseManager(ABC):
                         conversation_info.conversation_id, msg_id
                     )
 
+                    if hasattr(conversation_info, "messages"):
+                        conversation_info.messages.discard(msg_id)
+                    if hasattr(conversation_info, "pinned_messages"):
+                        conversation_info.pinned_messages.discard(msg_id)
+
             return delta.to_dict()
-
-    async def migrate_between_conversations(self, event: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle a supergroup that was migrated from a regular group
-
-        Args:
-            event: Event object
-
-        Returns:
-            Dictionary with delta information
-        """
-        old_conversation = await self._get_conversation_to_migrate_from(event)
-        new_conversation = await self._get_conversation_to_migrate_to(event)
-
-        if not new_conversation:
-            return {}
-
-        async with self._lock:
-            delta = self._create_conversation_delta(event, new_conversation)
-            messages = self._get_messages_to_migrate(event, old_conversation)
-
-            if not old_conversation:
-                return delta.to_dict()
-
-            for message_id in messages:
-                delta.deleted_message_ids.append(message_id)
-
-                await self.message_cache.migrate_message(
-                    old_conversation.conversation_id,
-                    new_conversation.conversation_id,
-                    message_id
-                )
-                self._perform_migration_related_updates(
-                    old_conversation.conversation_id,
-                    new_conversation.conversation_id,
-                    message_id
-                )
-
-                if not delta.fetch_history:
-                    await self._update_delta_list(
-                        conversation_id=new_conversation.conversation_id,
-                        delta=delta,
-                        list_to_update="added_messages",
-                        message_id=message_id
-                    )
-
-        return delta.to_dict()
 
     async def _update_attachment(self,
                                  conversation_info: BaseConversationInfo,
@@ -296,8 +254,10 @@ class BaseManager(ABC):
             delta.fetch_history = True
             conversation_info.just_started = False
 
-        if event.get("display_bot_messages", False):
-            delta.display_bot_messages = True
+        try:
+            delta.display_bot_messages = event.get("display_bot_messages", False)
+        except Exception as e:
+            pass
 
         return delta
 
@@ -439,28 +399,3 @@ class BaseManager(ABC):
                              delta: ConversationDelta) -> None:
         """Process an event based on event type"""
         raise NotImplementedError("Child classes must implement _process_event")
-
-    @abstractmethod
-    async def _get_conversation_to_migrate_from(self, event: Any) -> Optional[BaseConversationInfo]:
-        """Get the old conversation from an event"""
-        raise NotImplementedError("Child classes must implement _get_old_conversation")
-
-    @abstractmethod
-    async def _get_conversation_to_migrate_to(self, event: Any) -> Optional[BaseConversationInfo]:
-        """Get the new conversation from an event"""
-        raise NotImplementedError("Child classes must implement _get_new_conversation")
-
-    @abstractmethod
-    def _get_messages_to_migrate(self,
-                                 event: Any,
-                                 old_conversation: Optional[BaseConversationInfo] = None) -> List[str]:
-        """Get the messages to migrate from an old conversation to a new conversation"""
-        raise NotImplementedError("Child classes must implement _get_messages_to_migrate")
-
-    @abstractmethod
-    def _perform_migration_related_updates(self,
-                                           old_conversation_id: str,
-                                           new_conversation_id: str,
-                                           message_id: str) -> None:
-        """Perform migration related updates"""
-        raise NotImplementedError("Child classes must implement _perform_migration_related_updates")

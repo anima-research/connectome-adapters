@@ -350,7 +350,7 @@ class TestOutgoingEventProcessor:
             data = {
                 "conversation_id": "123",
                 "message_id": "456",
-                "emoji": "👍"
+                "emoji": "thumbs_up"
             }
 
             response = await processor._handle_add_reaction_event(data)
@@ -377,7 +377,7 @@ class TestOutgoingEventProcessor:
             data = {
                 "conversation_id": "123",
                 "message_id": "456",
-                "emoji": "👍"
+                "emoji": "thumbs_up"
             }
 
             with patch.object(processor, "_update_reactions_list") as mock_update_reactions:
@@ -404,7 +404,7 @@ class TestOutgoingEventProcessor:
             data = {
                 "conversation_id": "123",
                 "message_id": "456",
-                "emoji": "👍"
+                "emoji": "thumbs_up"
             }
 
             response = await processor._handle_remove_reaction_event(data)
@@ -433,12 +433,4 @@ class TestOutgoingEventProcessor:
             telethon_client_mock.get_entity.return_value = "test_entity"
 
             assert await processor._get_entity("123") == "test_entity"
-            telethon_client_mock.get_entity.assert_called_once_with("123")
-
-        @pytest.mark.asyncio
-        async def test_get_entity_exception(self, processor, telethon_client_mock):
-            """Test handling an exception when getting an entity"""
-            telethon_client_mock.get_entity.side_effect = Exception("Test error")
-
-            assert await processor._get_entity("123") is None
             telethon_client_mock.get_entity.assert_called_once_with("123")

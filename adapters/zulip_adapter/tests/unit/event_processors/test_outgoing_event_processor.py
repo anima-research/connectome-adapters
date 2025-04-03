@@ -7,6 +7,7 @@ from adapters.zulip_adapter.adapter.attachment_loaders.uploader import Uploader
 from adapters.zulip_adapter.adapter.event_processors.history_fetcher import HistoryFetcher
 from adapters.zulip_adapter.adapter.event_processors.outgoing_event_processor import OutgoingEventProcessor
 from core.event_processors.base_outgoing_event_processor import OutgoingEventType
+from core.utils.emoji_converter import EmojiConverter
 
 class TestOutgoingEventProcessor:
     """Tests for the OutgoingEventProcessor class"""
@@ -312,30 +313,33 @@ class TestOutgoingEventProcessor:
             data = {
                 "conversation_id": "123_456",
                 "message_id": "789",
-                "emoji": "👍"
+                "emoji": "thumbs_up"
             }
 
-            with patch.object(processor, "_get_emoji_name", return_value="thumbs_up"):
+            instance_mock = MagicMock()
+            instance_mock.standard_to_platform_specific.return_value = "+1"
+
+            with patch.object(EmojiConverter, "_instance", instance_mock):
                 response = await processor.process_event(OutgoingEventType.ADD_REACTION, data)
                 assert response["request_completed"] is True
 
-            zulip_client_mock.add_reaction.assert_called_once_with({
-                "message_id": 789,
-                "emoji_name": "thumbs_up"
-            })
+                zulip_client_mock.add_reaction.assert_called_once_with({
+                    "message_id": 789,
+                    "emoji_name": "+1"
+                })
 
         @pytest.mark.asyncio
         async def test_add_reaction_missing_required_fields(self, processor):
             """Test adding a reaction with missing required fields"""
             # Missing conversation_id
             response = await processor.process_event(
-                OutgoingEventType.ADD_REACTION, {"message_id": "789", "emoji": "👍"}
+                OutgoingEventType.ADD_REACTION, {"message_id": "789", "emoji": "+1"}
             )
             assert response["request_completed"] is False
 
             # Missing message_id
             response = await processor.process_event(
-                OutgoingEventType.ADD_REACTION, {"conversation_id": "123_456", "emoji": "👍"}
+                OutgoingEventType.ADD_REACTION, {"conversation_id": "123_456", "emoji": "+1"}
             )
             assert response["request_completed"] is False
 
@@ -353,11 +357,15 @@ class TestOutgoingEventProcessor:
             data = {
                 "conversation_id": "123_456",
                 "message_id": "789",
-                "emoji": "👍"
+                "emoji": "thumbs_up"
             }
 
-            response = await processor.process_event(OutgoingEventType.ADD_REACTION, data)
-            assert response["request_completed"] is False
+            instance_mock = MagicMock()
+            instance_mock.standard_to_platform_specific.return_value = "+1"
+
+            with patch.object(EmojiConverter, "_instance", instance_mock):
+                response = await processor.process_event(OutgoingEventType.ADD_REACTION, data)
+                assert response["request_completed"] is False
 
         @pytest.mark.asyncio
         async def test_remove_reaction_success(self, processor, zulip_client_mock):
@@ -365,30 +373,33 @@ class TestOutgoingEventProcessor:
             data = {
                 "conversation_id": "123_456",
                 "message_id": "789",
-                "emoji": "👍"
+                "emoji": "thumbs_up"
             }
 
-            with patch.object(processor, "_get_emoji_name", return_value="thumbs_up"):
+            instance_mock = MagicMock()
+            instance_mock.standard_to_platform_specific.return_value = "+1"
+
+            with patch.object(EmojiConverter, "_instance", instance_mock):
                 response = await processor.process_event(OutgoingEventType.REMOVE_REACTION, data)
                 assert response["request_completed"] is True
 
-            zulip_client_mock.remove_reaction.assert_called_once_with({
-                "message_id": 789,
-                "emoji_name": "thumbs_up"
-            })
+                zulip_client_mock.remove_reaction.assert_called_once_with({
+                    "message_id": 789,
+                    "emoji_name": "+1"
+                })
 
         @pytest.mark.asyncio
         async def test_remove_reaction_missing_required_fields(self, processor):
             """Test removing a reaction with missing required fields"""
             # Missing conversation_id
             response = await processor.process_event(
-                OutgoingEventType.REMOVE_REACTION, {"message_id": "789", "emoji": "👍"}
+                OutgoingEventType.REMOVE_REACTION, {"message_id": "789", "emoji": "+1"}
             )
             assert response["request_completed"] is False
 
             # Missing message_id
             response = await processor.process_event(
-                OutgoingEventType.REMOVE_REACTION, {"conversation_id": "123_456", "emoji": "👍"}
+                OutgoingEventType.REMOVE_REACTION, {"conversation_id": "123_456", "emoji": "+1"}
             )
             assert response["request_completed"] is False
 
@@ -405,11 +416,15 @@ class TestOutgoingEventProcessor:
             data = {
                 "conversation_id": "123_456",
                 "message_id": "789",
-                "emoji": "👍"
+                "emoji": "red_heart"
             }
 
-            response = await processor.process_event(OutgoingEventType.REMOVE_REACTION, data)
-            assert response["request_completed"] is False
+            instance_mock = MagicMock()
+            instance_mock.standard_to_platform_specific.return_value = "red_heart"
+
+            with patch.object(EmojiConverter, "_instance", instance_mock):
+                response = await processor.process_event(OutgoingEventType.REMOVE_REACTION, data)
+                assert response["request_completed"] is False
 
     class TestFetchHistory:
         """Tests for the fetch_history method"""
@@ -501,12 +516,3 @@ class TestOutgoingEventProcessor:
 
             assert len(result) > 1
             assert (result[-1].endswith(". ") or result[-1].endswith("."))
-
-        def test_get_emoji_name(self, processor):
-            """Test converting emoji to name"""
-            with patch("emoji.demojize", return_value="+1"):
-                assert processor._get_emoji_name("👍") == "thumbs_up"
-            with patch("emoji.demojize", return_value="-1"):
-                assert processor._get_emoji_name("👎") == "thumbs_down"
-            with patch("emoji.demojize", return_value="smile"):
-                assert processor._get_emoji_name("😊") == "smile"

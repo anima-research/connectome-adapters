@@ -21,6 +21,7 @@ class ThreadHandler(BaseThreadHandler):
 
         if message_id:
             thread_info.messages.add(message_id)
+
     def _extract_reply_to_id(self, message: Any) -> Optional[str]:
         """Extract the reply_to_message_id from a message.
 

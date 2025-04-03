@@ -10,13 +10,15 @@ if project_root not in sys.path:
 from adapters.zulip_adapter.adapter.adapter import Adapter
 from core.rate_limiter.rate_limiter import RateLimiter
 from core.socket_io.server import SocketIOServer
-from core.utils.logger import setup_logging
 from core.utils.config import Config
+from core.utils.logger import setup_logging
+from core.utils.emoji_converter import EmojiConverter
 
 async def main():
     try:
         config = Config("adapters/zulip_adapter/config/zulip_config.yaml")
         RateLimiter.get_instance(config)
+        EmojiConverter.get_instance(config)
         setup_logging(config)
 
         logging.info("Starting Zulip adapter")

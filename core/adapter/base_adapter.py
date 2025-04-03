@@ -2,7 +2,7 @@ import asyncio
 import logging
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from core.rate_limiter.rate_limiter import RateLimiter
 from core.utils.config import Config
@@ -125,7 +125,7 @@ class BaseAdapter(ABC):
                 await asyncio.sleep(retry_delay)
 
     @abstractmethod
-    async def _connection_exists(self) -> bool:
+    async def _connection_exists(self) -> Optional[Any]:
         """Check connection"""
         raise NotImplementedError("Child classes must implement _connection_exists")
 

@@ -20,7 +20,7 @@ class TestZulipClient:
             mock_client.get_events = MagicMock(return_value={
                 "events": [
                     {"id": 12346, "type": "message", "content": "test message"},
-                    {"id": 12347, "type": "reaction", "emoji_code": "1f44d"}
+                    {"id": 12347, "type": "reaction", "emoji_name": "heart"}
                 ]
             })
             mock_client.delete_queue = MagicMock(return_value={"result": "success"})

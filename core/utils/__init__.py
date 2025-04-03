@@ -8,10 +8,12 @@ from core.utils.attachment_loading import (
     save_metadata_file
 )
 from core.utils.config import Config
+from core.utils.emoji_converter import EmojiConverter
 from core.utils.logger import setup_logging
 
 __all__ = [
     "Config",
+    "EmojiConverter",
     "setup_logging",
     "create_attachment_dir",
     "delete_empty_directory",

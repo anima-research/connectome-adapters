@@ -329,7 +329,7 @@ class TestIncomingEventProcessor:
                 "type": "reaction",
                 "user_id": 456,
                 "message_id": 123,
-                "emoji_name": "+1",
+                "emoji_name": "thumbs_up",
                 "emoji_code": "1f44d",
                 "reaction_type": "unicode_emoji"
             }
@@ -343,7 +343,7 @@ class TestIncomingEventProcessor:
                 "updates": ["reaction_added"],
                 "conversation_id": "456_789",
                 "message_id": "123",
-                "added_reactions": ["👍"],
+                "added_reactions": ["thumbs_up"],
                 "timestamp": 1234567890000
             }
             processor.conversation_manager.update_conversation.return_value = delta
@@ -359,7 +359,7 @@ class TestIncomingEventProcessor:
                 {"event_type": "reaction", "message": reaction_event_mock}
             )
             processor._reaction_update_event_info.assert_called_once_with(
-                "reaction_added", delta, "👍"
+                "reaction_added", delta, "thumbs_up"
             )
 
         @pytest.mark.asyncio
@@ -371,7 +371,7 @@ class TestIncomingEventProcessor:
                 "updates": ["reaction_removed"],
                 "conversation_id": "456_789",
                 "message_id": "123",
-                "removed_reactions": ["👍"],
+                "removed_reactions": ["thumbs_up"],
                 "timestamp": 1234567890000
             }
             processor.conversation_manager.update_conversation.return_value = delta
@@ -387,7 +387,7 @@ class TestIncomingEventProcessor:
                 {"event_type": "reaction", "message": reaction_event_mock}
             )
             processor._reaction_update_event_info.assert_called_once_with(
-                "reaction_removed", delta, "👍"
+                "reaction_removed", delta, "thumbs_up"
             )
 
         @pytest.mark.asyncio
@@ -483,11 +483,11 @@ class TestIncomingEventProcessor:
                     "message_id": "123",
                     "conversation_id": "456_789"
                 },
-                "👍"
+                "thumbs_up"
             )
 
             assert result["adapter_type"] == "zulip"
             assert result["event_type"] == "reaction_added"
             assert result["data"]["message_id"] == "123"
             assert result["data"]["conversation_id"] == "456_789"
-            assert result["data"]["emoji"] == "👍"
+            assert result["data"]["emoji"] == "thumbs_up"

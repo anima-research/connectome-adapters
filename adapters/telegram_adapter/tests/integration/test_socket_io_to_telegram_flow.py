@@ -306,7 +306,7 @@ class TestSocketIOToTelegramFlowIntegration:
                 {
                     "conversation_id": "456",
                     "message_id": "123",
-                    "emoji": "👍"
+                    "emoji": "thumbs_up"
                 }
             )
             assert response["request_completed"] is True
@@ -321,8 +321,8 @@ class TestSocketIOToTelegramFlowIntegration:
             telethon_client_mock.assert_called_once_with(mock_send_reaction_request)
 
             cached_message = adapter.conversation_manager.message_cache.messages["456"]["123"]
-            assert "👍" in cached_message.reactions
-            assert cached_message.reactions["👍"] == 1
+            assert "thumbs_up" in cached_message.reactions
+            assert cached_message.reactions["thumbs_up"] == 1
 
     @pytest.mark.asyncio
     async def test_remove_reaction_flow(self,
@@ -349,7 +349,7 @@ class TestSocketIOToTelegramFlowIntegration:
 
             setup_conversation()
             setup_conversation_known_member()
-            await setup_message(reactions={"👍": 1})
+            await setup_message(reactions={"thumbs_up": 1})
             telethon_client_mock.get_messages.return_value = create_message_response(
                 with_reactions=True,
                 reactions_list=[("👍", 1)]
@@ -363,7 +363,7 @@ class TestSocketIOToTelegramFlowIntegration:
                 {
                     "conversation_id": "456",
                     "message_id": "123",
-                    "emoji": "👍"
+                    "emoji": "thumbs_up"
                 }
             )
             assert response["request_completed"] is True
@@ -380,5 +380,5 @@ class TestSocketIOToTelegramFlowIntegration:
             telethon_client_mock.assert_called_once_with(mock_send_reaction_request)
 
             cached_message = adapter.conversation_manager.message_cache.messages["456"]["123"]
-            assert "👍" not in cached_message.reactions
+            assert "thumbs_up" not in cached_message.reactions
             assert len(cached_message.reactions) == 0

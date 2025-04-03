@@ -405,7 +405,6 @@ class TestTelegramToSocketIOFlowIntegration:
     @pytest.mark.asyncio
     async def test_reaction_added_flow(self,
                                        adapter,
-                                       socketio_mock,
                                        telethon_client_mock,
                                        setup_conversation,
                                        setup_conversation_known_member,
@@ -440,16 +439,15 @@ class TestTelegramToSocketIOFlowIntegration:
         assert event_data["event_type"] == "reaction_added"
         assert event_data["data"]["conversation_id"] == "456"
         assert event_data["data"]["message_id"] == "123"
-        assert event_data["data"]["emoji"] == "👍"
+        assert event_data["data"]["emoji"] == "thumbs_up"
 
         cached_message = adapter.conversation_manager.message_cache.messages["456"]["123"]
-        assert "👍" in cached_message.reactions
-        assert cached_message.reactions["👍"] == 1
+        assert "thumbs_up" in cached_message.reactions
+        assert cached_message.reactions["thumbs_up"] == 1
 
     @pytest.mark.asyncio
     async def test_reaction_removed_flow(self,
                                          adapter,
-                                         socketio_mock,
                                          telethon_client_mock,
                                          setup_conversation,
                                          setup_conversation_known_member,
@@ -458,7 +456,7 @@ class TestTelegramToSocketIOFlowIntegration:
         """Test flow from Telegram edited_message with removed reactions to socket.io reaction_removed"""
         setup_conversation()
         setup_conversation_known_member()
-        await setup_message(reactions={"👍": 1, "❤️": 1})
+        await setup_message(reactions={"thumbs_up": 1, "red_heart": 1})
 
         event, user = create_telethon_event(
             "edited_message",
@@ -484,8 +482,8 @@ class TestTelegramToSocketIOFlowIntegration:
         assert event_data["event_type"] == "reaction_removed"
         assert event_data["data"]["conversation_id"] == "456"
         assert event_data["data"]["message_id"] == "123"
-        assert event_data["data"]["emoji"] == "❤️"
+        assert event_data["data"]["emoji"] == "red_heart"
 
         cached_message = adapter.conversation_manager.message_cache.messages["456"]["123"]
-        assert "👍" in cached_message.reactions
-        assert "❤️" not in cached_message.reactions
+        assert "thumbs_up" in cached_message.reactions
+        assert "red_heart" not in cached_message.reactions

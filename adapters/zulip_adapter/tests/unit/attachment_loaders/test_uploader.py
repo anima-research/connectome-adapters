@@ -7,7 +7,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch, mock_open
 from adapters.zulip_adapter.adapter.attachment_loaders.uploader import Uploader
 
-class TestZulipUploader:
+class TestUploader:
     """Tests for the Zulip Uploader class"""
 
     @pytest.fixture

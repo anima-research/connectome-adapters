@@ -1,3 +1,4 @@
+import emoji
 from typing import Dict, Any, List
 
 from core.cache.message_cache import CachedMessage
@@ -23,9 +24,9 @@ class ReactionHandler:
 
         for result in reactions.results:
             if hasattr(result, "reaction") and hasattr(result.reaction, "emoticon"):
-                emoji = result.reaction.emoticon
+                emoji_name = emoji.demojize(result.reaction.emoticon).strip(":")
                 count = getattr(result, "count", 1)
-                reaction_data[emoji] = count
+                reaction_data[emoji_name] = count
 
         return reaction_data
 

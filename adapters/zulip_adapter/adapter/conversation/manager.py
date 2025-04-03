@@ -46,7 +46,41 @@ class Manager(BaseManager):
         """
         event.update({"type": "stream"})
 
-        return await super().migrate_between_conversations(event)
+        old_conversation = self.get_conversation(
+            f"{event.get('stream_id', '')}/{event.get('orig_subject', '')}"
+        )
+        new_conversation = await self._get_or_create_conversation_info(event)
+
+        if not new_conversation:
+            return {}
+
+        async with self._lock:
+            delta = self._create_conversation_delta(event, new_conversation)
+            messages = [str(id) for id in event.get("message_ids", [])]
+
+            if not old_conversation:
+                return delta.to_dict()
+
+            for message_id in messages:
+                delta.deleted_message_ids.append(message_id)
+
+                await self.message_cache.migrate_message(
+                    old_conversation.conversation_id,
+                    new_conversation.conversation_id,
+                    message_id
+                )
+                self.conversations[new_conversation.conversation_id].messages.add(str(message_id))
+                self.conversations[old_conversation.conversation_id].messages.discard(str(message_id))
+
+                if not delta.fetch_history:
+                    await self._update_delta_list(
+                        conversation_id=new_conversation.conversation_id,
+                        delta=delta,
+                        list_to_update="added_messages",
+                        message_id=message_id
+                    )
+
+        return delta.to_dict()
 
     async def _get_conversation_id(self, message: Any) -> Optional[str]:
         """Get the conversation ID from a Zulip message
@@ -279,7 +313,7 @@ class Manager(BaseManager):
 
         if cached_msg:
             delta.message_id = cached_msg.message_id
-            delta = ReactionHandler.update_message_reactions(message, cached_msg, delta)
+            ReactionHandler.update_message_reactions(message, cached_msg, delta)
 
     async def _get_deleted_message_ids(self, event: Dict[str, Any]) -> List[str]:
         """Get the deleted message IDs from an event
@@ -310,53 +344,3 @@ class Manager(BaseManager):
             str(event.get("conversation_id", "")) or
             await self._get_conversation_id_from_update(event)
         )
-
-    async def _get_conversation_to_migrate_from(self, event: Any) -> Optional[ConversationInfo]:
-        """Get the old conversation from an event
-
-        Args:
-            event: Event object
-
-        Returns:
-            Conversation info object or None if conversation not found
-        """
-        return self.get_conversation(f"{event.get('stream_id', '')}/{event.get('orig_subject', '')}")
-
-    async def _get_conversation_to_migrate_to(self, event: Any) -> Optional[ConversationInfo]:
-        """Get the new conversation from an event
-
-        Args:
-            event: Event object
-
-        Returns:
-            Conversation info object or None if conversation not found
-        """
-        return await self._get_or_create_conversation_info(event)
-
-    def _get_messages_to_migrate(self,
-                                 event: Any,
-                                 old_conversation: Optional[ConversationInfo] = None) -> List[str]:
-        """Get the messages to migrate from an old conversation to a new conversation
-
-        Args:
-            event: Event object
-            old_conversation_id: ID of the old conversation (unused for Zulip)
-
-        Returns:
-            List of message IDs
-        """
-        return [str(id) for id in event.get("message_ids", [])]
-
-    def _perform_migration_related_updates(self,
-                                           old_conversation_id: str,
-                                           new_conversation_id: str,
-                                           message_id: str) -> None:
-        """Perform migration related updates
-
-        Args:
-            old_conversation_id: ID of the old conversation
-            new_conversation_id: ID of the new conversation
-            message_id: Message ID
-        """
-        self.conversations[new_conversation_id].messages.add(str(message_id))
-        self.conversations[old_conversation_id].messages.discard(str(message_id))

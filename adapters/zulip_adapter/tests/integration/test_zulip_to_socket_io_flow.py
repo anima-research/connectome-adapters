@@ -13,6 +13,7 @@ from adapters.zulip_adapter.adapter.conversation.data_classes import Conversatio
 from adapters.zulip_adapter.adapter.event_processors.incoming_event_processor import IncomingEventProcessor
 from adapters.zulip_adapter.adapter.event_processors.outgoing_event_processor import OutgoingEventProcessor
 from core.conversation.base_data_classes import UserInfo
+from core.utils.emoji_converter import EmojiConverter
 
 class TestZulipToSocketIOFlowIntegration:
     """Integration tests for Zulip to socket.io flow"""
@@ -54,10 +55,32 @@ class TestZulipToSocketIOFlowIntegration:
         return downloader_mock
 
     @pytest.fixture
-    def adapter(self, patch_config, socketio_mock, zulip_client_mock, downloader_mock):
+    def emoji_converter_mock(self):
+        """Create a fully mocked EmojiConverter"""
+        converter = MagicMock()
+        converter.platform_specific_to_standard.side_effect = lambda x: {
+            "+1": "thumbs_up",
+            "-1": "thumbs_down",
+            "heart": "red_heart"
+        }.get(x, x)
+        converter.standard_to_platform_specific.side_effect = lambda x: {
+            "thumbs_up": "+1",
+            "thumbs_down": "-1",
+            "red_heart": "heart"
+        }.get(x, x)
+        return converter
+
+    @pytest.fixture
+    def adapter(self,
+                patch_config,
+                socketio_mock,
+                zulip_client_mock,
+                downloader_mock,
+                emoji_converter_mock):
         """Create a ZulipAdapter with mocked dependencies"""
         with patch.object(ZulipClient, "__new__", return_value=zulip_client_mock), \
-             patch.object(Uploader, "__new__", return_value=AsyncMock()) as uploader_mock:
+             patch.object(Uploader, "__new__", return_value=AsyncMock()), \
+             patch.object(EmojiConverter, "get_instance", return_value=emoji_converter_mock) as uploader_mock:
 
             adapter = Adapter(patch_config, socketio_mock)
             adapter.client = zulip_client_mock
@@ -157,7 +180,7 @@ class TestZulipToSocketIOFlowIntegration:
             if with_reaction:
                 message["reaction"] = {
                     "user_id": 102,
-                    "emoji_name": "thumbs_up",
+                    "emoji_name": "+1",
                     "emoji_code": "1f44d",
                     "reaction_type": "unicode_emoji",
                     "message_id": 12345
@@ -196,7 +219,7 @@ class TestZulipToSocketIOFlowIntegration:
                     "type": "reaction",
                     "message_id": 12345,
                     "user_id": 102,
-                    "emoji_name": "thumbs_up",
+                    "emoji_name": "+1",
                     "emoji_code": "1f44d",
                     "reaction_type": "unicode_emoji",
                     "op": "add"  # or "remove"
@@ -331,17 +354,17 @@ class TestZulipToSocketIOFlowIntegration:
         reaction_event = reaction_events[0]
         assert reaction_event["data"]["message_id"] == "12345"
         assert reaction_event["data"]["conversation_id"] == "101_102"
-        assert reaction_event["data"]["emoji"] == "👍"  # Should convert from name to Unicode
+        assert reaction_event["data"]["emoji"] == "thumbs_up"
 
         cached_message = adapter.conversation_manager.message_cache.messages["101_102"]["12345"]
-        assert "👍" in cached_message.reactions
-        assert cached_message.reactions["👍"] == 1
+        assert "thumbs_up" in cached_message.reactions
+        assert cached_message.reactions["thumbs_up"] == 1
 
     @pytest.mark.asyncio
     async def test_remove_reaction_flow(self, adapter, setup_private_conversation, setup_message, create_zulip_event):
         """Test flow from Zulip remove reaction to socket.io event"""
         setup_private_conversation()
-        await setup_message("101_102", message_id="12345", reactions={"👍": 1, "👎": 1})
+        await setup_message("101_102", message_id="12345", reactions={"thumbs_up": 1, "thumbs_down": 1})
 
         event = create_zulip_event(event_type="reaction")
         event["op"] = "remove"
@@ -356,9 +379,9 @@ class TestZulipToSocketIOFlowIntegration:
         reaction_event = reaction_events[0]
         assert reaction_event["data"]["message_id"] == "12345"
         assert reaction_event["data"]["conversation_id"] == "101_102"
-        assert reaction_event["data"]["emoji"] == "👍"  # Should convert from name to Unicode
+        assert reaction_event["data"]["emoji"] == "thumbs_up"
 
         cached_message = adapter.conversation_manager.message_cache.messages["101_102"]["12345"]
-        assert "👍" not in cached_message.reactions
-        assert "👎" in cached_message.reactions
-        assert cached_message.reactions["👎"] == 1
+        assert "thumbs_up" not in cached_message.reactions
+        assert "thumbs_down" in cached_message.reactions
+        assert cached_message.reactions["thumbs_down"] == 1

@@ -211,7 +211,7 @@ class TestIncomingEventProcessor:
             delta = {
                 "conversation_id": "456",
                 "message_id": "123",
-                "added_reactions": ["👍", "❤️"]
+                "added_reactions": ["thumbs_up", "red_heart"]
             }
 
             processor.conversation_manager.update_conversation.return_value = delta
@@ -230,7 +230,7 @@ class TestIncomingEventProcessor:
             delta = {
                 "conversation_id": "456",
                 "message_id": "123",
-                "removed_reactions": ["👍"]
+                "removed_reactions": ["thumbs_up"]
             }
 
             processor.conversation_manager.update_conversation.return_value = delta
@@ -242,7 +242,7 @@ class TestIncomingEventProcessor:
             assert {"event_type": "reaction_removed"} in result
 
             processor._reaction_update_event_info.assert_called_once_with(
-                "reaction_removed", delta, "👍"
+                "reaction_removed", delta, "thumbs_up"
             )
 
     class TestHandleDeletedMessage:
@@ -470,13 +470,15 @@ class TestIncomingEventProcessor:
                 "conversation_id": "456"
             }
 
-            result = await processor._reaction_update_event_info("reaction_added", delta, "👍")
+            result = await processor._reaction_update_event_info(
+                "reaction_added", delta, "thumbs_up"
+            )
 
             assert result["adapter_type"] == "telegram"
             assert result["event_type"] == "reaction_added"
             assert result["data"]["message_id"] == "123"
             assert result["data"]["conversation_id"] == "456"
-            assert result["data"]["emoji"] == "👍"
+            assert result["data"]["emoji"] == "thumbs_up"
 
         @pytest.mark.asyncio
         async def test_deleted_message_event_info(self, processor):

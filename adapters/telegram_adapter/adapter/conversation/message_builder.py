@@ -1,20 +1,16 @@
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Any, Optional
 
-from core.conversation.base_data_classes import ThreadInfo, UserInfo
+from core.conversation.base_data_classes import UserInfo
+from core.conversation.base_message_builder import BaseMessageBuilder
 from core.utils.config import Config
 
-class MessageBuilder:
+class MessageBuilder(BaseMessageBuilder):
     """Builds message objects from Telethon events"""
 
     def __init__(self, config: Config):
         self.config = config
         self.reset()
-
-    def reset(self):
-        """Reset the builder to its initial state"""
-        self.message_data = {}
-        return self
 
     def with_basic_info(self, message: Any, conversation_id: str) -> 'MessageBuilder':
         """Add basic message info"""
@@ -41,19 +37,7 @@ class MessageBuilder:
 
         return self
 
-    def with_thread_info(self, thread_info: ThreadInfo) -> 'MessageBuilder':
-        """Add thread information"""
-        if thread_info:
-            self.message_data["thread_id"] = thread_info.thread_id
-            self.message_data["reply_to_message_id"] = thread_info.thread_id
-
-        return self
-
     def with_content(self, message: Any) -> 'MessageBuilder':
         """Add message content"""
         self.message_data["text"] = getattr(message, 'message', '')
         return self
-
-    def build(self) -> Dict[str, Any]:
-        """Build the final message object"""
-        return self.message_data.copy()

@@ -467,8 +467,8 @@ class TestConversationManager:
             })
 
             assert "added_reactions" in delta
-            assert "👍" in delta["added_reactions"]
-            assert "❤️" in delta["added_reactions"]
+            assert "thumbs_up" in delta["added_reactions"]
+            assert "red_heart" in delta["added_reactions"]
 
             manager.message_cache.get_message_by_id.return_value = None
 
@@ -487,7 +487,7 @@ class TestConversationManager:
                 "user": mock_telethon_user
             })
 
-            cached_msg = cached_message_factory(reactions={"👍": 2, "❤️": 1})
+            cached_msg = cached_message_factory(reactions={"thumbs_up": 2, "red_heart": 1})
             manager.message_cache.get_message_by_id.return_value = cached_msg
             reactions = create_reactions_mock([("👍", 1)])  # Only 👍 with reduced count
             edited_msg = mock_message_base(
@@ -502,8 +502,8 @@ class TestConversationManager:
             })
 
             assert "removed_reactions" in delta
-            assert "👍" in delta["removed_reactions"]  # Count decreased
-            assert "❤️" in delta["removed_reactions"]  # Completely removed
+            assert "thumbs_up" in delta["removed_reactions"]  # Count decreased
+            assert "red_heart" in delta["removed_reactions"]  # Completely removed
 
             manager.message_cache.get_message_by_id.return_value = None
 

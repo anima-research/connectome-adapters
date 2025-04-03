@@ -25,11 +25,11 @@ class HistoryFetcher(BaseHistoryFetcher):
                  before: Optional[int] = None,
                  after: Optional[int] = None,
                  history_limit: Optional[int] = None):
-        """Initialize the ZulipHistoryFetcher
+        """Initialize the Telegram HistoryFetcher
 
         Args:
             config: Config instance
-            client: Zulip client
+            client: Telethon client
             conversation_manager: ConversationManager instance
             conversation_id: Conversation ID
             anchor: Anchor message ID
@@ -50,9 +50,7 @@ class HistoryFetcher(BaseHistoryFetcher):
         self.downloader = Downloader(self.config, self.client)
         self.users = {}
 
-    async def _fetch_from_api(self,
-                              num_before: Optional[int] = None,
-                              num_after: Optional[int] = None) -> List[Dict[str, Any]]:
+    async def _fetch_from_api(self) -> List[Dict[str, Any]]:
         """Fetch conversation history
 
         Returns:
@@ -62,62 +60,112 @@ class HistoryFetcher(BaseHistoryFetcher):
             return []
 
         try:
-            await self.rate_limiter.limit_request(
-                "get_history", self.conversation.conversation_id
-            )
+            result = []
 
-            result = await self.client(functions.messages.GetHistoryRequest(
-                peer=int(self.conversation.conversation_id),
-                offset_id=0,
-                offset_date=int(self.before / 1000) if self.before else None, # seconds are expected by Telegram API
-                add_offset=0,
-                limit=self.history_limit * (3 if self.after else 1),
-                max_id=0,
-                min_id=0,
-                hash=0  # This value doesn't matter for most requests
-            ))
-
-            if not hasattr(result, "messages") or not result.messages:
-                return []
-
-            self._get_users(result)
+            if self.anchor:
+                result = await self._make_api_request(
+                    self.history_limit, offset_id=0
+                )
+            elif self.before:
+                result = await self._make_api_request(
+                    self.history_limit, offset_date=self.before
+                )
+            elif self.after:
+                result = await self._fetch_history_in_batches()
 
             if self.cache_fetched_history:
-                return await self._parse_and_store_fetched_history(result)
+                result = await self._parse_and_store_fetched_history(result)
             else:
-                return await self._parse_fetched_history(result)
+                result = await self._parse_fetched_history(result)
+
+            return self._filter_and_limit_messages(result)
         except Exception as e:
             logging.error(f"Error fetching conversation history: {e}", exc_info=True)
             return []
 
-    def _update_limits(self, cached_messages: List[Dict[str, Any]]) -> None:
-        """Update the limits based on the cached messages
+    async def _fetch_history_in_batches(self) -> List[Any]:
+        """Fetch history in batches
 
         Args:
-            cached_messages: List of cached messages
+            channel: Telethon channel object
+            index: Index of the batch
+
+        Returns:
+            List of messages
         """
-        if not cached_messages:
-            return
+        max_iterations = self.config.get_setting("adapter", "max_pagination_iterations")
+        limit = self.config.get_setting("adapter", "max_history_limit")
+        offset_id = 0
+        result = []
 
-        if self.before:
-            self.before = cached_messages[0]["timestamp"]
-        elif self.after:
-            self.after = cached_messages[-1]["timestamp"]
+        for _ in range(max_iterations):
+            if len(result) > self.history_limit * 2:
+                timestamp_1 = int(result[0].date.timestamp() * 1e3) if hasattr(result[0], "date") else 0
+                timestamp_2 = int(result[-1].date.timestamp() * 1e3) if hasattr(result[-1], "date") else 0
 
-        self.history_limit = self.history_limit - len(cached_messages)
+                if timestamp_1 <= self.after < timestamp_2:
+                    break
 
-    async def _parse_and_store_fetched_history(self, history: Any) -> List[Dict[str, Any]]:
+            batch = await self._make_api_request(limit, offset_id=offset_id)
+            message_id = None if len(batch) == 0 else getattr(batch[-1], "id", None)
+            if message_id:
+                offset_id = int(message_id)
+
+            result += batch
+            if len(batch) < limit or not message_id:
+                break
+
+        return result
+
+    async def _make_api_request(self,
+                                limit: int,
+                                offset_id: Optional[int] = 0,
+                                offset_date: Optional[int] = None) -> List[Any]:
+        """Make a history request
+
+        Args:
+            limit: Limit of messages to fetch
+            offset_id: Offset ID
+        Returns:
+            List of messages
+        """
+        await self.rate_limiter.limit_request(
+            "fetch_history", self.conversation.conversation_id
+        )
+
+        if offset_date:
+            offset_date = int(offset_date / 1e3)
+
+        result = await self.client(functions.messages.GetHistoryRequest(
+            peer=int(self.conversation.conversation_id),
+            offset_id=offset_id,
+            offset_date=offset_date,
+            add_offset=0,
+            limit=limit,
+            max_id=0,
+            min_id=0,
+            hash=0  # This value doesn't matter for most requests
+        ))
+
+        if not hasattr(result, "messages") or not result.messages:
+            return []
+
+        self._get_users(result)
+
+        return result.messages
+
+    async def _parse_and_store_fetched_history(self, messages: Any) -> List[Dict[str, Any]]:
         """Parse fetched history
 
         Args:
-            history: Telegram conversation history
+            messages: Telegram conversation history
 
         Returns:
             List of formatted message history
         """
         result = []
 
-        for msg in history.messages:
+        for msg in messages:
             attachment_info = []
 
             if hasattr(msg, 'media') or msg.media:
@@ -138,31 +186,31 @@ class HistoryFetcher(BaseHistoryFetcher):
             for message in delta["added_messages"]:
                 result.append(message)
 
-        return self._filter_and_limit_messages(result)
+        return result
 
-    async def _parse_fetched_history(self, history: Any) -> List[Dict[str, Any]]:
+    async def _parse_fetched_history(self, messages: Any) -> List[Dict[str, Any]]:
         """Parse fetched history
 
         Args:
-            history: Telegram conversation history
+            messages: Telegram conversation history
 
         Returns:
             List of formatted message history
         """
         result = []
 
-        for msg in history.messages:
+        for msg in messages:
             sender_id = self._get_sender_id(msg)
             sender = self._get_sender_name(sender_id)
             attachment_info = await self._get_attachment_info(msg)
 
-            text = ''
-            if hasattr(msg, 'message') and msg.message:
+            text = ""
+            if hasattr(msg, "message") and msg.message:
                 text = msg.message
 
             reply_to_msg_id = None
-            if hasattr(msg, 'reply_to') and msg.reply_to:
-                reply_to_msg_id = getattr(msg.reply_to, 'reply_to_msg_id', None)
+            if hasattr(msg, "reply_to") and msg.reply_to:
+                reply_to_msg_id = getattr(msg.reply_to, "reply_to_msg_id", None)
 
             if text or attachment_info:
                 result.append({
@@ -174,11 +222,11 @@ class HistoryFetcher(BaseHistoryFetcher):
                     },
                     "text": text,
                     "thread_id": str(reply_to_msg_id) if reply_to_msg_id else None,
-                    "timestamp": int(msg.date.timestamp() * 1e3) if hasattr(msg, 'date') else int(datetime.now().timestamp() * 1e3),
+                    "timestamp": int(msg.date.timestamp() * 1e3) if hasattr(msg, "date") else int(datetime.now().timestamp() * 1e3),
                     "attachments": [attachment_info] if attachment_info else []
                 })
 
-        return self._filter_and_limit_messages(result)
+        return result
 
     def _get_users(self, history: Any) -> None:
         """Get users from history
@@ -186,9 +234,10 @@ class HistoryFetcher(BaseHistoryFetcher):
         Args:
             history: Telegram conversation history
         """
-        if hasattr(history, 'users'):
-            for user in getattr(history, 'users', []):
-                self.users[user.id] = user
+        if hasattr(history, "users"):
+            for user in getattr(history, "users", []):
+                if user.id not in self.users:
+                    self.users[user.id] = user
 
     def _get_sender_id(self, message: Any) -> str:
         """Get sender of a message
@@ -199,10 +248,10 @@ class HistoryFetcher(BaseHistoryFetcher):
         Returns:
             Sender id
         """
-        if hasattr(message, 'from_id') and message.from_id:
-            return getattr(message.from_id, 'user_id', None)
-        if hasattr(message, 'peer_id'):
-            return getattr(message.peer_id, 'user_id', None)
+        if hasattr(message, "from_id") and message.from_id:
+            return getattr(message.from_id, "user_id", None)
+        if hasattr(message, "peer_id"):
+            return getattr(message.peer_id, "user_id", None)
         return None
 
     def _get_sender_name(self, sender_id: int) -> str:
@@ -218,7 +267,7 @@ class HistoryFetcher(BaseHistoryFetcher):
 
         if sender_id in self.users:
             user = self.users.get(sender_id)
-            if hasattr(user, 'username') and user.username:
+            if hasattr(user, "username") and user.username:
                 sender = f"@{user.username}"
             else:
                 sender = f"{getattr(user, 'first_name', '')} {getattr(user, 'last_name', '')}"

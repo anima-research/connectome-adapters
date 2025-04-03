@@ -1,4 +1,5 @@
 import asyncio
+import emoji
 import json
 import logging
 import os
@@ -42,12 +43,9 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         """
         conversation_id = self._format_conversation_id(data.get("conversation_id"))
         entity = await self._get_entity(conversation_id)
-
-        if not entity:
-            return {"request_completed": False}
-
         message_ids = []
         reply_to_message_id = data.get("thread_id", None)
+
         for message in self._split_long_message(data.get("text")):
             await self.rate_limiter.limit_request("message", conversation_id)
 
@@ -90,9 +88,6 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         conversation_id = self._format_conversation_id(data.get("conversation_id"))
         entity = await self._get_entity(conversation_id)
 
-        if not entity:
-            return {"request_completed": False}
-
         await self.rate_limiter.limit_request("edit_message", conversation_id)
         await self.conversation_manager.update_conversation({
             "event_type": "edited_message",
@@ -115,17 +110,9 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         Returns:
             Dict[str, Any]: Dictionary containing the status
         """
-        entity = await self._get_entity(
-            self._format_conversation_id(data["conversation_id"])
-        )
-
-        if not entity:
-            return {"request_completed": False}
-
+        entity = await self._get_entity(self._format_conversation_id(data["conversation_id"]))
         await self.rate_limiter.limit_request("delete_message", data["conversation_id"])
-        messages = await self.client.delete_messages(
-            entity=entity, message_ids=[(int(data["message_id"]))]
-        )
+        messages = await self.client.delete_messages(entity=entity, message_ids=[(int(data["message_id"]))])
 
         if messages:
             await self.conversation_manager.delete_from_conversation(
@@ -149,8 +136,10 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         """
         conversation_id = self._format_conversation_id(data.get("conversation_id"))
         entity = await self._get_entity(conversation_id)
+        emoji_symbol = emoji.emojize(f":{data['emoji']}:")
 
-        if not entity:
+        if not emoji_symbol or emoji_symbol == f":{data['emoji']}:":
+            logging.error(f"Python library emoji does not support this emoji: {data['emoji']}")
             return {"request_completed": False}
 
         await self.rate_limiter.limit_request("add_reaction", conversation_id)
@@ -160,7 +149,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
                 functions.messages.SendReactionRequest(
                     peer=entity,
                     msg_id=int(data.get("message_id")),
-                    reaction=[ReactionEmoji(emoticon=data.get("emoji"))]
+                    reaction=[ReactionEmoji(emoticon=emoji_symbol)]
                 )
             )
         })
@@ -179,8 +168,10 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         """
         conversation_id = self._format_conversation_id(data.get("conversation_id"))
         entity = await self._get_entity(conversation_id)
+        emoji_symbol = emoji.emojize(f":{data['emoji']}:")
 
-        if not entity:
+        if not emoji_symbol or emoji_symbol == f":{data['emoji']}:":
+            logging.error(f"Python library emoji does not support this emoji: {data['emoji']}")
             return {"request_completed": False}
 
         await self.rate_limiter.limit_request("get_messages", conversation_id)
@@ -188,7 +179,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         message_id = int(data.get("message_id"))
         old_message = await self.client.get_messages(entity, ids=message_id)
         old_reactions = getattr(old_message, "reactions", None) if old_message else None
-        new_reactions = self._update_reactions_list(old_reactions, data.get("emoji"))
+        new_reactions = self._update_reactions_list(old_reactions, emoji_symbol)
 
         await self.rate_limiter.limit_request("remove_reaction", conversation_id)
         await self.conversation_manager.update_conversation({
@@ -278,19 +269,19 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
 
         return reactions_to_add
 
-    async def _get_entity(self, conversation_id: Union[str, int]) -> Optional[Any]:
+    async def _get_entity(self, conversation_id: Union[str, int]) -> Any:
         """Get an entity from a conversation ID
 
         Args:
             conversation_id: The conversation ID
 
         Returns:
-            The entity or None if not found
+            The entity or raises an exception if not found
         """
-        try:
-            await self.rate_limiter.limit_request("get_entity")
+        await self.rate_limiter.limit_request("get_entity")
 
-            return await self.client.get_entity(conversation_id)
-        except Exception as e:
-            logging.error(f"Failed to get entity for conversation {conversation_id}: {e}")
-            return None
+        entity = await self.client.get_entity(conversation_id)
+        if not entity:
+            raise Exception(f"No entity found for conversation {conversation_id}")
+
+        return entity

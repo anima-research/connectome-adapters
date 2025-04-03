@@ -22,10 +22,7 @@ class TestThreadHandler:
         """Create a ConversationInfo instance for testing"""
         return ConversationInfo(
             conversation_id="123_456",
-            conversation_type="private",
-            just_started=False,
-            threads={},
-            messages=set()
+            conversation_type="private"
         )
 
     @pytest.fixture

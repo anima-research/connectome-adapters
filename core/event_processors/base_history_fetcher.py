@@ -54,27 +54,14 @@ class BaseHistoryFetcher(ABC):
         if not self.conversation:
             return []
 
-        api_messages = []
-        cached_messages = []
-
         if self.anchor:
-            api_messages = await self._fetch_from_api(self.history_limit, 0)
-        else:
-            cached_messages = self._fetch_from_cache()
+            return await self._fetch_from_api()
 
-            if len(cached_messages) < self.history_limit:
-                if cached_messages:
-                    self._update_limits(cached_messages)
+        cached_messages = self._fetch_from_cache()
+        if len(cached_messages) >= self.history_limit:
+            return cached_messages
 
-                api_messages = await self._fetch_from_api(
-                    self.history_limit if self.before else 0,
-                    self.history_limit if self.after else 0
-                )
-
-        api_messages += cached_messages
-        api_messages.sort(key=lambda x: x["timestamp"])
-
-        return api_messages
+        return await self._fetch_from_api()
 
     def _fetch_from_cache(self) -> List[Dict[str, Any]]:
         """Fetch messages from the cache based on before/after criteria
@@ -97,16 +84,32 @@ class BaseHistoryFetcher(ABC):
         Returns:
             List of formatted message history
         """
+        history = self._filter_history(history)
+        history.sort(key=lambda x: x["timestamp"])
+
         if self.before:
-            history = [msg for msg in history if msg["timestamp"] <= self.before]
             index = len(history) - self.history_limit
             if index > 0:
-                history = history[index:]
-        elif self.after:
-            history = [msg for msg in history if msg["timestamp"] > self.after]
-            if len(history) > self.history_limit:
-                history = history[:self.history_limit]
+                return history[index:]
 
+        if self.after and len(history) > self.history_limit:
+            return history[:self.history_limit]
+
+        return history
+
+    def _filter_history(self, history: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Filter history according to timestamps
+
+        Args:
+            history: List of formatted message history
+
+        Returns:
+            List of filtered message history
+        """
+        if self.before:
+            return [msg for msg in history if msg["timestamp"] < self.before]
+        if self.after:
+            return [msg for msg in history if msg["timestamp"] > self.after]
         return history
 
     @abstractmethod
@@ -115,8 +118,3 @@ class BaseHistoryFetcher(ABC):
                               num_after: Optional[int] = None) -> List[Dict[str, Any]]:
         """Fetch conversation history from the API"""
         raise NotImplementedError("Child classes must implement _fetch_from_api")
-
-    @abstractmethod
-    def _update_limits(self, cached_messages: List[Dict[str, Any]]) -> None:
-        """Update the limits based on the cached messages"""
-        raise NotImplementedError("Child classes must implement _update_limits")
