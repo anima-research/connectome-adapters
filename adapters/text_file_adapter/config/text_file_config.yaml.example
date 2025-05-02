@@ -1,0 +1,28 @@
+adapter:
+  adapter_type: "text_file"
+  connection_check_interval: 300  # Seconds to check connection
+  max_file_size: 5 # in MB
+  max_token_count: 10000
+  security_mode: "strict" # Options: strict, permissive, unrestricted
+  allowed_extensions:
+  blocked_extensions:
+    - "exe"
+    - "dll"
+    - "bin"
+  backup_directory: "adapters/text_file_adapter/backups"
+  event_ttl_hours: 2 # Hours to keep events in cache
+  cleanup_interval_hours: 1 # Hours to clean up expired events
+  max_events_per_file: 10
+  base_directory: "adapters/text_file_adapter"
+  allowed_directories:
+    - "/home/user"
+logging:
+  logging_level: "info"  # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  log_file_path: "adapters/text_file_adapter/logs/development.log"
+  log_format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  max_log_size: 5242880
+  backup_count: 3
+socketio:
+  host: "127.0.0.1"
+  port: 8086
+  cors_allowed_origins: "*"

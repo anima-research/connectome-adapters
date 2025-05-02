@@ -287,48 +287,26 @@ class TestIncomingEventProcessor:
         """Tests for the _handle_chat_action method"""
 
         @pytest.fixture
-        def base_chat_action_event_mock(self):
-            """Create a mock for a chat action event"""
-            def _create_chat_action(action_name,
-                                    channel_id = None,
-                                    reply_to = None,
-                                    peer_id = None):
-                event = MagicMock()
-                message = MagicMock()
-                action = MagicMock()
-                action.__class__.__name__ = action_name
-
-                if channel_id:
-                    action.channel_id = channel_id
-                if reply_to:
-                    message.reply_to = reply_to
-                if peer_id:
-                    message.peer_id = peer_id
-
-                message.action = action
-                event.action_message = message
-                return event
-            return _create_chat_action
-
-        @pytest.fixture
-        def chat_action_event_mock(self, base_chat_action_event_mock):
-            """Create a mock for a chat action event"""
-            peer_id = MagicMock()
-            peer_id.chat_id = 456
-            return base_chat_action_event_mock(
-                action_name="MessageActionChatMigrateTo", channel_id=789, peer_id=peer_id
-            )
-
-        @pytest.fixture
-        def pin_action_event_mock(self, base_chat_action_event_mock):
+        def pin_action_event_mock(self):
             """Create a mock for a pin message chat action event"""
             reply_to = MagicMock()
             reply_to.reply_to_msg_id = 123
+
             peer_id = MagicMock()
             peer_id.user_id = 456
-            return base_chat_action_event_mock(
-                action_name="MessageActionPinMessage", channel_id=789, reply_to=reply_to, peer_id=peer_id
-            )
+
+            action = MagicMock()
+            action.__class__.__name__ = "MessageActionPinMessage"
+            action.channel_id = 789
+
+            message = MagicMock()
+            message.reply_to = reply_to
+            message.peer_id = peer_id
+            message.action = action
+
+            event = MagicMock()
+            event.action_message = message
+            return event
 
         @pytest.fixture
         def unpin_action_event_mock(self):
@@ -342,12 +320,6 @@ class TestIncomingEventProcessor:
             original_update.peer = peer
             event.original_update = original_update
             return event
-
-        @pytest.mark.asyncio
-        async def test_handle_chat_migration(self, processor, chat_action_event_mock):
-            """Test handling a chat migration action"""
-            assert await processor._handle_chat_action({"event": chat_action_event_mock}) == []
-            processor.conversation_manager.migrate_between_conversations.assert_called_once()
 
         @pytest.mark.asyncio
         async def test_handle_pin_message(self, processor, pin_action_event_mock):

@@ -1,58 +1,46 @@
 platform_specific_name,standard_name
+medal,3rd_place_medal
+medal,2nd_place_medal
+medal,1st_place_medal
 +1,thumbs_up
 -1,thumbs_down
 100,hundred_points
 1234,input_numbers
-8ball,pool_8_ball
+ab,ab_button_(blood_type)
 abc,input_latin_letters
 abcd,input_latin_lowercase
-arrow_backward,reverse_button
-arrow_double_down,fast_down_button
-arrow_double_up,fast_up_button
-arrow_down,down_arrow
-arrow_down_small,downwards_button
-arrow_forward,play_button
-arrow_left,left_arrow
-arrow_right,right_arrow
-arrow_right_hook,left_arrow_curving_right
-arrow_up,up_arrow
-arrows_clockwise,clockwise_vertical_arrows
-arrows_counterclockwise,counterclockwise_arrows_button
 art,artist_palette
 astonished,astonished_face
-athletic_shoe,running_shoe
-ballot_box_with_check,check_box_with_check
+atm,atm_sign
+athletic shoe,running_shoe
+b,b_button_(blood_type)
 bamboo,tanabata_tree
 bangbang,double_exclamation_mark
 barber,barber_pole
-basketball_man,man_bouncing_ball
-basketball_woman,woman_bouncing_ball
 bath,person_taking_bath
-beach_umbrella,umbrella_on_ground
+beach umbrella,umbrella_on_ground
 beer,beer_mug
 beers,clinking_beer_mugs
-biking_man,man_biking
-biking_woman,woman_biking
-black_joker,joker
+man biking,man_biking
+woman biking,woman_biking
 blush,smiling_face_with_smiling_eyes
 boat,sailboat
 book,open_book
 boom,collision
 bulb,light_bulb
-busstop,bus_stop
-camera_flash,camera_with_flash
-capital_abcd,input_latin_uppercase
+bus stop,bus_stop
+capital abcd,input_latin_uppercase
 car,automobile
-cat,cat_face
-cat2,cat
+p,p_button
+soon,soon_arrow
 champagne,bottle_with_popping_cork
 chart,chart_increasing
-chart_with_downwards_trend,chart_decreasing
-checkered_flag,chequered_flag
+checkered flag,chequered_flag
 cheese,cheese_wedge
+cl,cl_button
 clap,clapping_hands
-clapper,clapper_board
-closed_lock_with_key,locked_with_key
+sos,sos_button
+lock with key,locked_with_key
 cocktail,cocktail_glass
 coffee,hot_beverage
 computer,desktop_computer
@@ -61,13 +49,11 @@ confounded,confounded_face
 confused,confused_face
 construction_worker,construction_worker
 control_knobs,control_knobs
+cool,cool_button
 cop,police_officer
 corn,ear_of_corn
-couplekiss,kiss
 cow,cow_face
-cow2,cow
 cry,crying_face
-crying_cat_face,crying_cat
 cupid,heart_with_arrow
 curry,curry_rice
 dancer,woman_dancing
@@ -75,188 +61,154 @@ dancers,people_with_bunny_ears
 dark_sunglasses,sunglasses
 dash,sweat_droplets
 date,calendar
-diamond_shape_with_a_dot_inside,diamond_with_a_dot
 diamonds,diamond_suit
 disappointed,disappointed_face
 disappointed_relieved,sad_but_relieved_face
 do_not_litter,no_littering
 dog,dog_face
-dog2,dog
-dollar,dollar_banknote
-dromedary_camel,camel
 ear_of_rice,sheaf_of_rice
-euro,euro_banknote
-european_castle,castle
-european_post_office,post_office
+end,end_arrow
+euro banknotes,euro_banknote
+post office,post_office
 expressionless,expressionless_face
 eyeglasses,glasses
 facepunch,oncoming_fist
-fearful,fearful_face
 feet,footprints
-female_detective,woman_detective
-film_strip,film_frames
-first_quarter_moon_with_face,first_quarter_moon_face
-fish_cake,fish_cake_with_swirl
-fishing_pole_and_fish,fishing_pole
+woman detective,woman_detective
+fishing,fishing_pole
 fist,raised_fist
-fist_oncoming,oncoming_fist
-fist_raised,raised_fist
+fist bump,oncoming_fist
 five,keycap_5
 floppy_disk,floppy_disk
 flower_playing_cards,flower_playing_cards
 flushed,flushed_face
 football,soccer_ball
 four,keycap_4
+free,free_button
 fried_egg,cooking
 fries,french_fries
 frowning,frowning_face
-frowning_face,frowning_face_with_open_mouth
-frowning_man,man_frowning
-frowning_woman,woman_frowning
-fu,middle_finger
-fuelpump,fuel_pump
-full_moon_with_face,full_moon_face
+man frowning,man_frowning
+woman frowning,woman_frowning
+middle finger,middle_finger
+fuel pump,fuel_pump
 gift,wrapped_gift
 gift_heart,heart_with_ribbon
 golf,flag_in_hole
-golfer,person_golfing
-grey_exclamation,white_exclamation_mark
-grey_question,white_question_mark
+grey exclamation,white_exclamation_mark
+grey question,white_question_mark
 grimacing,grimacing_face
 grin,grinning_face_with_big_eyes
 grinning,grinning_face
-guardsman,guard
 haircut,person_getting_haircut
-haircut_man,man_getting_haircut
-haircut_woman,woman_getting_haircut
+man getting haircut,man_getting_haircut
+woman getting haircut,woman_getting_haircut
 hand,raised_hand
-hankey,pile_of_poo
+pile of poo,pile_of_poo
 hash,keycap_#
 headphones,headphone
 heart,red_heart
 heartbeat,beating_heart
-heartpulse,growing_heart
+growing heart,growing_heart
 hearts,heart_decoration
-heavy_check_mark,check_mark
-heavy_heart_exclamation,heart_exclamation
-high_brightness,bright_button
+check mark,check_mark
+heart exclamation,heart_exclamation
+high brightness,bright_button
 hocho,kitchen_knife
-hotsprings,hot_springs
+hot springs,hot_springs
 hourglass,hourglass_done
-hourglass_flowing_sand,hourglass_not_done
+hourglass,hourglass_not_done
 house_abandoned,derelict_house
-house_garden,house_with_garden
 hushed,hushed_face
-icecream,ice_cream
+ice cream,ice_cream
+id,id_button
 imp,angry_face_with_horns
 iphone,mobile_phone
 island,desert_island
 izakaya_lantern,red_paper_lantern
-japanese_goblin,goblin
-japanese_ogre,ogre
 joy_cat,cat_with_tears_of_joy
 keycap_ten,keycap_10
-kissing,kissing_face
-kissing_closed_eyes,kissing_face_with_closed_eyes
-kissing_heart,face_blowing_a_kiss
-kissing_smiling_eyes,kissing_face_with_smiling_eyes
-large_blue_circle,blue_circle
-last_quarter_moon_with_face,last_quarter_moon_face
+kissing face,kissing_face
+kiss smiling eyes,kissing_face_with_smiling_eyes
+last quarter moon face,last_quarter_moon_face
 laughing,face_with_tears_of_joy
 leaves,leaf_fluttering_in_wind
-leftwards_arrow_with_hook,right_arrow_curving_left
+left hook,right_arrow_curving_left
 lips,mouth
-lock,locked
-lock_with_ink_pen,locked_with_pen
-loud_sound,speaker_high_volume
-low_brightness,dim_button
-mag,magnifying_glass_tilted_left
-mag_right,magnifying_glass_tilted_right
+loudspeaker,speaker_high_volume
+low brightness,dim_button
+magnifying glass,magnifying_glass_tilted_left
+magnifying,magnifying_glass_tilted_right
 mahjong,mahjong_red_dragon
 mailbox,closed_mailbox_with_raised_flag
-mailbox_closed,closed_mailbox_with_lowered_flag
-mailbox_with_mail,open_mailbox_with_raised_flag
-mailbox_with_no_mail,open_mailbox_with_lowered_flag
-man_with_turban,person_wearing_turban
+closed mailbox,closed_mailbox_with_lowered_flag
+empty mailbox,open_mailbox_with_lowered_flag
 mandarin,tangerine
 massage,person_getting_massage
-massage_man,man_getting_massage
-massage_woman,woman_getting_massage
-meat_on_bone,meat_on_bone
-medal_military,military_medal
-medal_sports,sports_medal
-mega,megaphone
-metal,sign_of_the_horns
+man getting massage,man_getting_massage
+woman getting massage,woman_getting_massage
+meat,meat_on_bone
+military medal,military_medal
+medal,sports_medal
+sign of the horns,sign_of_the_horns
 minidisc,computer_disk
-moneybag,money_bag
+money,money_bag
 moon,waxing_gibbous_moon
-mortar_board,graduation_cap
-mountain_bicyclist,person_mountain_biking
-mountain_biking_man,man_mountain_biking
-mountain_biking_woman,woman_mountain_biking
-mouse,mouse_face
-mouse2,mouse
-moyai,moai
+mortar board,graduation_cap
+man mountain biking,man_mountain_biking
+woman mountain biking,woman_mountain_biking
 mute,muted_speaker
-nail_care,nail_polish
-necktie,necktie
-negative_squared_cross_mark,cross_mark_button
-new_moon_with_face,new_moon_face
+nail care,nail_polish
+cross mark,cross_mark_button
+new moon face,new_moon_face
 nine,keycap_9
-no_mouth,face_without_mouth
-notes,musical_notes
+no mouth,face_without_mouth
+musical notes,musical_notes
 ocean,water_wave
 office,office_building
-open_umbrella,umbrella
 partly_sunny,sun_behind_cloud
-pencil2,pencil
 phone,telephone
 pig,pig_face
-pig2,pig
-plate_with_cutlery,fork_and_knife_with_plate
-pout,person_pouting
+fork and knife with plate,fork_and_knife_with_plate
+person pouting,person_pouting
 pouch,clutch_bag
-pouting_man,man_pouting
-pouting_woman,woman_pouting
-pound,pound_banknote
+man pouting,man_pouting
+woman pouting,woman_pouting
+pound notes,pound_banknote
 pray,folded_hands
-previous_track_button,last_track_button
+previous track,last_track_button
 rabbit,rabbit_face
-rabbit2,rabbit
-racehorse,horse_racing
-rage,pouting_face
-raised_hands,raising_hands
-raising_hand,person_raising_hand
-raising_hand_man,man_raising_hand
-raising_hand_woman,woman_raising_hand
+horse racing,horse_racing
+raised hands,raising_hands
+raising hand,person_raising_hand
+man raising hand,man_raising_hand
+woman raising hand,woman_raising_hand
 ramen,steaming_bowl
 recycle,recycling_symbol
 relieved,relieved_face
 repeat,repeat_button
-repeat_one,repeat_single_button
+repeat one,repeat_single_button
 rewind,fast_reverse_button
 rice,cooked_rice
-rice_scene,moon_viewing_ceremony
-rolling_eyes,face_with_rolling_eyes
-rotating_light,police_car_light
+rolling eyes,face_with_rolling_eyes
+rotating light,police_car_light
 running,person_running
-running_man,man_running
-running_shirt_with_sash,running_shirt
-running_woman,woman_running
-school_satchel,backpack
+man running,man_running
+running shirt,running_shirt
+woman running,woman_running
 scream,face_screaming_in_fear
-scream_cat,weary_cat
+scream cat,weary_cat
 seven,keycap_7
 sheep,ewe
 shell,spiral_shell
-shopping,shopping_bags
+shopping bags,shopping_bags
 signal_strength,antenna_bars
 six,keycap_6
 sleeping,sleeping_face
-sleeping_bed,person_in_bed
+in bed,person_in_bed
 sleepy,sleepy_face
-small_red_triangle,red_triangle_pointed_up
-small_red_triangle_down,red_triangle_pointed_down
+red triangle up,red_triangle_pointed_up
+red triangle down,red_triangle_pointed_down
 smile,grinning_face_with_big_eyes
 smile_cat,grinning_cat
 smiley,slightly_smiling_face
@@ -264,68 +216,510 @@ smiling_imp,smiling_face_with_horns
 smirk,smirking_face
 smirk_cat,cat_with_wry_smile
 smoking,cigarette
-snow_boarding,snowboarder
-snowman_with_snow,snowman
 sob,loudly_crying_face
 soccer,soccer_ball
 sound,speaker_medium_volume
-space_invader,alien_monster
+space invader,alien_monster
 spades,spade_suit
 speaker,speaker_low_volume
-stars,glowing_star
-steam_locomotive,locomotive
+seeing stars,glowing_star
+steam locomotive,locomotive
 stew,pot_of_food
 stuck_out_tongue,face_with_tongue
 stuck_out_tongue_closed_eyes,squinting_face_with_tongue
-stuck_out_tongue_winking_eye,winking_face_with_tongue
+stuck out tongue wink,winking_face_with_tongue
 sunny,sun
-surfer,person_surfing
-sweet_potato,roasted_sweet_potato
-swimmer,person_swimming
+sweet potato,roasted_sweet_potato
 symbols,input_symbols
 tada,party_popper
 tea,teacup_without_handle
-telephone_receiver,telephone_receiver
-the_horns,sign_of_the_horns
 thinking,thinking_face
 three,keycap_3
 tiger,tiger_face
-tiger2,tiger
-tired_face,tired_face
 tm,trade_mark
-tophat,top_hat
-traffic_light,horizontal_traffic_light
-train2,railway_car
-triangular_flag_on_post,triangular_flag
+top hat,top_hat
+traffic light,horizontal_traffic_light
+railway car,railway_car
+triangular flag,triangular_flag
 trident,trident_emblem
 triumph,face_with_steam_from_nose
 truck,delivery_truck
 tv,television
-twisted_rightwards_arrows,shuffle_tracks_button
+shuffle,shuffle_tracks_button
 two,keycap_2
-two_men_holding_hands,men_holding_hands
-two_women_holding_hands,women_holding_hands
+two men holding hands,men_holding_hands
+two women holding hands,women_holding_hands
 unamused,unamused_face
-v,victory_hand
+victory,victory_hand
 vhs,videocassette
 walking,person_walking
-walking_man,man_walking
-walking_woman,woman_walking
+man walking,man_walking
+woman walking,woman_walking
 wave,waving_hand
-waving_black_flag,black_flag
-waving_white_flag,white_flag
+black flag,black_flag
+white flag,white_flag
 wc,water_closet
 weary,weary_face
-weight_lifting,person_lifting_weights
-weight_lifting_man,man_lifting_weights
-weight_lifting_woman,woman_lifting_weights
-whale2,whale
-white_check_mark,check_mark_button
+man lifting weights,man_lifting_weights
+woman lifting weights,woman_lifting_weights
+checkbox,check_mark_button
 wink,winking_face
-woman_with_turban,woman_wearing_turban
+woman wearing turban,woman_wearing_turban
 worried,worried_face
 x,cross_mark
-yen,yen_banknote
+yen banknotes,yen_banknote
 yum,face_savoring_food
 zap,high_voltage
 zero,keycap_0
+zip it,zipper_mouth_face
+yellow large square,yellow_square
+writing,writing_hand
+sandal,woman’s_sandal
+hat,woman’s_hat
+flag afghanistan,afghanistan
+flag albania,albania
+flag algeria,algeria
+flag american samoa,american_samoa
+flag andorra,andorra
+flag angola,angola
+flag anguilla,anguilla
+flag antarctica,antarctica
+flag antigua and barbuda,antigua_&_barbuda
+flag argentina,argentina
+flag armenia,armenia
+flag aruba,aruba
+flag ascension island,ascension_island
+flag australia,australia
+flag austria,austria
+flag azerbaijan,azerbaijan
+flag bahamas,bahamas
+flag bahrain,bahrain
+flag bangladesh,bangladesh
+flag barbados,barbados
+flag belarus,belarus
+flag belgium,belgium
+flag belize,belize
+flag benin,benin
+flag bermuda,bermuda
+flag bhutan,bhutan
+flag bolivia,bolivia
+flag bosnia and herzegovina,bosnia_&_herzegovina
+flag botswana,botswana
+flag bouvet island,bouvet_island
+flag brazil,brazil
+flag british indian ocean territory,british_indian_ocean_territory
+flag british virgin islands,british_virgin_islands
+flag brunei,brunei
+flag bulgaria,bulgaria
+flag burkina faso,burkina_faso
+flag burundi,burundi
+flag cambodia,cambodia
+flag cameroon,cameroon
+flag canada,canada
+flag canary islands,canary_islands
+flag cape verde,cape_verde
+flag cayman islands,cayman_islands
+flag central african republic,central_african_republic
+flag ceuta and melilla,ceuta_&_melilla
+flag chad,chad
+flag chile,chile
+flag china,china
+flag christmas island,christmas_island
+flag clipperton island,clipperton_island
+flag colombia,colombia
+flag comoros,comoros
+flag congo brazzaville,congo_brazzaville
+flag congo kinshasa,congo_kinshasa
+flag cook islands,cook_islands
+flag costa rica,costa_rica
+flag croatia,croatia
+flag cuba,cuba
+flag curaçao,curaçao
+flag cyprus,cyprus
+flag czechia,czechia
+flag denmark,denmark
+flag diego garcia,diego_garcia
+flag djibouti,djibouti
+flag dominica,dominica
+flag dominican republic,dominican_republic
+flag ecuador,ecuador
+flag egypt,egypt
+flag el salvador,el_salvador
+flag england,england
+flag equatorial guinea,equatorial_guinea
+flag eritrea,eritrea
+flag estonia,estonia
+flag ethiopia,ethiopia
+flag eswatini,eswatini
+flag european union,european_union
+flag faroe islands,faroe_islands
+flag falkland islands,falkland_islands
+flag fiji,fiji
+flag finland,finland
+flag france,france
+flag french guiana,french_guiana
+flag french polynesia,french_polynesia
+flag french southern territories,french_southern_territories
+flag gabon,gabon
+flag gambia,gambia
+flag georgia,georgia
+flag germany,germany
+flag gibraltar,gibraltar
+flag greece,greece
+flag ghana,ghana
+flag greenland,greenland
+flag grenada,grenada
+flag guadeloupe,guadeloupe
+flag guam,guam
+flag guatemala,guatemala
+flag guernsey,guernsey
+flag guinea,guinea
+flag guinea bissau,guinea_bissau
+flag guyana,guyana
+flag haiti,haiti
+flag heard and mcdonald islands,heard_&_mcdonald_islands
+flag honduras,honduras
+flag hong kong sar china,hong_kong_sar_china
+flag hungary,hungary
+flag iceland,iceland
+flag india,india
+flag indonesia,indonesia
+flag iran,iran
+flag iraq,iraq
+flag isle of man,isle_of_man
+flag italy,italy
+flag israel,israel
+flag jamaica,jamaica
+flag japan,japan
+flag jersey,jersey
+flag jordan,jordan
+flag kazakhstan,kazakhstan
+flag kenya,kenya
+flag kiribati,kiribati
+flag kosovo,kosovo
+flag kuwait,kuwait
+flag kyrgyzstan,kyrgyzstan
+flag laos,laos
+flag latvia,latvia
+flag lebanon,lebanon
+flag lesotho,lesotho
+flag liberia,liberia
+flag libya,libya
+flag liechtenstein,liechtenstein
+flag lithuania,lithuania
+flag luxembourg,luxembourg
+flag macao sar china,macao_sar_china
+flag madagascar,madagascar
+flag malawi,malawi
+flag malaysia,malaysia
+flag maldives,maldives
+flag mali,mali
+flag malta,malta
+flag marshall islands,marshall_islands
+flag martinique,martinique
+flag mauritania,mauritania
+flag mayotte,mayotte
+flag mexico,mexico
+flag micronesia,micronesia
+flag moldova,moldova
+flag monaco,monaco
+flag mongolia,mongolia
+flag montenegro,montenegro
+flag montserrat,montserrat
+flag morocco,morocco
+flag mozambique,mozambique
+flag myanmar burma,myanmar_(burma)
+flag namibia,namibia
+flag nauru,nauru
+flag nepal,nepal
+flag netherlands,netherlands
+flag new caledonia,new_caledonia
+flag new zealand,new_zealand
+flag nicaragua,nicaragua
+flag niger,niger
+flag niue,niue
+flag norfolk island,norfolk_island
+flag north korea,north_korea
+flag north macedonia,north_macedonia
+flag northern mariana islands,northern_mariana_islands
+flag norway,norway
+flag oman,oman
+flag pakistan,pakistan
+flag palau,palau
+flag palestinian territories,palestinian_territories
+flag panama,panama
+flag papua new guinea,papua_new_guinea
+flag paraguay,paraguay
+flag peru,peru
+flag philippines,philippines
+flag pitcairn islands,pitcairn_islands
+flag poland,poland
+flag portugal,portugal
+flag puerto rico,puerto_rico
+flag qatar,qatar
+flag romania,romania
+flag rwanda,rwanda
+flag réunion,réunion
+flag samoa,samoa
+flag san marino,san_marino
+flag saudi arabia,saudi_arabia
+flag scotland,scotland
+flag senegal,senegal
+flag serbia,serbia
+flag seychelles,seychelles
+flag sierra leone,sierra_leone
+flag singapore,singapore
+flag sint maarten,sint_maarten
+flag slovakia,slovakia
+flag slovenia,slovenia
+flag solomon islands,solomon_islands
+flag somalia,somalia
+flag south africa,south_africa
+flag south georgia and south sandwich islands,south_georgia_&_south_sandwich_islands
+flag south korea,south_korea
+flag south sudan,south_sudan
+flag spain,spain
+flag sri lanka,sri_lanka
+flag st barthélemy,st._barthélemy
+flag st helena,st._helena
+flag st kitts and nevis,st._kitts_&_nevis
+flag st lucia,st._lucia
+flag st martin,st._martin
+flag st pierre and miquelon,st._pierre_&_miquelon
+flag st vincent and grenadines,st._vincent_&_grenadines
+flag sudan,sudan
+flag suriname,suriname
+flag svalbard and jan mayen,svalbard_&_jan_mayen
+flag sweden,sweden
+flag switzerland,switzerland
+flag syria,syria
+flag taiwan,taiwan
+flag tajikistan,tajikistan
+flag tanzania,tanzania
+flag thailand,thailand
+flag timor leste,timor_leste
+flag togo,togo
+flag tokelau,tokelau
+flag tonga,tonga
+flag trinidad and tobago,trinidad_&_tobago
+flag tristan da cunha,tristan_da_cunha
+flag tunisia,tunisia
+flag turkmenistan,turkmenistan
+flag turks and caicos islands,turks_&_caicos_islands
+flag tuvalu,tuvalu
+flag us outlying islands,u.s._outlying_islands
+flag us virgin islands,u.s._virgin_islands
+flag uganda,uganda
+flag ukraine,ukraine
+flag united arab emirates,united_arab_emirates
+flag united kingdom,united_kingdom
+flag united nations,united_nations
+flag united states,united_states
+flag uruguay,uruguay
+flag uzbekistan,uzbekistan
+flag vanuatu,vanuatu
+flag vatican city,vatican_city
+flag venezuela,venezuela
+flag vietnam,vietnam
+flag wales,wales
+flag wallis and futuna,wallis_&_futuna
+flag western sahara,western_sahara
+flag yemen,yemen
+flag zambia,zambia
+flag zimbabwe,zimbabwe
+back,back_arrow
+holiday tree,christmas_tree
+dolls,japanese_dolls
+japan post,japanese_post_office
+beginner,japanese_symbol_for_beginner
+new,new_button
+ng,ng_button
+mrs claus,mrs._claus
+ok,ok_hand
+squared ok,ok_button
+on,on!_arrow
+o,o_button_(blood_type)
+santa,santa_claus
+scorpius,scorpio
+top,top_arrow
+up,up!_button
+vs,vs_button
+anger,anger_symbol
+angry,angry_face
+anguished,anguished_face
+cold sweat,anxious_face_with_sweat
+atom,atom_symbol
+angel,baby_angel
+point down,backhand_index_pointing_down
+point up,backhand_index_pointing_up
+point left,backhand_index_pointing_left
+point right,backhand_index_pointing_right
+baguette,baguette_bread
+scales,balance_scale
+person bald,bald
+ballot box,ballot_box_with_ballot
+beach,beach_with_umbrella
+smiling face,beaming_face_with_smiling_eyes
+bento,bento_box
+cake,birthday_cake
+white and black square,black_square_button
+biting lip,biting_lip
+bookmark,bookmark_tabs
+bridge,bridge_at_night
+construction,building_construction
+bulls eye,bullseye
+silhouettes,busts_in_silhouette
+silhouette,bust_in_silhouette
+call me,call_me_hand
+carousel,carousel_horse
+decreasing,chart_decreasing
+chocolate,chocolate_bar
+m,circled_m
+circus,circus_tent
+clockwise,clockwise_vertical_arrows
+lightning,cloud_with_lightning
+thunder and rain,cloud_with_lightning_and_rain
+rainy,cloud_with_rain
+snowstorm,cloud_with_snow
+clown,clown_face
+confetti,confetti_ball
+counterclockwise,counterclockwise_arrows_button
+cowboy,cowboy_hat_face
+fingers crossed,crossed_fingers
+swords,crossed_swords
+crying cat,crying_cat
+exchange,currency_exchange
+diamond with a dot,diamond_shape_with_a_dot_inside
+dollar bills,dollar_banknote
+down,down_arrow
+drooling,drooling_face
+email,e_mail
+rage,enraged_face
+kissing face,face_blowing_a_kiss
+head bandage,face_with_head_bandage
+mask,face_with_medical_mask
+open mouth,face_with_open_mouth
+fast forward,fast_forward_button
+double down,fast_down_button
+fast up,fast_up_button
+fax,fax_machine
+fear,fearful_face
+film,film_frames
+projector,film_projector
+shrimp,fried_shrimp
+baby chick,front_facing_baby_chick
+moon face,full_moon_face
+gem,gem_stone
+earth americas,globe_showing_americas
+earth asia,globe_showing_asia_australia
+earth africa,globe_showing_europe_africa
+globe,globe_with_meridians
+salad,green_salad
+green large square,green_square
+sweat smile,grinning_face_with_sweat
+hear no evil,hear_no_evil_monkey
+dollars,heavy_dollar_sign
+high heels,high_heeled_shoe
+honey,honey_pot
+hotdog,hot_dog
+inbox,inbox_tray
+jack-o-lantern,jack_o_lantern
+one,keycap_1
+ten,keycap_teng
+eight,keycap_8
+lipstick kiss,kiss_mark
+kiwi,kiwi_fruit
+cross,latin_cross
+left fist,left_facing_fist
+right fist,right_facing_fist
+left right,left_right_arrow
+left,left_arrow
+right,right_arrow
+right hook,left_arrow_curving_right
+luggage,left_luggage
+speech bubble,left_speech_bubble
+paperclip chain,linked_paperclips
+lying,lying_face
+shoe,man’s_shoe
+japan,map_of_japan
+martial arts,martial_arts_uniform
+mirror ball,mirror_ball
+mobile phone,mobile_phone
+phone off,mobile_phone_off
+money face,money_mouth_face
+moon ceremony,moon_viewing_ceremony
+scooter,motor_scooter
+musical notes,musical_note
+nauseated,nauseated_face
+nazar amulet,nazar_amulet
+nerd,nerd_face
+neutral,neutral_face
+next track,next_track_button
+night sky,night_with_stars
+no phones,no_mobile_phones
+underage,no_one_under_eighteen
+non-potable water,non_potable_water
+decorative notebook,notebook_with_decorative_cover
+older woman,old_woman
+folder,open_file_folder
+outbox,outbox_tray
+part alternation,part_alternation_mark
+pause,pause_button
+peace,peace_symbol
+pensive,pensive_face
+wrestling,people_wrestling
+fencing,person_fencing
+levitating,person_in_suit_levitating
+tuxedo,person_in_tuxedo
+juggling,person_juggling
+water polo,person_playing_water_polo
+decoration,pine_decoration
+play,play_button
+play pause,play_or_pause_button
+8 ball,pool_8_ball
+poultry,poultry_leg
+pregnant,pregnant_woman
+push pin,pushpin
+racecar,racing_car
+record,record_button
+apple,red_apple
+exclamation,red_exclamation_mark
+question,red_question_mark
+play reverse,reverse_button
+anger bubble,right_anger_bubble
+heading down,right_arrow_curving_down
+heading up,right_arrow_curving_up
+newspaper,rolled_up_newspaper
+rugby,rugby_football
+see no evil,see_no_evil_monkey
+food,shallow_pan_of_food
+ski,skis
+heart eyes cat,smiling_cat_with_heart_eyes
+halo,smiling_face_with_halo
+heart eyes,smiling_face_with_heart_eyes
+sunglasses,smiling_face_with_sunglasses
+sneezing,sneezing_face
+snowy mountain,snow_capped_mountain
+speak no evil,speak_no_evil_monkey
+whale,spouting_whale
+ruler,straight_ruler
+cloudy,sun_behind_large_cloud
+partly cloudy,sun_behind_small_cloud
+sun face,sun_with_face
+mountain sunrise,sunrise_over_mountains
+tshirt,t_shirt
+calendar,tear_off_calendar
+timer,timer_clock
+tired,tired_face
+tram,tram_car
+camel,two_hump_camel
+umbrella with rain,umbrella_with_rain_drops
+up down,up_down_arrow
+upper left,up_left_arrow
+upper right,up_right_arrow
+up,up_arrow
+upside down,upside_down_face
+wheelchair,wheelchair_symbol
+windy,wind_face
+wine,wine_glass
+holding hands,woman_and_man_holding_hands

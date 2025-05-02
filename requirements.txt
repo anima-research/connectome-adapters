@@ -10,3 +10,4 @@ zulip==0.9.0  # Official Zulip API Python client
 emoji==2.10.1  # For emoji handling and conversion in Zulip
 discord.py==2.3.2  # Discord API client
 slack_sdk==3.26.1  # Official Slack API client with async support
+pydantic==2.5.2  # Data validation and settings management

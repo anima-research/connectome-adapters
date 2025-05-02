@@ -167,16 +167,6 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
                 action = message.action
                 action_type = type(action).__name__
 
-                if action_type in [
-                    "MessageActionChatMigrateTo",
-                    "MessageActionChannelMigrateFrom"
-                ]:
-                    await self.conversation_manager.migrate_between_conversations({
-                        "message": message,
-                        "action": action
-                    })
-                    return events
-
                 if action_type == "MessageActionPinMessage":
                     delta = await self.conversation_manager.update_conversation({
                         "event_type": "pinned_message",
