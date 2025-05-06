@@ -42,6 +42,7 @@ class TestIncomingEventProcessor:
             patch_config, zulip_client_mock, conversation_manager_mock
         )
         processor.rate_limiter = rate_limiter_mock
+        processor.incoming_event_builder = MagicMock()
         return processor
 
     @pytest.fixture
@@ -152,10 +153,12 @@ class TestIncomingEventProcessor:
 
             processor.conversation_manager.add_to_conversation.return_value = delta
             processor._fetch_conversation_history = AsyncMock(return_value=[{"some": "history"}])
-            processor._conversation_started_event_info = AsyncMock(
+            processor.incoming_event_builder.conversation_started = MagicMock(
                 return_value={"event_type": "conversation_started"}
             )
-            processor._new_message_event_info = AsyncMock(return_value={"event_type": "message_received"})
+            processor.incoming_event_builder.message_received = MagicMock(
+                return_value={"event_type": "message_received"}
+            )
 
             result = await processor._handle_message(message_event_mock)
 
@@ -168,10 +171,10 @@ class TestIncomingEventProcessor:
             )
 
             processor._fetch_conversation_history.assert_called_once()
-            processor._conversation_started_event_info.assert_called_once_with(
+            processor.incoming_event_builder.conversation_started.assert_called_once_with(
                 delta, processor._fetch_conversation_history.return_value
             )
-            processor._new_message_event_info.assert_called_once_with(message)
+            processor.incoming_event_builder.message_received.assert_called_once_with(message)
 
         @pytest.mark.asyncio
         async def test_handle_message_no_delta(self, processor, message_event_mock):
@@ -214,7 +217,7 @@ class TestIncomingEventProcessor:
             }
 
             processor.conversation_manager.update_conversation.return_value = delta
-            processor._edited_message_event_info = AsyncMock(
+            processor.incoming_event_builder.message_updated = MagicMock(
                 return_value={"event_type": "message_updated"}
             )
 
@@ -228,7 +231,7 @@ class TestIncomingEventProcessor:
                 "message": update_message_event_mock,
                 "attachments": []
             })
-            processor._edited_message_event_info.assert_called_once_with(message)
+            processor.incoming_event_builder.message_updated.assert_called_once_with(message)
 
         @pytest.mark.asyncio
         async def test_handle_topic_change_update(self, processor, topic_change_event_mock):
@@ -261,13 +264,13 @@ class TestIncomingEventProcessor:
 
             processor.conversation_manager.migrate_between_conversations.return_value = delta
             processor._fetch_conversation_history = AsyncMock(return_value=[])
-            processor._conversation_started_event_info = AsyncMock(
+            processor.incoming_event_builder.conversation_started = MagicMock(
                 return_value={"event_type": "conversation_started"}
             )
-            processor._deleted_message_event_info = AsyncMock(
+            processor.incoming_event_builder.message_deleted = MagicMock(
                 return_value={"event_type": "message_deleted"}
             )
-            processor._new_message_event_info = AsyncMock(
+            processor.incoming_event_builder.message_received = MagicMock(
                 return_value={"event_type": "message_received"}
             )
 
@@ -284,8 +287,8 @@ class TestIncomingEventProcessor:
             processor.conversation_manager.migrate_between_conversations.assert_called_once_with(
                 topic_change_event_mock
             )
-            assert processor._deleted_message_event_info.call_count == 2
-            assert processor._new_message_event_info.call_count == 1
+            assert processor.incoming_event_builder.message_deleted.call_count == 2
+            assert processor.incoming_event_builder.message_received.call_count == 1
 
     class TestHandleDeleteMessageEvent:
         """Tests for the _handle_delete_message method"""
@@ -299,7 +302,7 @@ class TestIncomingEventProcessor:
             }
 
             processor.conversation_manager.delete_from_conversation.return_value = delta
-            processor._deleted_message_event_info = AsyncMock(
+            processor.incoming_event_builder.message_deleted = MagicMock(
                 return_value={"event_type": "message_deleted"}
             )
 
@@ -311,7 +314,7 @@ class TestIncomingEventProcessor:
             processor.conversation_manager.delete_from_conversation.assert_called_once_with(
                 incoming_event=delete_message_event_mock
             )
-            processor._deleted_message_event_info.assert_called_once_with("123", "456_789")
+            processor.incoming_event_builder.message_deleted.assert_called_once_with("123", "456_789")
 
         @pytest.mark.asyncio
         async def test_handle_delete_message_exception(self, processor, message_event_mock):
@@ -347,7 +350,7 @@ class TestIncomingEventProcessor:
                 "timestamp": 1234567890000
             }
             processor.conversation_manager.update_conversation.return_value = delta
-            processor._reaction_update_event_info = AsyncMock(
+            processor.incoming_event_builder.reaction_update = MagicMock(
                 return_value={"event_type": "reaction_added"}
             )
             result = await processor._handle_reaction(reaction_event_mock)
@@ -358,7 +361,7 @@ class TestIncomingEventProcessor:
             processor.conversation_manager.update_conversation.assert_called_once_with(
                 {"event_type": "reaction", "message": reaction_event_mock}
             )
-            processor._reaction_update_event_info.assert_called_once_with(
+            processor.incoming_event_builder.reaction_update.assert_called_once_with(
                 "reaction_added", delta, "thumbs_up"
             )
 
@@ -375,7 +378,7 @@ class TestIncomingEventProcessor:
                 "timestamp": 1234567890000
             }
             processor.conversation_manager.update_conversation.return_value = delta
-            processor._reaction_update_event_info = AsyncMock(
+            processor.incoming_event_builder.reaction_update = MagicMock(
                 return_value={"event_type": "reaction_removed"}
             )
             result = await processor._handle_reaction(reaction_event_mock)
@@ -386,7 +389,7 @@ class TestIncomingEventProcessor:
             processor.conversation_manager.update_conversation.assert_called_once_with(
                 {"event_type": "reaction", "message": reaction_event_mock}
             )
-            processor._reaction_update_event_info.assert_called_once_with(
+            processor.incoming_event_builder.reaction_update.assert_called_once_with(
                 "reaction_removed", delta, "thumbs_up"
             )
 
@@ -405,89 +408,3 @@ class TestIncomingEventProcessor:
             processor.conversation_manager.update_conversation.side_effect = Exception("Test error")
 
             assert await processor._handle_reaction(reaction_event_mock) == []
-
-    class TestHelperMethods:
-        """Tests for helper methods"""
-
-        @pytest.mark.asyncio
-        async def test_conversation_started_event_info(self, processor):
-            """Test creating a conversation started event"""
-            delta = {"conversation_id": "456_789"}
-            history = [{"message_id": "1", "text": "Test history message"}]
-            result = await processor._conversation_started_event_info(delta, history)
-
-            assert result["adapter_type"] == "zulip"
-            assert result["event_type"] == "conversation_started"
-            assert result["data"]["conversation_id"] == "456_789"
-            assert result["data"]["history"] == history
-
-        @pytest.mark.asyncio
-        async def test_new_message_event_info(self, processor):
-            """Test creating a new message event"""
-            result = await processor._new_message_event_info({
-                "message_id": "123",
-                "conversation_id": "456_789",
-                "text": "Hello, world!",
-                "sender": {"user_id": "456", "display_name": "Test User"},
-                "timestamp": 1234567890000,
-                "attachments": [{"type": "image"}],
-                "thread_id": "thread123"
-            })
-
-            assert result["adapter_type"] == "zulip"
-            assert result["event_type"] == "message_received"
-            assert result["data"]["adapter_name"] == "test_bot"
-            assert result["data"]["message_id"] == "123"
-            assert result["data"]["conversation_id"] == "456_789"
-            assert result["data"]["text"] == "Hello, world!"
-            assert result["data"]["sender"]["user_id"] == "456"
-            assert result["data"]["sender"]["display_name"] == "Test User"
-            assert result["data"]["timestamp"] == 1234567890000
-            assert len(result["data"]["attachments"]) == 1
-            assert result["data"]["thread_id"] == "thread123"
-
-        @pytest.mark.asyncio
-        async def test_edited_message_event_info(self, processor):
-            """Test creating an edited message event"""
-            result = await processor._edited_message_event_info({
-                "message_id": "123",
-                "conversation_id": "456_789",
-                "text": "Edited message",
-                "timestamp": 1234567890000
-            })
-
-            assert result["adapter_type"] == "zulip"
-            assert result["event_type"] == "message_updated"
-            assert result["data"]["adapter_name"] == "test_bot"
-            assert result["data"]["message_id"] == "123"
-            assert result["data"]["conversation_id"] == "456_789"
-            assert result["data"]["new_text"] == "Edited message"
-            assert result["data"]["timestamp"] == 1234567890000
-
-        @pytest.mark.asyncio
-        async def test_deleted_message_event_info(self, processor):
-            """Test creating a deleted message event"""
-            result = await processor._deleted_message_event_info(123, "456/old topic")
-
-            assert result["adapter_type"] == "zulip"
-            assert result["event_type"] == "message_deleted"
-            assert result["data"]["message_id"] == "123"
-            assert result["data"]["conversation_id"] == "456/old topic"
-
-        @pytest.mark.asyncio
-        async def test_reaction_update_event_info(self, processor):
-            """Test creating a reaction event"""
-            result = await processor._reaction_update_event_info(
-                "reaction_added",
-                {
-                    "message_id": "123",
-                    "conversation_id": "456_789"
-                },
-                "thumbs_up"
-            )
-
-            assert result["adapter_type"] == "zulip"
-            assert result["event_type"] == "reaction_added"
-            assert result["data"]["message_id"] == "123"
-            assert result["data"]["conversation_id"] == "456_789"
-            assert result["data"]["emoji"] == "thumbs_up"

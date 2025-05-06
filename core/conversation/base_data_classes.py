@@ -14,7 +14,7 @@ class ConversationUpdateType(str, Enum):
     MESSAGE_UNPINNED = "message_unpinned"
 
 @dataclass
-class UserInfo:
+class UserInfo():
     """Information about a user"""
     user_id: str
     first_name: Optional[str] = None

@@ -202,6 +202,8 @@ class SocketIOServer:
 
                 if result["request_completed"] and event.event_type == "send_message":
                     response["message_ids"] = result["message_ids"]
+                elif result["request_completed"] and event.event_type == "fetch_history":
+                    response["history"] = result["history"]
 
                 await self.sio.emit(status, response, room=event.sid)
 

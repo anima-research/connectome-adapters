@@ -63,6 +63,7 @@ class TestIncomingEventProcessor:
         )
         processor.downloader = downloader_mock
         processor.rate_limiter = rate_limiter_mock
+        processor.incoming_event_builder = MagicMock()
         return processor
 
     @pytest.fixture
@@ -315,10 +316,10 @@ class TestIncomingEventProcessor:
             processor.conversation_manager.add_to_conversation.return_value = delta
 
             with patch.object(HistoryFetcher, "fetch", return_value=[{"some": "history"}]):
-                processor._conversation_started_event_info = AsyncMock(
+                processor.incoming_event_builder.conversation_started = MagicMock(
                     return_value={"event_type": "conversation_started"}
                 )
-                processor._new_message_event_info = AsyncMock(
+                processor.incoming_event_builder.message_received = MagicMock(
                     return_value={"event_type": "message_received"}
                 )
 
@@ -331,10 +332,10 @@ class TestIncomingEventProcessor:
                 processor.client.users_info.assert_called_once_with(user="U12345678")
                 processor.downloader.download_attachments.assert_called_once_with(message_event_mock["event"])
                 processor.conversation_manager.add_to_conversation.assert_called_once()
-                processor._conversation_started_event_info.assert_called_once_with(
+                processor.incoming_event_builder.conversation_started.assert_called_once_with(
                     delta, [{"some": "history"}]
                 )
-                processor._new_message_event_info.assert_called_once_with(message)
+                processor.incoming_event_builder.message_received.assert_called_once_with(message)
 
         @pytest.mark.asyncio
         async def test_handle_message_exception(self, processor, message_event_mock):
@@ -361,7 +362,7 @@ class TestIncomingEventProcessor:
             }
 
             processor.conversation_manager.update_conversation.return_value = delta
-            processor._edited_message_event_info = AsyncMock(
+            processor.incoming_event_builder.message_updated = MagicMock(
                 return_value={"event_type": "message_updated"}
             )
 
@@ -374,7 +375,7 @@ class TestIncomingEventProcessor:
                 "event_type": "edited_message",
                 "message": edited_message_event_mock["event"]
             })
-            processor._edited_message_event_info.assert_called_once_with(message)
+            processor.incoming_event_builder.message_updated.assert_called_once_with(message)
 
         @pytest.mark.asyncio
         async def test_handle_edited_message_exception(self, processor, edited_message_event_mock):
@@ -395,7 +396,7 @@ class TestIncomingEventProcessor:
             }
 
             processor.conversation_manager.delete_from_conversation.return_value = delta
-            processor._deleted_message_event_info = AsyncMock(
+            processor.incoming_event_builder.message_deleted = MagicMock(
                 return_value={"event_type": "message_deleted"}
             )
 
@@ -407,7 +408,7 @@ class TestIncomingEventProcessor:
             processor.conversation_manager.delete_from_conversation.assert_called_once_with(
                 incoming_event=deleted_message_event_mock["event"]
             )
-            processor._deleted_message_event_info.assert_called_once_with(
+            processor.incoming_event_builder.message_deleted.assert_called_once_with(
                 "1662031200.123456", "T11223344/C87654321"
             )
 
@@ -431,7 +432,7 @@ class TestIncomingEventProcessor:
             }
 
             processor.conversation_manager.update_conversation.return_value = delta
-            processor._reaction_update_event_info = AsyncMock(
+            processor.incoming_event_builder.reaction_update = MagicMock(
                 return_value={"event_type": "reaction_added"}
             )
 
@@ -444,7 +445,7 @@ class TestIncomingEventProcessor:
                 "event_type": "reaction",
                 "message": reaction_add_event_mock["event"]
             })
-            processor._reaction_update_event_info.assert_called_once_with(
+            processor.incoming_event_builder.reaction_update.assert_called_once_with(
                 "reaction_added", delta, "thumbs_up"
             )
 
@@ -458,7 +459,7 @@ class TestIncomingEventProcessor:
             }
 
             processor.conversation_manager.update_conversation.return_value = delta
-            processor._reaction_update_event_info = AsyncMock(
+            processor.incoming_event_builder.reaction_update = MagicMock(
                 return_value={"event_type": "reaction_removed"}
             )
 
@@ -471,11 +472,12 @@ class TestIncomingEventProcessor:
                 "event_type": "reaction",
                 "message": reaction_remove_event_mock["event"]
             })
-            processor._reaction_update_event_info.assert_called_once_with(
+            processor.incoming_event_builder.reaction_update.assert_called_once_with(
                 "reaction_removed", delta, "thumbs_up"
             )
 
         @pytest.mark.asyncio
+        @pytest.mark.filterwarnings("ignore::RuntimeWarning")
         async def test_handle_reaction_exception(self, processor, reaction_add_event_mock):
             """Test handling exceptions during reaction processing"""
             processor.conversation_manager.update_conversation.side_effect = Exception("Test error")
@@ -494,7 +496,7 @@ class TestIncomingEventProcessor:
             }
 
             processor.conversation_manager.update_conversation.return_value = delta
-            processor._pinned_status_change_event_info = AsyncMock(
+            processor.incoming_event_builder.pin_status_update = MagicMock(
                 return_value={"event_type": "message_pinned"}
             )
 
@@ -507,7 +509,7 @@ class TestIncomingEventProcessor:
                 "event_type": "pin",
                 "message": pin_add_event_mock["event"]
             })
-            processor._pinned_status_change_event_info.assert_called_once_with(
+            processor.incoming_event_builder.pin_status_update.assert_called_once_with(
                 "message_pinned",
                 {
                     "message_id": "1662031200.123456",
@@ -516,6 +518,7 @@ class TestIncomingEventProcessor:
             )
 
         @pytest.mark.asyncio
+        @pytest.mark.filterwarnings("ignore::RuntimeWarning")
         async def test_handle_pin_remove(self, processor, pin_remove_event_mock):
             """Test handling a pin remove event"""
             delta = {
@@ -525,7 +528,7 @@ class TestIncomingEventProcessor:
             }
 
             processor.conversation_manager.update_conversation.return_value = delta
-            processor._pinned_status_change_event_info = AsyncMock(
+            processor.incoming_event_builder.pin_status_update = MagicMock(
                 return_value={"event_type": "message_unpinned"}
             )
 
@@ -538,7 +541,7 @@ class TestIncomingEventProcessor:
                 "event_type": "pin",
                 "message": pin_remove_event_mock["event"]
             })
-            processor._pinned_status_change_event_info.assert_called_once_with(
+            processor.incoming_event_builder.pin_status_update.assert_called_once_with(
                 "message_unpinned",
                 {
                     "message_id": "1662031200.123456",

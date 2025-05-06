@@ -66,10 +66,10 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             if delta:
                 if delta.get("fetch_history", False):
                     history = await self._fetch_conversation_history(delta)
-                    events.append(await self._conversation_started_event_info(delta, history))
+                    events.append(self.incoming_event_builder.conversation_started(delta, history))
 
                 for message in delta.get("added_messages", []):
-                    events.append(await self._new_message_event_info(message))
+                    events.append(self.incoming_event_builder.message_received(message))
         except Exception as e:
             logging.error(f"Error handling new message: {e}", exc_info=True)
 
@@ -144,17 +144,15 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
         if delta:
             if delta.get("fetch_history", False):
                 history = await self._fetch_conversation_history(delta)
-                events.append(await self._conversation_started_event_info(delta, history))
+                events.append(self.incoming_event_builder.conversation_started(delta, history))
 
             old_conversation_id = f"{event.get('stream_id', '')}/{event.get('orig_subject', '')}"
             for message_id in delta.get("deleted_message_ids", []):
                 events.append(
-                    await self._deleted_message_event_info(message_id, old_conversation_id)
+                    self.incoming_event_builder.message_deleted(message_id, old_conversation_id)
                 )
             for migrated_message in delta.get("added_messages", []):
-                events.append(
-                    await self._new_message_event_info(migrated_message)
-                )
+                events.append(self.incoming_event_builder.message_received(migrated_message))
 
         return events
 
@@ -176,7 +174,7 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
 
         if delta:
             for message in delta.get("updated_messages", []):
-                events.append(await self._edited_message_event_info(message))
+                events.append(self.incoming_event_builder.message_updated(message))
 
         return events
 
@@ -199,9 +197,7 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             if delta:
                 for deleted_id in delta.get("deleted_message_ids", []):
                     events.append(
-                        await self._deleted_message_event_info(
-                            deleted_id, delta["conversation_id"]
-                        )
+                        self.incoming_event_builder.message_deleted(deleted_id, delta["conversation_id"])
                     )
         except Exception as e:
             logging.error(f"Error handling delete event: {e}", exc_info=True)
@@ -228,11 +224,11 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             if delta:
                 for reaction in delta.get("added_reactions", []):
                     events.append(
-                        await self._reaction_update_event_info("reaction_added", delta, reaction)
+                        self.incoming_event_builder.reaction_update("reaction_added", delta, reaction)
                     )
                 for reaction in delta.get("removed_reactions", []):
                     events.append(
-                        await self._reaction_update_event_info("reaction_removed", delta, reaction)
+                        self.incoming_event_builder.reaction_update("reaction_removed", delta, reaction)
                     )
         except Exception as e:
             logging.error(f"Error handling reaction event: {e}", exc_info=True)

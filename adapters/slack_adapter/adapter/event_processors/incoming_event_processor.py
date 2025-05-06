@@ -77,10 +77,10 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             if delta:
                 if delta.get("fetch_history", False):
                     history = await self._fetch_conversation_history(delta)
-                    events.append(await self._conversation_started_event_info(delta, history))
+                    events.append(self.incoming_event_builder.conversation_started(delta, history))
 
                 for message in delta.get("added_messages", []):
-                    events.append(await self._new_message_event_info(message))
+                    events.append(self.incoming_event_builder.message_received(message))
         except Exception as e:
             logging.error(f"Error handling new message: {e}", exc_info=True)
 
@@ -125,7 +125,7 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
 
             if delta:
                 for message in delta.get("updated_messages", []):
-                    events.append(await self._edited_message_event_info(message))
+                    events.append(self.incoming_event_builder.message_updated(message))
 
             return events
         except Exception as e:
@@ -149,10 +149,10 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             )
 
             if delta:
-                for message_id in delta.get("deleted_message_ids", []):
+                for deleted_id in delta.get("deleted_message_ids", []):
                     events.append(
-                        await self._deleted_message_event_info(
-                            message_id, delta["conversation_id"]
+                        self.incoming_event_builder.message_deleted(
+                            deleted_id, delta["conversation_id"]
                         )
                     )
 
@@ -182,13 +182,13 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             if delta:
                 for reaction in delta.get("added_reactions", []):
                     events.append(
-                        await self._reaction_update_event_info(
+                        self.incoming_event_builder.reaction_update(
                             "reaction_added", delta, reaction
                         )
                     )
                 for reaction in delta.get("removed_reactions", []):
                     events.append(
-                        await self._reaction_update_event_info(
+                        self.incoming_event_builder.reaction_update(
                             "reaction_removed", delta, reaction
                         )
                     )
@@ -217,7 +217,7 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             if delta:
                 for message_id in delta.get("pinned_message_ids", []):
                     events.append(
-                        await self._pinned_status_change_event_info(
+                        self.incoming_event_builder.pin_status_update(
                             "message_pinned",
                             {
                                 "message_id": message_id,
@@ -227,7 +227,7 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
                     )
                 for message_id in delta.get("unpinned_message_ids", []):
                     events.append(
-                        await self._pinned_status_change_event_info(
+                        self.incoming_event_builder.pin_status_update(
                             "message_unpinned",
                             {
                                 "message_id": message_id,
