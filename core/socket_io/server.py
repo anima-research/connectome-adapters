@@ -7,12 +7,12 @@ from aiohttp import web
 from dataclasses import dataclass
 from typing import Dict, Any, Optional
 
+from core.event_processors.request_events import RequestEvent
 from core.utils.config import Config
 
 @dataclass
 class SocketIOQueuedEvent:
     """Represents an event queued for processing"""
-    event_type: str  # Type of event (sendMessage, editMessage, etc.)
     data: Dict[str, Any]  # Event data
     sid: str  # Socket ID of sender
     timestamp: float  # When it was queued
@@ -67,7 +67,7 @@ class SocketIOServer:
         @self.sio.event
         async def bot_response(sid, data):
             """Handle request to send a message to adapter"""
-            await self._queue_event(data.get("event_type"), sid, data.get("data"))
+            await self._queue_event(sid, data)
 
     async def emit_event(self, event: str, data: Dict[str, Any] = {}) -> None:
         """Emit a status event to all connected clients
@@ -118,11 +118,10 @@ class SocketIOServer:
             await self.runner.cleanup()
             logging.info("Socket.IO server stopped")
 
-    async def _queue_event(self, event_type: str, sid: str, data: Dict[str, Any]) -> str:
+    async def _queue_event(self, sid: str, data: Dict[str, Any]) -> str:
         """Queue an event for processing with rate limiting
 
         Args:
-            event_type: Type of event (sendMessage, editMessage, etc.)
             sid: Socket ID of the client
             data: Event data
 
@@ -130,18 +129,15 @@ class SocketIOServer:
             request_id: ID of the queued request
         """
         request_id = data.get("request_id", f"req_{sid}_{int(time.time() * 1e3)}")
-        event = SocketIOQueuedEvent(event_type, data, sid, time.time(), request_id)
+        event = SocketIOQueuedEvent(data, sid, time.time(), request_id)
         self.request_map[request_id] = event
         await self.event_queue.put(event)
         await self.sio.emit(
             "request_queued",
-            {
-                "adapter_type": self.adapter_type,
-                "request_id": request_id,
-            },
+            RequestEvent(adapter_type=self.adapter_type, request_id=request_id).model_dump(),
             room=sid
         )
-        logging.debug(f"Queued {event_type} event with request_id {request_id}")
+        logging.debug(f"Queued event with request_id {request_id}")
 
     async def _cancel_request(self, sid: str, data: Dict[str, Any]) -> None:
         """Cancel a queued request if it hasn't been processed yet
@@ -153,23 +149,12 @@ class SocketIOServer:
         request_id = data.get("request_id")
 
         if not request_id:
-            await self.sio.emit(
-                "request_failed",
-                {
-                    "adapter_type": self.adapter_type,
-                    "message": "No requestId provided for cancellation"
-                },
-                room=sid
-            )
             return
 
         if request_id not in self.request_map:
             await self.sio.emit(
                 "request_failed",
-                {
-                    "adapter_type": self.adapter_type,
-                    "request_id": request_id
-                },
+                RequestEvent(adapter_type=self.adapter_type, request_id=request_id).model_dump(),
                 room=sid
             )
             return
@@ -177,10 +162,7 @@ class SocketIOServer:
         del self.request_map[request_id]
         await self.sio.emit(
             "request_success",
-            {
-                "adapter_type": self.adapter_type,
-                "request_id": request_id
-            },
+            RequestEvent(adapter_type=self.adapter_type, request_id=request_id).model_dump(),
             room=sid
         )
 
@@ -196,16 +178,24 @@ class SocketIOServer:
                     self.event_queue.task_done()
                     continue
 
-                result = await self.adapter.process_outgoing_event(event.event_type, event.data)
+                result = await self.adapter.process_outgoing_event(event.data)
                 status = "request_success" if result["request_completed"] else "request_failed"
-                response = { "adapter_type": self.adapter_type, "request_id": event.request_id }
+                data = {}
 
-                if result["request_completed"] and event.event_type == "send_message":
-                    response["message_ids"] = result["message_ids"]
-                elif result["request_completed"] and event.event_type == "fetch_history":
-                    response["history"] = result["history"]
+                if result["request_completed"] and "message_ids" in result:
+                    data["message_ids"] = result["message_ids"]
+                elif result["request_completed"] and "history" in result:
+                    data["history"] = result["history"]
 
-                await self.sio.emit(status, response, room=event.sid)
+                await self.sio.emit(
+                    status,
+                    RequestEvent(
+                        adapter_type=self.adapter_type,
+                        request_id=event.request_id,
+                        data=data
+                    ).model_dump(),
+                    room=event.sid
+                )
 
                 if event.request_id in self.request_map:
                     del self.request_map[event.request_id]

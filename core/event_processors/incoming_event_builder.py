@@ -1,11 +1,27 @@
-
 from typing import Any, Dict, List, Union
+from core.event_processors.incoming_events import (
+    SenderInfo,
+    ConversationStartedData,
+    MessageReceivedData,
+    MessageUpdatedData,
+    MessageDeletedData,
+    ReactionUpdateData,
+    PinStatusUpdateData,
+    ConversationStartedEvent,
+    MessageReceivedEvent,
+    MessageUpdatedEvent,
+    MessageDeletedEvent,
+    ReactionAddedEvent,
+    ReactionRemovedEvent,
+    MessagePinnedEvent,
+    MessageUnpinnedEvent
+)
 
 class IncomingEventBuilder:
     """
     Event builder for constructing standardized events to send to the framework.
     This class handles the construction of properly formatted event dictionaries
-    while providing documentation and validation.
+    with Pydantic validation.
     """
 
     def __init__(self, adapter_type: str, adapter_name: str):
@@ -23,197 +39,161 @@ class IncomingEventBuilder:
                              delta: Dict[str, Any],
                              history: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
-        Create a conversation_started event.
+        Create a conversation_started event with validation.
 
         Args:
             delta: Event change information
             history: List of message history items
 
         Returns:
-            Dictionary containing the event in the standard format:
-            {
-                "adapter_type": str,
-                "event_type": "conversation_started",
-                "data": {
-                    "conversation_id": str,
-                    "history": List[Dict]
-                }
-            }
+            Dictionary containing the validated event
         """
-        return {
-            "adapter_type": self.adapter_type,
-            "event_type": "conversation_started",
-            "data": {
-                "conversation_id": delta["conversation_id"],
-                "history": history
-            }
-        }
+        event = ConversationStartedEvent(
+            adapter_type=self.adapter_type,
+            data=ConversationStartedData(
+                conversation_id=delta["conversation_id"],
+                history=history
+            )
+        )
+
+        return event.model_dump()
 
     def message_received(self, delta: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Create a message_received event.
+        Create a message_received event with validation.
 
         Args:
             delta: Event change information
 
         Returns:
-            Dictionary containing the event in the standard format:
-            {
-                "adapter_type": str,
-                "event_type": "message_received",
-                "data": {
-                    "adapter_name": str,
-                    "message_id": str,
-                    "conversation_id": str,
-                    "sender": {
-                        "user_id": str,
-                        "display_name": str
-                    },
-                    "text": str,
-                    "thread_id": Optional[str],
-                    "attachments": List[Dict],
-                    "timestamp": int
-                }
-            }
+            Dictionary containing the validated event
         """
-        return {
-            "adapter_type": self.adapter_type,
-            "event_type": "message_received",
-            "data": {
-                "adapter_name": self.adapter_name,
-                "message_id": delta["message_id"],
-                "conversation_id": delta["conversation_id"],
-                "sender": {
-                    "user_id": delta["sender"]["user_id"] if "sender" in delta else "Unknown",
-                    "display_name": delta["sender"]["display_name"] if "sender" in delta else "Unknown User"
-                },
-                "text": delta["text"] if "text" in delta else "",
-                "thread_id": delta["thread_id"] if "thread_id" in delta else None,
-                "attachments": delta["attachments"] if "attachments" in delta else [],
-                "timestamp": delta["timestamp"]  # in milliseconds
-            }
-        }
+        event = MessageReceivedEvent(
+            adapter_type=self.adapter_type,
+            data=MessageReceivedData(
+                adapter_name=self.adapter_name,
+                message_id=delta["message_id"],
+                conversation_id=delta["conversation_id"],
+                sender=SenderInfo(
+                    user_id=delta.get("sender", {}).get("user_id", "Unknown"),
+                    display_name=delta.get("sender", {}).get("display_name", "Unknown User")
+                ),
+                text=delta.get("text", ""),
+                thread_id=delta.get("thread_id"),
+                attachments=delta.get("attachments", []),
+                timestamp=delta["timestamp"]
+            )
+        )
+        return event.model_dump()
 
     def message_updated(self, delta: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Create a message_updated event.
+        Create a message_updated event with validation.
 
         Args:
             delta: Event change information
 
         Returns:
-            Dictionary containing the event in the standard format:
-            {
-                "adapter_type": str,
-                "event_type": "message_updated",
-                "data": {
-                    "adapter_name": str,
-                    "message_id": str,
-                    "conversation_id": str,
-                    "new_text": str,
-                    "attachments": List[Dict],
-                    "timestamp": int
-                }
-            }
+            Dictionary containing the validated event
         """
-        return {
-            "adapter_type": self.adapter_type,
-            "event_type": "message_updated",
-            "data": {
-                "adapter_name": self.adapter_name,
-                "message_id": delta["message_id"],
-                "conversation_id": delta["conversation_id"],
-                "new_text": delta["text"] if "text" in delta else "",
-                "timestamp": delta["timestamp"],
-                "attachments": delta["attachments"] if "attachments" in delta else []
-            }
-        }
+        event = MessageUpdatedEvent(
+            adapter_type=self.adapter_type,
+            data=MessageUpdatedData(
+                adapter_name=self.adapter_name,
+                message_id=delta["message_id"],
+                conversation_id=delta["conversation_id"],
+                new_text=delta.get("text", ""),
+                timestamp=delta["timestamp"],
+                attachments=delta.get("attachments", [])
+            )
+        )
+        return event.model_dump()
 
-    def message_deleted(self, message_id: Union[int, str], conversation_id: Union[int, str]) -> Dict[str, Any]:
+    def message_deleted(self,
+                        message_id: Union[int, str],
+                        conversation_id: Union[int, str]) -> Dict[str, Any]:
         """
-        Create a message_deleted event.
+        Create a message_deleted event with validation.
 
         Args:
             message_id: ID of the deleted message
             conversation_id: ID of the conversation
 
         Returns:
-            Dictionary containing the event in the standard format:
-            {
-                "adapter_type": str,
-                "event_type": "message_deleted",
-                "data": {
-                    "message_id": str,
-                    "conversation_id": str
-                }
-            }
+            Dictionary containing the validated event
         """
-        return {
-            "adapter_type": self.adapter_type,
-            "event_type": "message_deleted",
-            "data": {
-                "message_id": str(message_id),
-                "conversation_id": str(conversation_id)
-            }
-        }
+        event = MessageDeletedEvent(
+            adapter_type=self.adapter_type,
+            data=MessageDeletedData(
+                message_id=str(message_id),
+                conversation_id=str(conversation_id)
+            )
+        )
+        return event.model_dump()
 
     def reaction_update(self,
                         event_type: str,
                         delta: Dict[str, Any],
                         reaction: str) -> Dict[str, Any]:
         """
-        Create a reaction_update event.
+        Create a reaction_update event with validation.
 
         Args:
             event_type: Type of reaction event (added/removed)
             delta: Event change information
             reaction: Emoji reaction
+
         Returns:
-            Dictionary containing the event in the standard format:
-            {
-                "adapter_type": str,
-                "event_type": event_type, # reaction_added or reaction_removed
-                "data": {
-                    "message_id": str,
-                    "conversation_id": str,
-                    "emoji": str
-                }
-            }
+            Dictionary containing the validated event
         """
-        return {
-            "adapter_type": self.adapter_type,
-            "event_type": event_type,
-            "data": {
-                "message_id": delta["message_id"],
-                "conversation_id": delta["conversation_id"],
-                "emoji": reaction
-            }
-        }
+        data = ReactionUpdateData(
+            message_id=delta["message_id"],
+            conversation_id=delta["conversation_id"],
+            emoji=reaction
+        )
+
+        if event_type == "reaction_added":
+            event = ReactionAddedEvent(
+                adapter_type=self.adapter_type,
+                data=data
+            )
+        elif event_type == "reaction_removed":
+            event = ReactionRemovedEvent(
+                adapter_type=self.adapter_type,
+                data=data
+            )
+        else:
+            raise ValueError(f"Unknown reaction event type: {event_type}")
+
+        return event.model_dump()
 
     def pin_status_update(self, event_type: str, delta: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Create a message_pinned event.
+        Create a pin status update event with validation.
 
         Args:
             event_type: Type of pin event (pinned/unpinned)
             delta: Event change information
 
         Returns:
-            Dictionary containing the event in the standard format:
-            {
-                "adapter_type": str,
-                "event_type": event_type, # message_pinned or message_unpinned
-                "data": {
-                    "message_id": str,
-                    "conversation_id": str,
-                }
-            }
+            Dictionary containing the validated event
         """
-        return {
-            "adapter_type": self.adapter_type,
-            "event_type": event_type,
-            "data": {
-                "message_id": delta["message_id"],
-                "conversation_id": delta["conversation_id"],
-            }
-        }
+        data = PinStatusUpdateData(
+            message_id=delta["message_id"],
+            conversation_id=delta["conversation_id"]
+        )
+
+        if event_type == "message_pinned":
+            event = MessagePinnedEvent(
+                adapter_type=self.adapter_type,
+                data=data
+            )
+        elif event_type == "message_unpinned":
+            event = MessageUnpinnedEvent(
+                adapter_type=self.adapter_type,
+                data=data
+            )
+        else:
+            raise ValueError(f"Unknown pin status event type: {event_type}")
+
+        return event.model_dump()

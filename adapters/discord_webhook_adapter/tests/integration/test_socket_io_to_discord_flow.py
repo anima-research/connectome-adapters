@@ -135,13 +135,13 @@ class TestSocketIOToDiscordWebhookFlowIntegration:
     async def test_send_message_flow(self, adapter):
         """Test sending a simple message"""
         assert "987654321/123456789" not in adapter.conversation_manager.conversations
-        result = await adapter.process_outgoing_event(
-            "send_message",
-            {
+        result = await adapter.process_outgoing_event({
+            "event_type": "send_message",
+            "data": {
                 "conversation_id": "987654321/123456789",
                 "text": "Hello, webhook world!"
             }
-        )
+        })
         assert result["request_completed"] is True
         assert result["message_ids"] == ["111222333"]
 
@@ -159,14 +159,14 @@ class TestSocketIOToDiscordWebhookFlowIntegration:
         """Test editing a message"""
         setup_channel_conversation()
 
-        result = await adapter.process_outgoing_event(
-            "edit_message",
-            {
+        result = await adapter.process_outgoing_event({
+            "event_type": "edit_message",
+            "data": {
                 "conversation_id": "987654321/123456789",
                 "message_id": "111222333",
                 "text": "Edited message content"
             }
-        )
+        })
         assert result["request_completed"] is True
 
         adapter.outgoing_events_processor.rate_limiter.limit_request.assert_called_with(
@@ -185,13 +185,13 @@ class TestSocketIOToDiscordWebhookFlowIntegration:
         """Test deleting a message"""
         setup_channel_conversation()
 
-        result = await adapter.process_outgoing_event(
-            "delete_message",
-            {
+        result = await adapter.process_outgoing_event({
+            "event_type": "delete_message",
+            "data": {
                 "conversation_id": "987654321/123456789",
                 "message_id": "111222333"
             }
-        )
+        })
         assert result["request_completed"] is True
 
         adapter.outgoing_events_processor.rate_limiter.limit_request.assert_called_with(
@@ -244,14 +244,14 @@ class TestSocketIOToDiscordWebhookFlowIntegration:
                 return_value=discord_webhook_client_mock
             )
 
-            result = await adapter.process_outgoing_event(
-                "fetch_history",
-                {
+            result = await adapter.process_outgoing_event({
+                "event_type": "fetch_history",
+                "data": {
                     "conversation_id": "987654321/123456789",
                     "before": 1627985000000,  # Some time after the messages
                     "limit": 10
                 }
-            )
+            })
 
             assert result["request_completed"] is True
             assert "history" in result

@@ -3,6 +3,7 @@ import json
 import logging
 import os
 
+from pydantic import BaseModel
 from typing import Any, Dict, Optional
 
 from adapters.zulip_adapter.adapter.attachment_loaders.uploader import Uploader
@@ -28,7 +29,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         self.conversation_manager = conversation_manager
         self.uploader = Uploader(self.config, self.client)
 
-    async def _send_message(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _send_message(self, data: BaseModel) -> Dict[str, Any]:
         """Send a message to a chat
 
         Args:
@@ -37,13 +38,13 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         Returns:
             Dict[str, Any]: Dictionary containing the status and message_ids
         """
-        conversation_info = self.conversation_manager.get_conversation(data["conversation_id"])
+        conversation_info = self.conversation_manager.get_conversation(data.conversation_id)
         if not conversation_info:
-            logging.error(f"Conversation {data['conversation_id']} not found")
+            logging.error(f"Conversation {data.conversation_id} not found")
             return {"request_completed": False}
 
-        messages = self._split_long_message(data["text"])
-        for attachment in data.get("attachments", []):
+        messages = self._split_long_message(data.text)
+        for attachment in data.attachments:
             await self.rate_limiter.limit_request("upload_attachment", conversation_info.conversation_id)
             uri = await self.uploader.upload_attachment(attachment)
             file_name = uri.split("/")[-1]
@@ -77,7 +78,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         logging.info(f"Message sent to {conversation_info.conversation_id}")
         return {"request_completed": True, "message_ids": message_ids}
 
-    async def _edit_message(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _edit_message(self, data: BaseModel) -> Dict[str, Any]:
         """Edit a message
 
         Args:
@@ -86,23 +87,23 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         Returns:
             Dict[str, Any]: Dictionary containing the status
         """
-        await self.rate_limiter.limit_request("update_message", data["conversation_id"])
+        await self.rate_limiter.limit_request("update_message", data.conversation_id)
 
         message_data = {
-            "message_id": int(data["message_id"]),
-            "content": data["text"]
+            "message_id": int(data.message_id),
+            "content": data.text
         }
 
         if not self._check_api_request_success(
             self.client.update_message(message_data),
-            f"edit message {data['message_id']}"
+            f"edit message {data.message_id}"
         ):
             return {"request_completed": False}
 
-        logging.info(f"Message {data['message_id']} edited successfully")
+        logging.info(f"Message {data.message_id} edited successfully")
         return {"request_completed": True}
 
-    async def _delete_message(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _delete_message(self, data: BaseModel) -> Dict[str, Any]:
         """Delete a message
 
         Args:
@@ -111,28 +112,28 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         Returns:
             Dict[str, Any]: Dictionary containing the status
         """
-        await self.rate_limiter.limit_request("delete_message", data["conversation_id"])
+        await self.rate_limiter.limit_request("delete_message", data.conversation_id)
 
         if not self._check_api_request_success(
             self.client.call_endpoint(
-                f"messages/{int(data['message_id'])}",
+                f"messages/{int(data.message_id)}",
                 method="DELETE"
             ),
-            f"delete message {data['message_id']}"
+            f"delete message {data.message_id}"
         ):
             return {"request_completed": False}
 
         await self.conversation_manager.delete_from_conversation(
             outgoing_event={
-                "message_id": data["message_id"],
-                "conversation_id": data["conversation_id"]
+                "message_id": data.message_id,
+                "conversation_id": data.conversation_id
             }
         )
 
-        logging.info(f"Message {data['message_id']} deleted successfully")
+        logging.info(f"Message {data.message_id} deleted successfully")
         return {"request_completed": True}
 
-    async def _add_reaction(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _add_reaction(self, data: BaseModel) -> Dict[str, Any]:
         """Add a reaction to a message
 
         Args:
@@ -141,23 +142,23 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         Returns:
             Dict[str, Any]: Dictionary containing the status
         """
-        await self.rate_limiter.limit_request("add_reaction", data["conversation_id"])
+        await self.rate_limiter.limit_request("add_reaction", data.conversation_id)
 
         reaction_data = {
-            "message_id": int(data["message_id"]),
-            "emoji_name": EmojiConverter.get_instance().standard_to_platform_specific(data["emoji"])
+            "message_id": int(data.message_id),
+            "emoji_name": EmojiConverter.get_instance().standard_to_platform_specific(data.emoji)
         }
 
         if not self._check_api_request_success(
             self.client.add_reaction(reaction_data),
-            f"add reaction to {data['message_id']}"
+            f"add reaction to {data.message_id}"
         ):
             return {"request_completed": False}
 
-        logging.info(f"Reaction {data['emoji']} added to message {data['message_id']}")
+        logging.info(f"Reaction {data.emoji} added to message {data.message_id}")
         return {"request_completed": True}
 
-    async def _remove_reaction(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _remove_reaction(self, data: BaseModel) -> Dict[str, Any]:
         """Remove a specific reaction from a message
 
         Args:
@@ -166,23 +167,23 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         Returns:
             Dict[str, Any]: Dictionary containing the status
         """
-        await self.rate_limiter.limit_request("remove_reaction", data["conversation_id"])
+        await self.rate_limiter.limit_request("remove_reaction", data.conversation_id)
 
         reaction_data = {
-            "message_id": int(data["message_id"]),
-            "emoji_name": EmojiConverter.get_instance().standard_to_platform_specific(data["emoji"])
+            "message_id": int(data.message_id),
+            "emoji_name": EmojiConverter.get_instance().standard_to_platform_specific(data.emoji)
         }
 
         if not self._check_api_request_success(
             self.client.remove_reaction(reaction_data),
-            f"remove reaction from {data['message_id']}"
+            f"remove reaction from {data.message_id}"
         ):
             return {"request_completed": False}
 
-        logging.info(f"Reaction {data['emoji']} removed from message {data['message_id']}")
+        logging.info(f"Reaction {data.emoji} removed from message {data.message_id}")
         return {"request_completed": True}
 
-    async def _fetch_history(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _fetch_history(self, data: BaseModel) -> Dict[str, Any]:
         """Fetch history of a conversation
 
         Args:
@@ -192,10 +193,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         Returns:
             Dict[str, Any]: Dictionary containing the status and history
         """
-        before = data.get("before", None)
-        after = data.get("after", None)
-
-        if not before and not after:
+        if not data.before and not data.after:
             logging.error("No before or after datetime provided")
             return {"request_completed": False}
 
@@ -203,10 +201,10 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
             self.config,
             self.client,
             self.conversation_manager,
-            data["conversation_id"],
-            before=before,
-            after=after,
-            history_limit=data.get("limit", None)
+            data.conversation_id,
+            before=data.before,
+            after=data.after,
+            history_limit=data.limit
         ).fetch()
 
         return {"request_completed": True, "history": history}

@@ -119,17 +119,29 @@ class TestWebhookAdapter:
             adapter.client = MagicMock()
             adapter.client.running = True
 
-            test_data = {"conversation_id": "987654321/123456789", "text": "Test message"}
-            result = await adapter.process_outgoing_event("send_message", test_data)
+            test_data = {
+                "event_type": "send_message",
+                "data": {
+                    "conversation_id": "987654321/123456789",
+                    "text": "Test message"
+                }
+            }
+            result = await adapter.process_outgoing_event(test_data)
             assert result["request_completed"] is True
 
-            processor_mock.process_event.assert_called_once_with("send_message", test_data)
+            processor_mock.process_event.assert_called_once_with(test_data)
 
         @pytest.mark.asyncio
         async def test_process_outgoing_event_discord_not_connected(self, adapter):
             """Test processing outgoing events when not connected"""
             adapter.client = None
+            test_data = {
+                "event_type": "send_message",
+                "data": {
+                    "conversation_id": "987654321/123456789",
+                    "text": "Test message"
+                }
+            }
+            result = await adapter.process_outgoing_event(test_data)
 
-            test_data = {"conversation_id": "987654321/123456789", "text": "Test message"}
-            result = await adapter.process_outgoing_event("send_message", test_data)
             assert result["request_completed"] is False

@@ -102,7 +102,7 @@ class TestTelegramToSocketIOFlowIntegration:
                 "message_id": message_id,
                 "conversation_id": "456",
                 "text": "Test message",
-                "timestamp": datetime.now(),
+                "timestamp": int(datetime.now().timestamp() * 1e3),
                 "sender_id": "456",
                 "sender_name": "Test User",
                 "is_from_bot": False

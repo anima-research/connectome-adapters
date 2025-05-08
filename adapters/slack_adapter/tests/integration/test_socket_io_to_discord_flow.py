@@ -128,13 +128,13 @@ class TestSocketIOToSlackFlowIntegration:
     @pytest.mark.asyncio
     async def test_send_message_flow(self, adapter):
         """Test sending a simple message to Slack"""
-        response = await adapter.process_outgoing_event(
-            "send_message",
-            {
+        response = await adapter.process_outgoing_event({
+            "event_type": "send_message",
+            "data": {
                 "conversation_id": "T12345/C12345678",
                 "text": "Hello, Slack world!"
             }
-        )
+        })
         assert response["request_completed"] is True
         assert "message_ids" in response
         assert len(response["message_ids"]) == 1
@@ -153,9 +153,9 @@ class TestSocketIOToSlackFlowIntegration:
         """Test sending a message with an attachment to Slack"""
         uploader_mock.upload_attachments.return_value = []
 
-        response = await adapter.process_outgoing_event(
-            "send_message",
-            {
+        response = await adapter.process_outgoing_event({
+            "event_type": "send_message",
+            "data": {
                 "conversation_id": "T12345/C12345678",
                 "text": "See attachment",
                 "attachments": [
@@ -167,7 +167,7 @@ class TestSocketIOToSlackFlowIntegration:
                     }
                 ]
             }
-        )
+        })
         assert response["request_completed"] is True
 
         adapter.client.web_client.chat_postMessage.assert_called_once()
@@ -180,14 +180,14 @@ class TestSocketIOToSlackFlowIntegration:
     @pytest.mark.asyncio
     async def test_edit_message_flow(self, adapter):
         """Test the complete flow from socket.io edit_message to Slack API call"""
-        response = await adapter.process_outgoing_event(
-            "edit_message",
-            {
+        response = await adapter.process_outgoing_event({
+            "event_type": "edit_message",
+            "data": {
                 "conversation_id": "T12345/C12345678",
                 "message_id": "1662031200.123456",
                 "text": "Edited message content"
             }
-        )
+        })
         assert response["request_completed"] is True
 
         # Verify that the Slack API was called correctly
@@ -200,13 +200,13 @@ class TestSocketIOToSlackFlowIntegration:
     @pytest.mark.asyncio
     async def test_delete_message_flow(self, adapter):
         """Test the complete flow from socket.io delete_message to Slack API call"""
-        response = await adapter.process_outgoing_event(
-            "delete_message",
-            {
+        response = await adapter.process_outgoing_event({
+            "event_type": "delete_message",
+            "data": {
                 "conversation_id": "T12345/C12345678",
                 "message_id": "1662031200.123456"
             }
-        )
+        })
         assert response["request_completed"] is True
 
         # Verify that the Slack API was called correctly
@@ -222,14 +222,14 @@ class TestSocketIOToSlackFlowIntegration:
             "core.utils.emoji_converter.EmojiConverter.get_instance",
             return_value=emoji_converter_mock
         ):
-            response = await adapter.process_outgoing_event(
-                "add_reaction",
-                {
+            response = await adapter.process_outgoing_event({
+                "event_type": "add_reaction",
+                "data": {
                     "conversation_id": "T12345/C12345678",
                     "message_id": "1662031200.123456",
                     "emoji": "thumbs_up"
                 }
-            )
+            })
             assert response["request_completed"] is True
 
             emoji_converter_mock.standard_to_platform_specific.assert_called_once_with("thumbs_up")
@@ -246,14 +246,14 @@ class TestSocketIOToSlackFlowIntegration:
             "core.utils.emoji_converter.EmojiConverter.get_instance",
             return_value=emoji_converter_mock
         ):
-            response = await adapter.process_outgoing_event(
-                "remove_reaction",
-                {
+            response = await adapter.process_outgoing_event({
+                "event_type": "remove_reaction",
+                "data": {
                     "conversation_id": "T12345/C12345678",
                     "message_id": "1662031200.123456",
                     "emoji": "thumbs_up"
                 }
-            )
+            })
             assert response["request_completed"] is True
 
             emoji_converter_mock.standard_to_platform_specific.assert_called_once_with("thumbs_up")
@@ -277,14 +277,14 @@ class TestSocketIOToSlackFlowIntegration:
         ]
 
         with patch.object(HistoryFetcher, "fetch", return_value=mock_history):
-            response = await adapter.process_outgoing_event(
-                "fetch_history",
-                {
+            response = await adapter.process_outgoing_event({
+                "event_type": "fetch_history",
+                "data": {
                     "conversation_id": "T12345/C12345678",
                     "before": int(time.time() * 1000),
                     "limit": 10
                 }
-            )
+            })
 
             assert response["request_completed"] is True
             assert "history" in response

@@ -85,54 +85,18 @@ class TestOutgoingEventProcessor:
         processor.session = client_mock.session
         return processor
 
-    class TestProcessEvent:
-        """Tests for the process_event method"""
-
-        @pytest.mark.asyncio
-        @pytest.mark.parametrize("event_type", [
-            OutgoingEventType.SEND_MESSAGE,
-            OutgoingEventType.EDIT_MESSAGE,
-            OutgoingEventType.DELETE_MESSAGE
-        ])
-        async def test_process_event_calls_correct_handler(self, processor, event_type):
-            """Test that process_event calls the correct handler method"""
-            data = {"test": "data"}
-            handler_mocks = {}
-
-            for handler_type in OutgoingEventType:
-                method_name = f"_handle_{handler_type.value}_event"
-                handler_mock = AsyncMock(return_value={"request_completed": True})
-                handler_mocks[handler_type] = handler_mock
-                setattr(processor, method_name, handler_mock)
-
-            result = await processor.process_event(event_type, data)
-            assert result["request_completed"] is True
-            handler_mocks[event_type].assert_called_once_with(data)
-
-        @pytest.mark.asyncio
-        async def test_process_event_reaction_not_supported(self, processor):
-            """Test that reaction events raise NotImplementedError"""
-            with pytest.raises(NotImplementedError):
-                await processor._add_reaction({})
-
-            with pytest.raises(NotImplementedError):
-                await processor._remove_reaction({})
-
-        @pytest.mark.asyncio
-        async def test_process_unknown_event_type(self, processor):
-            """Test handling an unknown event type"""
-            result = await processor.process_event("unknown_type", {})
-            assert result["request_completed"] is False
-
     class TestSendMessage:
         """Tests for the send_message method"""
 
         @pytest.mark.asyncio
         async def test_send_message_success(self, processor, client_mock):
             """Test sending a simple message successfully"""
-            data = {
-                "conversation_id": "987654321/123456789",
-                "text": "Hello, world!"
+            event_data = {
+                "event_type": "send_message",
+                "data": {
+                    "conversation_id": "987654321/123456789",
+                    "text": "Hello, world!"
+                }
             }
 
             response_mock = MagicMock()
@@ -140,7 +104,7 @@ class TestOutgoingEventProcessor:
             response_mock.json = AsyncMock(return_value={"id": "111222333"})
             processor.session.post = AsyncMock(return_value=response_mock)
 
-            result = await processor._handle_send_message_event(data)
+            result = await processor.process_event(event_data)
             assert result["request_completed"] is True
 
             client_mock.get_or_create_webhook.assert_called_with("987654321/123456789")
@@ -156,10 +120,13 @@ class TestOutgoingEventProcessor:
         @pytest.mark.asyncio
         async def test_send_message_with_custom_name(self, processor):
             """Test sending a message with a custom name"""
-            data = {
-                "conversation_id": "987654321/123456789",
-                "text": "Hello with custom name",
-                "custom_name": "Custom Bot Name"
+            event_data = {
+                "event_type": "send_message",
+                "data": {
+                    "conversation_id": "987654321/123456789",
+                    "text": "Hello with custom name",
+                    "custom_name": "Custom Bot Name"
+                }
             }
 
             response_mock = MagicMock()
@@ -167,7 +134,7 @@ class TestOutgoingEventProcessor:
             response_mock.json = AsyncMock(return_value={"id": "111222333"})
             processor.session.post = AsyncMock(return_value=response_mock)
 
-            result = await processor._send_message(data)
+            result = await processor.process_event(event_data)
             assert result["request_completed"] is True
             processor.session.post.assert_called_with(
                 "https://discord.com/api/webhooks/123456789/token?wait=true",
@@ -177,9 +144,12 @@ class TestOutgoingEventProcessor:
         @pytest.mark.asyncio
         async def test_send_message_long_text(self, processor):
             """Test sending a message with text longer than max length"""
-            data = {
-                "conversation_id": "987654321/123456789",
-                "text": "This is a sentence. " * 10
+            event_data = {
+                "event_type": "send_message",
+                "data": {
+                    "conversation_id": "987654321/123456789",
+                    "text": "This is a sentence. " * 10
+                }
             }
 
             response_mock = MagicMock()
@@ -188,7 +158,7 @@ class TestOutgoingEventProcessor:
             processor.session.post = AsyncMock(return_value=response_mock)
 
             with patch.object(processor, "_split_long_message", return_value=["Part 1", "Part 2"]):
-                result = await processor._send_message(data)
+                result = await processor.process_event(event_data)
                 assert result["request_completed"] is True
             assert processor.session.post.call_count == 2
 
@@ -204,16 +174,19 @@ class TestOutgoingEventProcessor:
         @pytest.mark.asyncio
         async def test_send_message_with_attachments(self, processor, uploader_mock):
             """Test sending a message with attachments"""
-            data = {
-                "conversation_id": "987654321/123456789",
-                "text": "Message with attachments",
-                "attachments": [
-                    {
-                        "attachment_type": "document",
-                        "file_path": "test_attachments/document/test.txt",
-                        "size": 100
-                    }
-                ]
+            event_data = {
+                "event_type": "send_message",
+                "data": {
+                    "conversation_id": "987654321/123456789",
+                    "text": "Message with attachments",
+                    "attachments": [
+                        {
+                            "attachment_type": "document",
+                            "file_path": "test_attachments/document/test.txt",
+                            "size": 100
+                        }
+                    ]
+                }
             }
 
             text_response_mock = MagicMock()
@@ -231,7 +204,7 @@ class TestOutgoingEventProcessor:
                 form_instance = MagicMock()
                 form_data_mock.return_value = form_instance
 
-                result = await processor._send_message(data)
+                result = await processor.process_event(event_data)
                 assert result["request_completed"] is True
                 uploader_mock.upload_attachment.assert_called_once_with([
                     {
@@ -250,10 +223,13 @@ class TestOutgoingEventProcessor:
         @pytest.mark.asyncio
         async def test_edit_message_success(self, processor, client_mock):
             """Test successfully editing a message"""
-            data = {
-                "conversation_id": "987654321/123456789",
-                "message_id": "111222333",
-                "text": "Updated text"
+            event_data = {
+                "event_type": "edit_message",
+                "data": {
+                    "conversation_id": "987654321/123456789",
+                    "message_id": "111222333",
+                    "text": "Updated text"
+                }
             }
 
             response_mock = MagicMock()
@@ -261,7 +237,7 @@ class TestOutgoingEventProcessor:
             response_mock.json = AsyncMock(return_value={"id": "111222333"})
             processor.session.patch = AsyncMock(return_value=response_mock)
 
-            result = await processor._handle_edit_message_event(data)
+            result = await processor.process_event(event_data)
             assert result["request_completed"] is True
 
             processor.rate_limiter.limit_request.assert_called_with(
@@ -278,9 +254,12 @@ class TestOutgoingEventProcessor:
         @pytest.mark.asyncio
         async def test_delete_message_success(self, processor):
             """Test successfully deleting a message"""
-            data = {
-                "conversation_id": "987654321/123456789",
-                "message_id": "111222333"
+            event_data = {
+                "event_type": "delete_message",
+                "data": {
+                    "conversation_id": "987654321/123456789",
+                    "message_id": "111222333"
+                }
             }
 
             response_mock = MagicMock()
@@ -288,7 +267,7 @@ class TestOutgoingEventProcessor:
             response_mock.text = AsyncMock(return_value="")
             processor.session.delete = AsyncMock(return_value=response_mock)
 
-            result = await processor._handle_delete_message_event(data)
+            result = await processor.process_event(event_data)
             assert result["request_completed"] is True
 
             processor.rate_limiter.limit_request.assert_called_with(
@@ -297,7 +276,7 @@ class TestOutgoingEventProcessor:
             processor.session.delete.assert_called_with(
                 "https://discord.com/api/webhooks/123456789/token/messages/111222333"
             )
-            processor.conversation_manager.delete_from_conversation.assert_called_with(data)
+            processor.conversation_manager.delete_from_conversation.assert_called_once()
 
     class TestUtilityMethods:
         """Tests for utility methods"""

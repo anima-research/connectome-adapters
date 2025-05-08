@@ -164,9 +164,9 @@ class TestSocketIOToDiscordFlowIntegration:
             '_get_channel',
             return_value=channel_mock
         ):
-            response = await adapter.process_outgoing_event(
-                "send_message",
-                {
+            response = await adapter.outgoing_events_processor.process_event({
+                "event_type": "send_message",
+                "data": {
                     "conversation_id": "987654321/123456789",
                     "text": "See attachment",
                     "attachments": [
@@ -177,7 +177,7 @@ class TestSocketIOToDiscordFlowIntegration:
                         }
                     ]
                 }
-            )
+            })
             assert response["request_completed"] is True
 
             uploader_mock.upload_attachment.assert_called_once()
@@ -201,14 +201,14 @@ class TestSocketIOToDiscordFlowIntegration:
             '_get_channel',
             return_value=channel_mock
         ):
-            response = await adapter.process_outgoing_event(
-                "edit_message",
-                {
+            response = await adapter.outgoing_events_processor.process_event({
+                "event_type": "edit_message",
+                "data": {
                     "conversation_id": "987654321/123456789",
                     "message_id": "111222333",
                     "text": "Edited message content"
                 }
-            )
+            })
             assert response["request_completed"] is True
 
             channel_mock.fetch_message.assert_called_once_with(111222333)
@@ -230,13 +230,13 @@ class TestSocketIOToDiscordFlowIntegration:
             '_get_channel',
             return_value=channel_mock
         ):
-            response = await adapter.process_outgoing_event(
-                "delete_message",
-                {
+            response = await adapter.outgoing_events_processor.process_event({
+                "event_type": "delete_message",
+                "data": {
                     "conversation_id": "987654321/123456789",
                     "message_id": "111222333"
                 }
-            )
+            })
             assert response["request_completed"] is True
 
             channel_mock.fetch_message.assert_called_once_with(111222333)
@@ -258,14 +258,14 @@ class TestSocketIOToDiscordFlowIntegration:
             '_get_channel',
             return_value=channel_mock
         ):
-            response = await adapter.process_outgoing_event(
-                "add_reaction",
-                {
+            response = await adapter.outgoing_events_processor.process_event({
+                "event_type": "add_reaction",
+                "data": {
                     "conversation_id": "987654321/123456789",
                     "message_id": "111222333",
                     "emoji": "thumbs_up"
                 }
-            )
+            })
             assert response["request_completed"] is True
 
             channel_mock.fetch_message.assert_called_once_with(111222333)
@@ -287,14 +287,14 @@ class TestSocketIOToDiscordFlowIntegration:
             '_get_channel',
             return_value=channel_mock
         ):
-            response = await adapter.process_outgoing_event(
-                "remove_reaction",
-                {
+            response = await adapter.outgoing_events_processor.process_event({
+                "event_type": "remove_reaction",
+                "data": {
                     "conversation_id": "987654321/123456789",
                     "message_id": "111222333",
                     "emoji": "thumbs_up"
                 }
-            )
+            })
             assert response["request_completed"] is True
 
             channel_mock.fetch_message.assert_called_once_with(111222333)

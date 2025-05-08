@@ -6,8 +6,10 @@ import os
 
 from abc import ABC, abstractmethod
 from enum import Enum
+from pydantic import BaseModel
 from typing import Dict, Any, List
 
+from core.event_processors.outgoing_event_builder import OutgoingEventBuilder
 from core.rate_limiter.rate_limiter import RateLimiter
 from core.utils.config import Config
 
@@ -35,33 +37,33 @@ class BaseOutgoingEventProcessor(ABC):
         self.adapter_type = self.config.get_setting("adapter", "type")
         self.rate_limiter = RateLimiter.get_instance(self.config)
 
-    async def process_event(self, event_type: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def process_event(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Process an event based on its type
 
         Args:
-            event_type: The type of event to process
             data: The event data
 
         Returns:
             Dict[str, Any]: Dictionary containing the status and data fields if applicable
         """
-        event_handlers = {
-            OutgoingEventType.SEND_MESSAGE: self._handle_send_message_event,
-            OutgoingEventType.EDIT_MESSAGE: self._handle_edit_message_event,
-            OutgoingEventType.DELETE_MESSAGE: self._handle_delete_message_event,
-            OutgoingEventType.ADD_REACTION: self._handle_add_reaction_event,
-            OutgoingEventType.REMOVE_REACTION: self._handle_remove_reaction_event,
-            OutgoingEventType.FETCH_HISTORY: self._handle_fetch_history_event
-        }
+        try:
+            event_handlers = {
+                OutgoingEventType.SEND_MESSAGE: self._handle_send_message_event,
+                OutgoingEventType.EDIT_MESSAGE: self._handle_edit_message_event,
+                OutgoingEventType.DELETE_MESSAGE: self._handle_delete_message_event,
+                OutgoingEventType.ADD_REACTION: self._handle_add_reaction_event,
+                OutgoingEventType.REMOVE_REACTION: self._handle_remove_reaction_event,
+                OutgoingEventType.FETCH_HISTORY: self._handle_fetch_history_event
+            }
+            outgoing_event = OutgoingEventBuilder(data).build()
+            handler = event_handlers.get(outgoing_event.event_type)
 
-        handler = event_handlers.get(event_type)
-        if handler:
-            return await handler(data)
+            return await handler(outgoing_event.data)
+        except Exception as e:
+            logging.error(f"Error processing event: {e}", exc_info=True)
+            return {"request_completed": False}
 
-        logging.error(f"Unknown event type: {event_type}")
-        return {"request_completed": False}
-
-    async def _handle_send_message_event(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _handle_send_message_event(self, data: BaseModel) -> Dict[str, Any]:
         """Send a message to a conversation
 
         Args:
@@ -70,26 +72,21 @@ class BaseOutgoingEventProcessor(ABC):
         Returns:
             Dict[str, Any]: Dictionary containing the status and message_ids
         """
-        if not self._validate_fields(
-            data, ["conversation_id", "text"], OutgoingEventType.SEND_MESSAGE
-        ):
-            return {"request_completed": False}
-
         try:
             return await self._send_message(data)
         except Exception as e:
             logging.error(
-                f"Failed to send message to conversation {data['conversation_id']}: {e}",
+                f"Failed to send message to conversation {data.conversation_id}: {e}",
                 exc_info=True
             )
             return {"request_completed": False}
 
     @abstractmethod
-    async def _send_message(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _send_message(self, data: BaseModel) -> Dict[str, Any]:
         """Send a message to a conversation"""
         raise NotImplementedError("Child classes must implement _send_message")
 
-    async def _handle_edit_message_event(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _handle_edit_message_event(self, data: BaseModel) -> Dict[str, Any]:
         """Edit a message
 
         Args:
@@ -98,26 +95,21 @@ class BaseOutgoingEventProcessor(ABC):
         Returns:
             Dict[str, Any]: Dictionary containing the status
         """
-        if not self._validate_fields(
-            data, ["conversation_id", "message_id", "text"], OutgoingEventType.EDIT_MESSAGE
-        ):
-            return {"request_completed": False}
-
         try:
             return await self._edit_message(data)
         except Exception as e:
             logging.error(
-                f"Failed to edit message {data['message_id']}: {e}",
+                f"Failed to edit message {data.message_id}: {e}",
                 exc_info=True
             )
             return {"request_completed": False}
 
     @abstractmethod
-    async def _edit_message(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _edit_message(self, data: BaseModel) -> Dict[str, Any]:
         """Send a message to a conversation"""
         raise NotImplementedError("Child classes must implement _edit_message")
 
-    async def _handle_delete_message_event(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _handle_delete_message_event(self, data: BaseModel) -> Dict[str, Any]:
         """Delete a message
 
         Args:
@@ -126,26 +118,21 @@ class BaseOutgoingEventProcessor(ABC):
         Returns:
             Dict[str, Any]: Dictionary containing the status
         """
-        if not self._validate_fields(
-            data, ["conversation_id", "message_id"], OutgoingEventType.DELETE_MESSAGE
-        ):
-            return {"request_completed": False}
-
         try:
             return await self._delete_message(data)
         except Exception as e:
             logging.error(
-                f"Failed to delete message {data['message_id']}: {e}",
+                f"Failed to delete message {data.message_id}: {e}",
                 exc_info=True
             )
             return {"request_completed": False}
 
     @abstractmethod
-    async def _delete_message(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _delete_message(self, data: BaseModel) -> Dict[str, Any]:
         """Delete a message"""
         raise NotImplementedError("Child classes must implement _delete_message")
 
-    async def _handle_add_reaction_event(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _handle_add_reaction_event(self, data: BaseModel) -> Dict[str, Any]:
         """Add a reaction to a message
 
         Args:
@@ -154,26 +141,21 @@ class BaseOutgoingEventProcessor(ABC):
         Returns:
             Dict[str, Any]: Dictionary containing the status
         """
-        if not self._validate_fields(
-            data, ["conversation_id", "message_id", "emoji"], OutgoingEventType.ADD_REACTION
-        ):
-            return {"request_completed": False}
-
         try:
             return await self._add_reaction(data)
         except Exception as e:
             logging.error(
-                f"Failed to add reaction to message {data['message_id']}: {e}",
+                f"Failed to add reaction to message {data.message_id}: {e}",
                 exc_info=True
             )
             return {"request_completed": False}
 
     @abstractmethod
-    async def _add_reaction(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _add_reaction(self, data: BaseModel) -> Dict[str, Any]:
         """Add a reaction to a message"""
         raise NotImplementedError("Child classes must implement _add_reaction")
 
-    async def _handle_remove_reaction_event(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _handle_remove_reaction_event(self, data: BaseModel) -> Dict[str, Any]:
         """Remove a specific reaction from a message
 
         Args:
@@ -182,26 +164,21 @@ class BaseOutgoingEventProcessor(ABC):
         Returns:
             Dict[str, Any]: Dictionary containing the status
         """
-        if not self._validate_fields(
-            data, ["conversation_id", "message_id", "emoji"], OutgoingEventType.REMOVE_REACTION
-        ):
-            return {"request_completed": False}
-
         try:
             return await self._remove_reaction(data)
         except Exception as e:
             logging.error(
-                f"Failed to remove reaction from message {data['message_id']}: {e}",
+                f"Failed to remove reaction from message {data.message_id}: {e}",
                 exc_info=True
             )
             return {"request_completed": False}
 
     @abstractmethod
-    async def _remove_reaction(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _remove_reaction(self, data: BaseModel) -> Dict[str, Any]:
         """Remove a reaction from a message"""
         raise NotImplementedError("Child classes must implement _remove_reaction")
 
-    async def _handle_fetch_history_event(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _handle_fetch_history_event(self, data: BaseModel) -> Dict[str, Any]:
         """Fetch history of a conversation
 
         Args:
@@ -213,46 +190,19 @@ class BaseOutgoingEventProcessor(ABC):
         Returns:
             Dict[str, Any]: Dictionary containing the status and history
         """
-        if not self._validate_fields(
-            data, ["conversation_id"], OutgoingEventType.FETCH_HISTORY
-        ):
-            return {"request_completed": False}
-
         try:
             return await self._fetch_history(data)
         except Exception as e:
             logging.error(
-                f"Failed to fetch history of conversation {data['conversation_id']}: {e}",
+                f"Failed to fetch history of conversation {data.conversation_id}: {e}",
                 exc_info=True
             )
             return {"request_completed": False}
 
     @abstractmethod
-    async def _fetch_history(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _fetch_history(self, data: BaseModel) -> Dict[str, Any]:
         """Fetch history of a conversation"""
         raise NotImplementedError("Child classes must implement _fetch_history")
-
-    def _validate_fields(self,
-                         data: Dict[str, Any],
-                         required_fields: List[str],
-                         operation: str) -> bool:
-        """Validate that required fields are present in the data
-
-        Args:
-            data: The data to validate
-            required_fields: List of required field names
-            operation: Name of the operation for error logging
-
-        Returns:
-            bool: True if all required fields are present, False otherwise
-        """
-        missing_fields = [field for field in required_fields if not data.get(field)]
-
-        if missing_fields:
-            logging.error(f"{', '.join(missing_fields)} are required for {operation}")
-            return False
-
-        return True
 
     def _split_long_message(self, text: str) -> List[str]:
         """Split a long message at sentence boundaries to fit within adapter's message length limits.

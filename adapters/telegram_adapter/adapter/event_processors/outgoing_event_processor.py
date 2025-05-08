@@ -6,6 +6,7 @@ import os
 import telethon
 
 from enum import Enum
+from pydantic import BaseModel
 from telethon import functions
 from telethon.tl.types import ReactionEmoji
 from typing import Any, Dict, List, Optional, Union
@@ -32,7 +33,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         self.conversation_manager = conversation_manager
         self.uploader = Uploader(self.config, self.client)
 
-    async def _send_message(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _send_message(self, data: BaseModel) -> Dict[str, Any]:
         """Send a message to a chat
 
         Args:
@@ -41,24 +42,22 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         Returns:
             Dict[str, Any]: Dictionary containing the status and message_ids
         """
-        conversation_id = self._format_conversation_id(data.get("conversation_id"))
+        conversation_id = self._format_conversation_id(data.conversation_id)
         entity = await self._get_entity(conversation_id)
         message_ids = []
-        reply_to_message_id = data.get("thread_id", None)
 
-        for message in self._split_long_message(data.get("text")):
+        for message in self._split_long_message(data.text):
             await self.rate_limiter.limit_request("message", conversation_id)
 
             message = await self.client.send_message(
-                entity=entity, message=message, reply_to=reply_to_message_id
+                entity=entity, message=message, reply_to=None
             )
             if hasattr(message, "id"):
                 message_ids.append(str(message.id))
 
             await self.conversation_manager.add_to_conversation({"message": message})
 
-        attachments = data.get("attachments", [])
-        for attachment in attachments:
+        for attachment in data.attachments:
             await self.rate_limiter.limit_request("message", conversation_id)
             attachment_info = await self.uploader.upload_attachment(entity, attachment)
 
@@ -76,7 +75,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         logging.info(f"Message sent to conversation {conversation_id}")
         return {"request_completed": True, "message_ids": message_ids}
 
-    async def _edit_message(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _edit_message(self, data: BaseModel) -> Dict[str, Any]:
         """Edit a message
 
         Args:
@@ -85,7 +84,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         Returns:
             Dict[str, Any]: Dictionary containing the status
         """
-        conversation_id = self._format_conversation_id(data.get("conversation_id"))
+        conversation_id = self._format_conversation_id(data.conversation_id)
         entity = await self._get_entity(conversation_id)
 
         await self.rate_limiter.limit_request("edit_message", conversation_id)
@@ -93,15 +92,15 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
             "event_type": "edited_message",
             "message": await self.client.edit_message(
                 entity=entity,
-                message=int(data.get("message_id")),
-                text=data.get("text")
+                message=int(data.message_id),
+                text=data.text
             )
         })
 
         logging.info(f"Message edited in conversation {conversation_id}")
         return {"request_completed": True}
 
-    async def _delete_message(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _delete_message(self, data: BaseModel) -> Dict[str, Any]:
         """Delete a message
 
         Args:
@@ -110,22 +109,22 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         Returns:
             Dict[str, Any]: Dictionary containing the status
         """
-        entity = await self._get_entity(self._format_conversation_id(data["conversation_id"]))
-        await self.rate_limiter.limit_request("delete_message", data["conversation_id"])
-        messages = await self.client.delete_messages(entity=entity, message_ids=[(int(data["message_id"]))])
+        entity = await self._get_entity(self._format_conversation_id(data.conversation_id))
+        await self.rate_limiter.limit_request("delete_message", data.conversation_id)
+        messages = await self.client.delete_messages(entity=entity, message_ids=[(int(data.message_id))])
 
         if messages:
             await self.conversation_manager.delete_from_conversation(
                 outgoing_event={
-                    "deleted_ids": [data["message_id"]],
-                    "conversation_id": data["conversation_id"]
+                    "deleted_ids": [data.message_id],
+                    "conversation_id": data.conversation_id
                 }
             )
 
-        logging.info(f"Message deleted in conversation {data['conversation_id']}")
+        logging.info(f"Message deleted in conversation {data.conversation_id}")
         return {"request_completed": True}
 
-    async def _add_reaction(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _add_reaction(self, data: BaseModel) -> Dict[str, Any]:
         """Add a reaction to a message
 
         Args:
@@ -134,12 +133,12 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         Returns:
             Dict[str, Any]: Dictionary containing the status
         """
-        conversation_id = self._format_conversation_id(data.get("conversation_id"))
+        conversation_id = self._format_conversation_id(data.conversation_id)
         entity = await self._get_entity(conversation_id)
-        emoji_symbol = emoji.emojize(f":{data['emoji']}:")
+        emoji_symbol = emoji.emojize(f":{data.emoji}:")
 
-        if not emoji_symbol or emoji_symbol == f":{data['emoji']}:":
-            logging.error(f"Python library emoji does not support this emoji: {data['emoji']}")
+        if not emoji_symbol or emoji_symbol == f":{data.emoji}:":
+            logging.error(f"Python library emoji does not support this emoji: {data.emoji}")
             return {"request_completed": False}
 
         await self.rate_limiter.limit_request("add_reaction", conversation_id)
@@ -148,7 +147,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
             "message": await self.client(
                 functions.messages.SendReactionRequest(
                     peer=entity,
-                    msg_id=int(data.get("message_id")),
+                    msg_id=int(data.message_id),
                     reaction=[ReactionEmoji(emoticon=emoji_symbol)]
                 )
             )
@@ -157,7 +156,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         logging.info(f"Reaction added to message in conversation {conversation_id}")
         return {"request_completed": True}
 
-    async def _remove_reaction(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _remove_reaction(self, data: BaseModel) -> Dict[str, Any]:
         """Remove a specific reaction from a message
 
         Args:
@@ -166,17 +165,17 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         Returns:
             Dict[str, Any]: Dictionary containing the status
         """
-        conversation_id = self._format_conversation_id(data.get("conversation_id"))
+        conversation_id = self._format_conversation_id(data.conversation_id)
         entity = await self._get_entity(conversation_id)
-        emoji_symbol = emoji.emojize(f":{data['emoji']}:")
+        emoji_symbol = emoji.emojize(f":{data.emoji}:")
 
-        if not emoji_symbol or emoji_symbol == f":{data['emoji']}:":
-            logging.error(f"Python library emoji does not support this emoji: {data['emoji']}")
+        if not emoji_symbol or emoji_symbol == f":{data.emoji}:":
+            logging.error(f"Python library emoji does not support this emoji: {data.emoji}")
             return {"request_completed": False}
 
         await self.rate_limiter.limit_request("get_messages", conversation_id)
 
-        message_id = int(data.get("message_id"))
+        message_id = int(data.message_id)
         old_message = await self.client.get_messages(entity, ids=message_id)
         old_reactions = getattr(old_message, "reactions", None) if old_message else None
         new_reactions = self._update_reactions_list(old_reactions, emoji_symbol)
@@ -196,7 +195,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         logging.info(f"Reaction removed from message in conversation {conversation_id}")
         return {"request_completed": True}
 
-    async def _fetch_history(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _fetch_history(self, data: BaseModel) -> Dict[str, Any]:
         """Fetch history of a conversation
 
         Args:
@@ -207,10 +206,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         Returns:
             Dict[str, Any]: Dictionary containing the status and history
         """
-        before = data.get("before", None)
-        after = data.get("after", None)
-
-        if not before and not after:
+        if not data.before and not data.after:
             logging.error("No before or after datetime provided")
             return {"request_completed": False}
 
@@ -218,10 +214,10 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
             self.config,
             self.client,
             self.conversation_manager,
-            data["conversation_id"],
-            before=before,
-            after=after,
-            history_limit=data.get("limit", None)
+            data.conversation_id,
+            before=data.before,
+            after=data.after,
+            history_limit=data.limit
         ).fetch()
 
         return {"request_completed": True, "history": history}

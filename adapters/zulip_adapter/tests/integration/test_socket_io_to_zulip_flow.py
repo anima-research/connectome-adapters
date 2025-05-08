@@ -176,13 +176,13 @@ class TestSocketIOToZulipFlowIntegration:
         """Test the complete flow from socket.io send_message to Zulip for private messages"""
         setup_private_conversation()
 
-        response = await adapter.outgoing_events_processor.process_event(
-            "send_message",
-            {
+        response = await adapter.outgoing_events_processor.process_event({
+            "event_type": "send_message",
+            "data": {
                 "conversation_id": "101_102",
                 "text": "Hello, world!"
             }
-        )
+        })
         assert response["request_completed"] is True
         assert response["message_ids"] == ["123"]
 
@@ -198,13 +198,13 @@ class TestSocketIOToZulipFlowIntegration:
         """Test the complete flow from socket.io send_message to Zulip for stream messages"""
         setup_stream_conversation()
 
-        response = await adapter.outgoing_events_processor.process_event(
-            "send_message",
-            {
+        response = await adapter.outgoing_events_processor.process_event({
+            "event_type": "send_message",
+            "data": {
                 "conversation_id": "201/Test Topic",
                 "text": "Hello, stream!"
             }
-        )
+        })
         assert response["request_completed"] is True
         assert response["message_ids"] == ["123"]
 
@@ -220,9 +220,9 @@ class TestSocketIOToZulipFlowIntegration:
         """Test sending a message with an attachment"""
         setup_private_conversation()
 
-        response = await adapter.outgoing_events_processor.process_event(
-            "send_message",
-            {
+        response = await adapter.outgoing_events_processor.process_event({
+            "event_type": "send_message",
+            "data": {
                 "conversation_id": "101_102",
                 "text": "See attachment",
                 "attachments": [
@@ -233,7 +233,7 @@ class TestSocketIOToZulipFlowIntegration:
                     }
                 ]
             }
-        )
+        })
         assert response["request_completed"] is True
         assert response["message_ids"] == ["123"]
 
@@ -252,14 +252,14 @@ class TestSocketIOToZulipFlowIntegration:
         setup_private_conversation()
         await setup_message("101_102")
 
-        response = await adapter.outgoing_events_processor.process_event(
-            "edit_message",
-            {
+        response = await adapter.outgoing_events_processor.process_event({
+            "event_type": "edit_message",
+            "data": {
                 "conversation_id": "101_102",
                 "message_id": "12345",
                 "text": "Edited message content"
             }
-        )
+        })
         assert response["request_completed"] is True
 
         zulip_client_mock.update_message.assert_called_once_with({
@@ -273,13 +273,13 @@ class TestSocketIOToZulipFlowIntegration:
         setup_private_conversation()
         await setup_message("101_102")
 
-        response = await adapter.outgoing_events_processor.process_event(
-            "delete_message",
-            {
+        response = await adapter.outgoing_events_processor.process_event({
+            "event_type": "delete_message",
+            "data": {
                 "conversation_id": "101_102",
                 "message_id": "12345"
             }
-        )
+        })
         assert response["request_completed"] is True
 
         zulip_client_mock.call_endpoint.assert_called_once_with(
@@ -293,14 +293,14 @@ class TestSocketIOToZulipFlowIntegration:
         setup_private_conversation()
         await setup_message("101_102")
 
-        response = await adapter.outgoing_events_processor.process_event(
-            "add_reaction",
-            {
+        response = await adapter.outgoing_events_processor.process_event({
+            "event_type": "add_reaction",
+            "data": {
                 "conversation_id": "101_102",
                 "message_id": "12345",
                 "emoji": "thumbs_up"
             }
-        )
+        })
         assert response["request_completed"] is True
 
         zulip_client_mock.add_reaction.assert_called_once_with({
@@ -314,14 +314,14 @@ class TestSocketIOToZulipFlowIntegration:
         setup_private_conversation()
         await setup_message("101_102", reactions={"thumbs_up": 1})
 
-        response = await adapter.outgoing_events_processor.process_event(
-            "remove_reaction",
-            {
+        response = await adapter.outgoing_events_processor.process_event({
+            "event_type": "remove_reaction",
+            "data": {
                 "conversation_id": "101_102",
                 "message_id": "12345",
                 "emoji": "thumbs_up"
             }
-        )
+        })
         assert response["request_completed"] is True
 
         zulip_client_mock.remove_reaction.assert_called_once_with({

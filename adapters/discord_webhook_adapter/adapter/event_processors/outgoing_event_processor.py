@@ -3,6 +3,7 @@ import asyncio
 import json
 import logging
 
+from pydantic import BaseModel
 from typing import Any, Dict, List
 
 from adapters.discord_webhook_adapter.adapter.attachment_loaders.uploader import Uploader
@@ -28,7 +29,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         self.conversation_manager = conversation_manager
         self.uploader = Uploader(self.config)
 
-    async def _send_message(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _send_message(self, data: BaseModel) -> Dict[str, Any]:
         """Send a message to a chat
 
         Args:
@@ -37,25 +38,25 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         Returns:
             Dictionary containing the status and message_ids
         """
-        webhook_info = await self._get_webhook_info(data["conversation_id"])
-        webhook_info["conversation_id"] = data["conversation_id"]
+        webhook_info = await self._get_webhook_info(data.conversation_id)
+        webhook_info["conversation_id"] = data.conversation_id
 
-        if data.get("custom_name", None):
-            webhook_info["name"] = data["custom_name"]
+        if data.custom_name:
+            webhook_info["name"] = data.custom_name
 
         message_ids = []
 
-        for response in await self._send_text_message(webhook_info, data["text"]):
+        for response in await self._send_text_message(webhook_info, data.text):
             message_ids.append(response.get("id", ""))
             self.conversation_manager.add_to_conversation({**response, **webhook_info})
 
-        attachments = self.uploader.upload_attachment(data.get("attachments", []))
+        attachments = self.uploader.upload_attachment(data.attachments)
         for response in await self._send_attachments(webhook_info, attachments):
             message_ids.append(response.get("id", ""))
             self.conversation_manager.add_to_conversation({**response, **webhook_info})
 
-        self.uploader.clean_up_uploaded_files(data.get("attachments", []))
-        logging.info(f"Message sent to {data['conversation_id']}")
+        self.uploader.clean_up_uploaded_files(data.attachments)
+        logging.info(f"Message sent to {data.conversation_id}")
         return {"request_completed": True, "message_ids": list(filter(len, message_ids))}
 
     async def _send_text_message(self,
@@ -121,7 +122,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
 
         return responses
 
-    async def _edit_message(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _edit_message(self, data: BaseModel) -> Dict[str, Any]:
         """Edit a message
 
         Args:
@@ -130,18 +131,18 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         Returns:
             Dictionary containing the status
         """
-        webhook_info = await self._get_webhook_info(data["conversation_id"])
+        webhook_info = await self._get_webhook_info(data.conversation_id)
         await self.rate_limiter.limit_request("edit_message", webhook_info["url"])
         await self._check_api_response(
             await self.session.patch(
-                f"{webhook_info['url']}/messages/{data['message_id']}",
-                json={"content": data["text"]}
+                f"{webhook_info['url']}/messages/{data.message_id}",
+                json={"content": data.text}
             )
         )
-        logging.info(f"Message {data['message_id']} edited successfully")
+        logging.info(f"Message {data.message_id} edited successfully")
         return {"request_completed": True}
 
-    async def _delete_message(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _delete_message(self, data: BaseModel) -> Dict[str, Any]:
         """Delete a message
 
         Args:
@@ -150,18 +151,21 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         Returns:
             Dictionary containing the status
         """
-        webhook_info = await self._get_webhook_info(data["conversation_id"])
+        webhook_info = await self._get_webhook_info(data.conversation_id)
         await self.rate_limiter.limit_request("delete_message", webhook_info["url"])
         await self._check_api_response(
             await self.session.delete(
-                f"{webhook_info['url']}/messages/{data['message_id']}"
+                f"{webhook_info['url']}/messages/{data.message_id}"
             )
         )
-        self.conversation_manager.delete_from_conversation(data)
-        logging.info(f"Message {data['message_id']} deleted successfully")
+        self.conversation_manager.delete_from_conversation({
+            "conversation_id": data.conversation_id,
+            "message_id": data.message_id
+        })
+        logging.info(f"Message {data.message_id} deleted successfully")
         return {"request_completed": True}
 
-    async def _fetch_history(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _fetch_history(self, data: BaseModel) -> Dict[str, Any]:
         """Fetch history of a conversation
 
         Args:
@@ -172,22 +176,19 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         Returns:
             Dict[str, Any]: Dictionary containing the status and history
         """
-        before = data.get("before", None)
-        after = data.get("after", None)
-
-        if not before and not after:
+        if not data.before and not data.after:
             logging.error("No before or after datetime provided")
             return {"request_completed": False}
 
-        webhook_info = await self._get_webhook_info(data["conversation_id"])
+        webhook_info = await self._get_webhook_info(data.conversation_id)
         history = await HistoryFetcher(
             self.config,
             self.client.get_client_bot(webhook_info["bot_token"]),
             self.conversation_manager,
-            data["conversation_id"],
-            before=before,
-            after=after,
-            history_limit=data.get("limit", None)
+            data.conversation_id,
+            before=data.before,
+            after=data.after,
+            history_limit=data.limit
         ).fetch()
 
         return {"request_completed": True, "history": history}
@@ -212,10 +213,10 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
             return
         raise Exception(f"Error processing webhook message: {await response.text()}")
 
-    async def _add_reaction(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _add_reaction(self, data: BaseModel) -> Dict[str, Any]:
         """Add a reaction to a message. Not supported for webhooks adapter"""
         raise NotImplementedError("adding reactions is not supported for webhooks adapter")
 
-    async def _remove_reaction(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _remove_reaction(self, data: BaseModel) -> Dict[str, Any]:
         """Remove a reaction from a message. Not supported for webhooks adapter"""
         raise NotImplementedError("removing reactions is not supported for webhooks adapter")

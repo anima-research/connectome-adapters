@@ -72,14 +72,13 @@ class Adapter():
         await self._emit_event("disconnect")
         logging.info("Adapter stopped")
 
-    async def process_outgoing_event(self, event_type: str, data: Any) -> Dict[str, Any]:
+    async def process_outgoing_event(self, data: Any) -> Dict[str, Any]:
         """Process events from socket_io.client
 
         Args:
-            event_type: event type
             data: data for event
 
         Returns:
             Dict[str, Any]: Dictionary containing the status and data fields if applicable
         """
-        return await self.outgoing_events_processor.process_event(event_type, data)
+        return await self.outgoing_events_processor.process_event(data)

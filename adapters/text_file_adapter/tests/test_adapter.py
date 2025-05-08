@@ -114,8 +114,11 @@ class TestFileAdapter:
     @pytest.mark.asyncio
     async def test_process_outgoing_event_success(self, adapter):
         """Test successful processing of outgoing events"""
-        test_data = {"path": "/path/to/file.txt", "content": "Test content"}
-        result = await adapter.process_outgoing_event("create", test_data)
+        test_data = {
+            "event_type": "create",
+            "data": {"path": "/path/to/file.txt", "content": "Test content"}
+        }
+        result = await adapter.process_outgoing_event(test_data)
 
         assert result["request_completed"] is True
-        adapter.outgoing_events_processor.process_event.assert_awaited_once_with("create", test_data)
+        adapter.outgoing_events_processor.process_event.assert_awaited_once_with(test_data)

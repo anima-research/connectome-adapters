@@ -90,51 +90,22 @@ class TestOutgoingEventProcessor:
             processor.rate_limiter = rate_limiter_mock
             return processor
 
-    class TestProcessEvent:
-        """Tests for the process_event method"""
-
-        @pytest.mark.asyncio
-        @pytest.mark.parametrize("event_type", [
-            OutgoingEventType.SEND_MESSAGE,
-            OutgoingEventType.EDIT_MESSAGE,
-            OutgoingEventType.DELETE_MESSAGE,
-            OutgoingEventType.ADD_REACTION,
-            OutgoingEventType.REMOVE_REACTION
-        ])
-        async def test_process_event_calls_correct_handler(self, processor, event_type):
-            """Test that process_event calls the correct handler method"""
-            data = {"test": "data"}
-            handler_mocks = {}
-
-            for handler_type in OutgoingEventType:
-                method_name = f"_handle_{handler_type.value}_event"
-                handler_mock = AsyncMock(return_value={"request_completed": True})
-                handler_mocks[handler_type] = handler_mock
-                setattr(processor, method_name, handler_mock)
-
-            response = await processor.process_event(event_type, data)
-            assert response["request_completed"] is True
-            handler_mocks[event_type].assert_called_once_with(data)
-
-        @pytest.mark.asyncio
-        async def test_process_event_unknown_type(self, processor):
-            """Test handling an unknown event type"""
-            response = await processor.process_event("unknown_type", {})
-            assert response["request_completed"] is False
-
     class TestSendMessage:
         """Tests for the send_message method"""
 
         @pytest.mark.asyncio
         async def test_send_message_private_success(self, processor, zulip_client_mock):
             """Test sending a private message successfully"""
-            data = {
-                "conversation_id": "123_456",
-                "text": "Hello, world!"
+            event_data = {
+                "event_type": OutgoingEventType.SEND_MESSAGE,
+                "data": {
+                    "conversation_id": "123_456",
+                    "text": "Hello, world!"
+                }
             }
 
             with patch("asyncio.sleep"):
-                response = await processor.process_event(OutgoingEventType.SEND_MESSAGE, data)
+                response = await processor.process_event(event_data)
                 assert response["request_completed"] is True
 
             zulip_client_mock.send_message.assert_called_once_with({
@@ -147,13 +118,16 @@ class TestOutgoingEventProcessor:
         @pytest.mark.asyncio
         async def test_send_message_stream_success(self, processor, zulip_client_mock):
             """Test sending a stream message successfully"""
-            data = {
-                "conversation_id": "789/Some topic",
-                "text": "Hello, stream!"
+            event_data = {
+                "event_type": OutgoingEventType.SEND_MESSAGE,
+                "data": {
+                    "conversation_id": "789/Some topic",
+                    "text": "Hello, stream!"
+                }
             }
 
             with patch("asyncio.sleep"):
-                response = await processor.process_event(OutgoingEventType.SEND_MESSAGE, data)
+                response = await processor.process_event(event_data)
                 assert response["request_completed"] is True
 
             zulip_client_mock.send_message.assert_called_once_with({
@@ -166,13 +140,16 @@ class TestOutgoingEventProcessor:
         @pytest.mark.asyncio
         async def test_send_message_long_text(self, processor, zulip_client_mock):
             """Test sending a message with text longer than max length"""
-            data = {
-                "conversation_id": "123_456",
-                "text": "This is a sentence. " * 10
+            event_data = {
+                "event_type": OutgoingEventType.SEND_MESSAGE,
+                "data": {
+                    "conversation_id": "123_456",
+                    "text": "This is a sentence. " * 10
+                }
             }
 
             with patch("asyncio.sleep"):
-                response = await processor.process_event(OutgoingEventType.SEND_MESSAGE, data)
+                response = await processor.process_event(event_data)
                 assert response["request_completed"] is True
             assert zulip_client_mock.send_message.call_count > 1
 
@@ -180,28 +157,32 @@ class TestOutgoingEventProcessor:
         async def test_send_message_missing_required_fields(self, processor):
             """Test sending a message with missing required fields"""
             # Missing conversation_id
-            response = await processor.process_event(
-                OutgoingEventType.SEND_MESSAGE, {"text": "Hello"}
-            )
+            response = await processor.process_event({
+                "event_type": OutgoingEventType.SEND_MESSAGE,
+                "data": {"text": "Hello"}
+            })
             assert response["request_completed"] is False
 
             # Missing text
-            response = await processor.process_event(
-                OutgoingEventType.SEND_MESSAGE, {"conversation_id": "123_456"}
-            )
+            response = await processor.process_event({
+                "event_type": OutgoingEventType.SEND_MESSAGE,
+                "data": {"conversation_id": "123_456"}
+            })
             assert response["request_completed"] is False
 
         @pytest.mark.asyncio
         async def test_send_message_api_failure(self, processor, zulip_client_mock):
             """Test sending a message when API fails"""
             zulip_client_mock.send_message.return_value = {"result": "error", "msg": "Test error"}
-
-            data = {
-                "conversation_id": "123_456",
-                "text": "Hello, world!"
+            event_data = {
+                "event_type": OutgoingEventType.SEND_MESSAGE,
+                "data": {
+                    "conversation_id": "123_456",
+                    "text": "Hello, world!"
+                }
             }
 
-            response = await processor.process_event(OutgoingEventType.SEND_MESSAGE, data)
+            response = await processor.process_event(event_data)
             assert response["request_completed"] is False
 
     class TestEditMessage:
@@ -210,13 +191,16 @@ class TestOutgoingEventProcessor:
         @pytest.mark.asyncio
         async def test_edit_message_success(self, processor, zulip_client_mock):
             """Test successfully editing a message"""
-            data = {
-                "conversation_id": "123_456",
-                "message_id": "789",
-                "text": "Updated text"
+            event_data = {
+                "event_type": OutgoingEventType.EDIT_MESSAGE,
+                "data": {
+                    "conversation_id": "123_456",
+                    "message_id": "789",
+                    "text": "Updated text"
+                }
             }
+            response = await processor.process_event(event_data)
 
-            response = await processor.process_event(OutgoingEventType.EDIT_MESSAGE, data)
             assert response["request_completed"] is True
             zulip_client_mock.update_message.assert_called_once_with({
                 "message_id": 789,  # Should be converted to int
@@ -227,35 +211,40 @@ class TestOutgoingEventProcessor:
         async def test_edit_message_missing_required_fields(self, processor):
             """Test editing a message with missing required fields"""
             # Missing conversation_id
-            response = await processor.process_event(
-                OutgoingEventType.EDIT_MESSAGE, {"message_id": "789", "text": "Hello"}
-            )
+            response = await processor.process_event({
+                "event_type": OutgoingEventType.EDIT_MESSAGE,
+                "data": {"message_id": "789", "text": "Hello"}
+            })
             assert response["request_completed"] is False
 
             # Missing message_id
-            response = await processor.process_event(
-                OutgoingEventType.EDIT_MESSAGE, {"conversation_id": "123_456", "text": "Hello"}
-            )
+            response = await processor.process_event({
+                "event_type": OutgoingEventType.EDIT_MESSAGE,
+                "data": {"conversation_id": "123_456", "text": "Hello"}
+            })
             assert response["request_completed"] is False
 
             # Missing text
-            response = await processor.process_event(
-                OutgoingEventType.EDIT_MESSAGE, {"conversation_id": "123_456", "message_id": "789"}
-            )
+            response = await processor.process_event({
+                "event_type": OutgoingEventType.EDIT_MESSAGE,
+                "data": {"conversation_id": "123_456", "message_id": "789"}
+            })
             assert response["request_completed"] is False
 
         @pytest.mark.asyncio
         async def test_edit_message_api_failure(self, processor, zulip_client_mock):
             """Test editing a message when API fails"""
             zulip_client_mock.update_message.return_value = {"result": "error", "msg": "Test error"}
-
-            data = {
-                "conversation_id": "123_456",
-                "message_id": "789",
-                "text": "Updated text"
+            event_data = {
+                "event_type": OutgoingEventType.EDIT_MESSAGE,
+                "data": {
+                    "conversation_id": "123_456",
+                    "message_id": "789",
+                    "text": "Updated text"
+                }
             }
+            response = await processor.process_event(event_data)
 
-            response = await processor.process_event(OutgoingEventType.EDIT_MESSAGE, data)
             assert response["request_completed"] is False
 
     class TestDeleteMessage:
@@ -264,43 +253,49 @@ class TestOutgoingEventProcessor:
         @pytest.mark.asyncio
         async def test_delete_message_success(self, processor, zulip_client_mock):
             """Test successfully deleting a message"""
-            data = {
-                "conversation_id": "123_456",
-                "message_id": "789"
+            event_data = {
+                "event_type": OutgoingEventType.DELETE_MESSAGE,
+                "data": {
+                    "conversation_id": "123_456",
+                    "message_id": "789"
+                }
             }
+            response = await processor.process_event(event_data)
 
-            response = await processor.process_event(OutgoingEventType.DELETE_MESSAGE, data)
             assert response["request_completed"] is True
-
             zulip_client_mock.call_endpoint.assert_called_once_with("messages/789",method="DELETE")
-            processor.conversation_manager.delete_from_conversation.assert_called_once_with(outgoing_event=data)
+            processor.conversation_manager.delete_from_conversation.assert_called_once()
 
         @pytest.mark.asyncio
         async def test_delete_message_missing_required_fields(self, processor):
             """Test deleting a message with missing required fields"""
             # Missing conversation_id
-            response = await processor.process_event(
-                OutgoingEventType.DELETE_MESSAGE, {"message_id": "789"}
-            )
+            response = await processor.process_event({
+                "event_type": OutgoingEventType.DELETE_MESSAGE,
+                "data": {"message_id": "789"}
+            })
             assert response["request_completed"] is False
 
             # Missing message_id
-            response = await processor.process_event(
-                OutgoingEventType.DELETE_MESSAGE, {"conversation_id": "123_456"}
-            )
+            response = await processor.process_event({
+                "event_type": OutgoingEventType.DELETE_MESSAGE,
+                "data": {"conversation_id": "123_456"}
+            })
             assert response["request_completed"] is False
 
         @pytest.mark.asyncio
         async def test_delete_message_api_failure(self, processor, zulip_client_mock):
             """Test deleting a message when API fails"""
             zulip_client_mock.call_endpoint.return_value = {"result": "error", "msg": "Test error"}
-
-            data = {
-                "conversation_id": "123_456",
-                "message_id": "789"
+            event_data = {
+                "event_type": OutgoingEventType.DELETE_MESSAGE,
+                "data": {
+                    "conversation_id": "123_456",
+                    "message_id": "789"
+                }
             }
+            response = await processor.process_event(event_data)
 
-            response = await processor.process_event(OutgoingEventType.DELETE_MESSAGE, data)
             assert response["request_completed"] is False
             processor.conversation_manager.delete_from_conversation.assert_not_called()
 
@@ -310,19 +305,22 @@ class TestOutgoingEventProcessor:
         @pytest.mark.asyncio
         async def test_add_reaction_success(self, processor, zulip_client_mock):
             """Test successfully adding a reaction"""
-            data = {
-                "conversation_id": "123_456",
-                "message_id": "789",
-                "emoji": "thumbs_up"
+            event_data = {
+                "event_type": OutgoingEventType.ADD_REACTION,
+                "data": {
+                    "conversation_id": "123_456",
+                    "message_id": "789",
+                    "emoji": "thumbs_up"
+                }
             }
 
             instance_mock = MagicMock()
             instance_mock.standard_to_platform_specific.return_value = "+1"
 
             with patch.object(EmojiConverter, "_instance", instance_mock):
-                response = await processor.process_event(OutgoingEventType.ADD_REACTION, data)
-                assert response["request_completed"] is True
+                response = await processor.process_event(event_data)
 
+                assert response["request_completed"] is True
                 zulip_client_mock.add_reaction.assert_called_once_with({
                     "message_id": 789,
                     "emoji_name": "+1"
@@ -332,57 +330,64 @@ class TestOutgoingEventProcessor:
         async def test_add_reaction_missing_required_fields(self, processor):
             """Test adding a reaction with missing required fields"""
             # Missing conversation_id
-            response = await processor.process_event(
-                OutgoingEventType.ADD_REACTION, {"message_id": "789", "emoji": "+1"}
-            )
+            response = await processor.process_event({
+                "event_type": OutgoingEventType.ADD_REACTION,
+                "data": {"message_id": "789", "emoji": "+1"}
+            })
             assert response["request_completed"] is False
 
             # Missing message_id
-            response = await processor.process_event(
-                OutgoingEventType.ADD_REACTION, {"conversation_id": "123_456", "emoji": "+1"}
-            )
+            response = await processor.process_event({
+                "event_type": OutgoingEventType.ADD_REACTION,
+                "data": {"conversation_id": "123_456", "emoji": "+1"}
+            })
             assert response["request_completed"] is False
 
             # Missing emoji
-            response = await processor.process_event(
-                OutgoingEventType.ADD_REACTION, {"conversation_id": "123_456", "message_id": "789"}
-            )
+            response = await processor.process_event({
+                "event_type": OutgoingEventType.ADD_REACTION,
+                "data": {"conversation_id": "123_456", "message_id": "789"}
+            })
             assert response["request_completed"] is False
 
         @pytest.mark.asyncio
         async def test_add_reaction_api_failure(self, processor, zulip_client_mock):
             """Test adding a reaction when API fails"""
             zulip_client_mock.add_reaction.return_value = {"result": "error", "msg": "Test error"}
-
-            data = {
-                "conversation_id": "123_456",
-                "message_id": "789",
-                "emoji": "thumbs_up"
+            event_data = {
+                "event_type": OutgoingEventType.ADD_REACTION,
+                "data": {
+                    "conversation_id": "123_456",
+                    "message_id": "789",
+                    "emoji": "thumbs_up"
+                }
             }
-
             instance_mock = MagicMock()
             instance_mock.standard_to_platform_specific.return_value = "+1"
 
             with patch.object(EmojiConverter, "_instance", instance_mock):
-                response = await processor.process_event(OutgoingEventType.ADD_REACTION, data)
+                response = await processor.process_event(event_data)
                 assert response["request_completed"] is False
 
         @pytest.mark.asyncio
         async def test_remove_reaction_success(self, processor, zulip_client_mock):
             """Test successfully removing a reaction"""
-            data = {
-                "conversation_id": "123_456",
-                "message_id": "789",
-                "emoji": "thumbs_up"
+            event_data = {
+                "event_type": OutgoingEventType.REMOVE_REACTION,
+                "data": {
+                    "conversation_id": "123_456",
+                    "message_id": "789",
+                    "emoji": "thumbs_up"
+                }
             }
 
             instance_mock = MagicMock()
             instance_mock.standard_to_platform_specific.return_value = "+1"
 
             with patch.object(EmojiConverter, "_instance", instance_mock):
-                response = await processor.process_event(OutgoingEventType.REMOVE_REACTION, data)
-                assert response["request_completed"] is True
+                response = await processor.process_event(event_data)
 
+                assert response["request_completed"] is True
                 zulip_client_mock.remove_reaction.assert_called_once_with({
                     "message_id": 789,
                     "emoji_name": "+1"
@@ -392,38 +397,43 @@ class TestOutgoingEventProcessor:
         async def test_remove_reaction_missing_required_fields(self, processor):
             """Test removing a reaction with missing required fields"""
             # Missing conversation_id
-            response = await processor.process_event(
-                OutgoingEventType.REMOVE_REACTION, {"message_id": "789", "emoji": "+1"}
-            )
+            response = await processor.process_event({
+                "event_type": OutgoingEventType.REMOVE_REACTION,
+                "data": {"message_id": "789", "emoji": "+1"}
+            })
             assert response["request_completed"] is False
 
             # Missing message_id
-            response = await processor.process_event(
-                OutgoingEventType.REMOVE_REACTION, {"conversation_id": "123_456", "emoji": "+1"}
-            )
+            response = await processor.process_event({
+                "event_type": OutgoingEventType.REMOVE_REACTION,
+                "data": {"conversation_id": "123_456", "emoji": "+1"}
+            })
             assert response["request_completed"] is False
 
             # Missing emoji
-            response = await processor.process_event(
-                OutgoingEventType.REMOVE_REACTION, {"conversation_id": "123_456", "message_id": "789"}
-            )
+            response = await processor.process_event({
+                "event_type": OutgoingEventType.REMOVE_REACTION,
+                "data": {"conversation_id": "123_456", "message_id": "789"}
+            })
+            assert response["request_completed"] is False
 
         @pytest.mark.asyncio
         async def test_remove_reaction_api_failure(self, processor, zulip_client_mock):
             """Test removing a reaction when API fails"""
             zulip_client_mock.remove_reaction.return_value = {"result": "error", "msg": "Test error"}
-
-            data = {
-                "conversation_id": "123_456",
-                "message_id": "789",
-                "emoji": "red_heart"
+            event_data = {
+                "event_type": OutgoingEventType.REMOVE_REACTION,
+                "data": {
+                    "conversation_id": "123_456",
+                    "message_id": "789",
+                    "emoji": "red_heart"
+                }
             }
-
             instance_mock = MagicMock()
             instance_mock.standard_to_platform_specific.return_value = "red_heart"
 
             with patch.object(EmojiConverter, "_instance", instance_mock):
-                response = await processor.process_event(OutgoingEventType.REMOVE_REACTION, data)
+                response = await processor.process_event(event_data)
                 assert response["request_completed"] is False
 
     class TestFetchHistory:
@@ -450,13 +460,16 @@ class TestOutgoingEventProcessor:
                     "attachments": []
                 }
             ]
-            data = {
-                "conversation_id": "123_456",
-                "before": 1627985000
+            event_data = {
+                "event_type": OutgoingEventType.FETCH_HISTORY,
+                "data": {
+                    "conversation_id": "123_456",
+                    "before": 1627985000
+                }
             }
 
             with patch.object(HistoryFetcher, "fetch", AsyncMock(return_value=mock_history)):
-                result = await processor.process_event(OutgoingEventType.FETCH_HISTORY, data)
+                result = await processor.process_event(event_data)
 
                 assert result["request_completed"] is True
                 assert result["history"] == mock_history
@@ -464,32 +477,16 @@ class TestOutgoingEventProcessor:
         @pytest.mark.asyncio
         async def test_fetch_history_missing_parameters(self, processor):
             """Test fetching history with missing parameters"""
-            data = {"conversation_id": "123_456"}
+            event_data = {
+                "event_type": OutgoingEventType.FETCH_HISTORY,
+                "data": {"conversation_id": "123_456"}
+            }
+            result = await processor.process_event(event_data)
 
-            result = await processor.process_event(OutgoingEventType.FETCH_HISTORY, data)
             assert result["request_completed"] is False
 
     class TestHelperMethods:
         """Tests for helper methods"""
-
-        def test_validate_fields_success(self, processor):
-            """Test validation with all required fields present"""
-            data = {
-                "field1": "value1",
-                "field2": "value2",
-                "field3": "value3"
-            }
-
-            assert processor._validate_fields(data, ["field1", "field2"], "test_operation") is True
-
-        def test_validate_fields_missing(self, processor):
-            """Test validation with missing required fields"""
-            data = {
-                "field1": "value1",
-                "field3": "value3"
-            }
-
-            assert processor._validate_fields(data, ["field1", "field2"], "test_operation") is False
 
         def test_check_api_request_success(self, processor):
             """Test API response checking with success result"""

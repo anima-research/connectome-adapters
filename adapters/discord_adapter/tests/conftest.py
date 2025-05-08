@@ -16,6 +16,7 @@ def default_config_data():
     return {
         "adapter": {
             "adapter_type": "discord",
+            "adapter_name": "discord_bot",
             "bot_token": "bot_token",
             "application_id": "123456789",
             "adapter_id": "12345",

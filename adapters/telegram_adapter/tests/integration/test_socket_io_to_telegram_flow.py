@@ -166,14 +166,14 @@ class TestSocketIOToTelegramFlowIntegration:
         assert len(adapter.conversation_manager.conversations) == 0
         assert len(adapter.conversation_manager.message_cache.messages) == 0
 
-        response = await adapter.outgoing_events_processor.process_event(
-            "send_message",
-            {
+        response = await adapter.outgoing_events_processor.process_event({
+            "event_type": "send_message",
+            "data": {
                 "conversation_id": "456",
                 "text": "Hello, world!",
                 "thread_id": None
             }
-        )
+        })
         assert response["request_completed"] is True
         assert response["message_ids"] == ["123"]
 
@@ -215,14 +215,14 @@ class TestSocketIOToTelegramFlowIntegration:
             text="Edited message content"
         )
 
-        response = await adapter.outgoing_events_processor.process_event(
-            "edit_message",
-            {
+        response = await adapter.outgoing_events_processor.process_event({
+            "event_type": "edit_message",
+            "data": {
                 "conversation_id": "456",
                 "message_id": "123",
                 "text": "Edited message content"
             }
-        )
+        })
         assert response["request_completed"] is True
 
         telethon_client_mock.get_entity.assert_called_once()
@@ -253,13 +253,13 @@ class TestSocketIOToTelegramFlowIntegration:
         await setup_message()
         telethon_client_mock.delete_messages.return_value = [MagicMock()]
 
-        response = await adapter.outgoing_events_processor.process_event(
-            "delete_message",
-            {
+        response = await adapter.outgoing_events_processor.process_event({
+            "event_type": "delete_message",
+            "data": {
                 "conversation_id": "456",
                 "message_id": "123"
             }
-        )
+        })
         assert response["request_completed"] is True
 
         telethon_client_mock.get_entity.assert_called_once()
@@ -301,14 +301,14 @@ class TestSocketIOToTelegramFlowIntegration:
                 reactions_list=[("👍", 1)]
             )
 
-            response = await adapter.outgoing_events_processor.process_event(
-                "add_reaction",
-                {
+            response = await adapter.outgoing_events_processor.process_event({
+                "event_type": "add_reaction",
+                "data": {
                     "conversation_id": "456",
                     "message_id": "123",
                     "emoji": "thumbs_up"
                 }
-            )
+            })
             assert response["request_completed"] is True
 
             mock_reaction_emoji.assert_called_once_with(emoticon="👍")
@@ -358,14 +358,14 @@ class TestSocketIOToTelegramFlowIntegration:
                 reactions_list=[]  # Empty reactions
             )
 
-            response = await adapter.outgoing_events_processor.process_event(
-                "remove_reaction",
-                {
+            response = await adapter.outgoing_events_processor.process_event({
+                "event_type": "remove_reaction",
+                "data": {
                     "conversation_id": "456",
                     "message_id": "123",
                     "emoji": "thumbs_up"
                 }
-            )
+            })
             assert response["request_completed"] is True
 
             telethon_client_mock.get_entity.assert_called_once()

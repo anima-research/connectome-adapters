@@ -138,9 +138,12 @@ class TestAdapter:
             """Test processing Socket.IO events"""
             adapter.outgoing_events_processor = outgoing_event_processor_mock
             adapter.client = MagicMock()
-            test_data = {"test": "socket_data"}
 
-            result = await adapter.process_outgoing_event("send_message", test_data)
+            test_data = {
+                "event_type": "send_message",
+                "data": {"test": "socket_data"}
+            }
+            result = await adapter.process_outgoing_event(test_data)
 
-            outgoing_event_processor_mock.process_event.assert_called_once_with("send_message", test_data)
+            outgoing_event_processor_mock.process_event.assert_called_once_with(test_data)
             assert result is True

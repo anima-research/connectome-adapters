@@ -77,39 +77,6 @@ class TestOutgoingEventProcessor:
         fetcher.fetch = AsyncMock(return_value=[])
         return fetcher
 
-    class TestProcessEvent:
-        """Tests for the process_event method"""
-
-        @pytest.mark.asyncio
-        @pytest.mark.parametrize("event_type", [
-            OutgoingEventType.SEND_MESSAGE,
-            OutgoingEventType.EDIT_MESSAGE,
-            OutgoingEventType.DELETE_MESSAGE,
-            OutgoingEventType.ADD_REACTION,
-            OutgoingEventType.REMOVE_REACTION,
-            OutgoingEventType.FETCH_HISTORY
-        ])
-        async def test_process_event_calls_correct_handler(self, processor, event_type):
-            """Test that process_event calls the correct handler method"""
-            data = {"test": "data"}
-            handler_mocks = {}
-
-            for handler_type in OutgoingEventType:
-                method_name = f"_handle_{handler_type.value}_event"
-                handler_mock = AsyncMock(return_value={"request_completed": True})
-                handler_mocks[handler_type] = handler_mock
-                setattr(processor, method_name, handler_mock)
-
-            response = await processor.process_event(event_type, data)
-            assert response["request_completed"] is True
-            handler_mocks[event_type].assert_called_once_with(data)
-
-        @pytest.mark.asyncio
-        async def test_process_unknown_event_type(self, processor):
-            """Test handling an unknown event type"""
-            response = await processor.process_event("unknown_type", {})
-            assert response["request_completed"] is False
-
     class TestSendMessage:
         """Tests for the send_message method"""
 
@@ -121,9 +88,12 @@ class TestOutgoingEventProcessor:
                 "ts": "1662031200.123456"
             }
 
-            response = await processor._handle_send_message_event({
-                "conversation_id": "T12345/C123456789",
-                "text": "Hello, world!"
+            response = await processor.process_event({
+                "event_type": "send_message",
+                "data": {
+                    "conversation_id": "T12345/C123456789",
+                    "text": "Hello, world!"
+                }
             })
 
             assert response["request_completed"] is True
@@ -147,13 +117,14 @@ class TestOutgoingEventProcessor:
                 {"ok": True, "ts": "1662031201.123457"}
             ]
 
-            data = {
-                "conversation_id": "T12345/C123456789",
-                "text": "This is a very long message " * 100  # Very long message
-            }
-
             with patch.object(processor, "_split_long_message", return_value=["Part 1", "Part 2"]):
-                response = await processor._handle_send_message_event(data)
+                response = await processor.process_event({
+                    "event_type": "send_message",
+                    "data": {
+                        "conversation_id": "T12345/C123456789",
+                        "text": "This is a very long message " * 100  # Very long message
+                    }
+                })
 
                 assert response["request_completed"] is True
                 assert response["message_ids"] == ["1662031200.123456", "1662031201.123457"]
@@ -176,13 +147,15 @@ class TestOutgoingEventProcessor:
                     "size": 100
                 }
             ]
-            data = {
-                "conversation_id": "T12345/C123456789",
-                "text": "Message with attachments",
-                "attachments": attachments
+            event_data = {
+                "event_type": "send_message",
+                "data": {
+                    "conversation_id": "T12345/C123456789",
+                    "text": "Message with attachments",
+                    "attachments": attachments
+                }
             }
-
-            response = await processor._handle_send_message_event(data)
+            response = await processor.process_event(event_data)
 
             assert response["request_completed"] is True
             assert response["message_ids"] == ["1662031200.123456"]
@@ -195,15 +168,17 @@ class TestOutgoingEventProcessor:
         async def test_handle_send_message_missing_fields(self, processor):
             """Test handling missing fields in send message request"""
             # Missing 'text' field
-            data = {"conversation_id": "T12345/C123456789"}
-
-            response = await processor._handle_send_message_event(data)
+            response = await processor.process_event({
+                "event_type": "send_message",
+                "data": {"conversation_id": "T12345/C123456789"}
+            })
             assert response["request_completed"] is False
 
             # Missing 'conversation_id' field
-            data = {"text": "Hello, world!"}
-
-            response = await processor._handle_send_message_event(data)
+            response = await processor.process_event({
+                "event_type": "send_message",
+                "data": {"text": "Hello, world!"}
+            })
             assert response["request_completed"] is False
 
     class TestEditMessage:
@@ -213,14 +188,14 @@ class TestOutgoingEventProcessor:
         async def test_edit_message_success(self, processor, slack_client_mock):
             """Test successfully editing a message"""
             slack_client_mock.chat_update.return_value = {"ok": True}
-
-            data = {
-                "conversation_id": "T12345/C123456789",
-                "message_id": "1662031200.123456",
-                "text": "Updated text"
-            }
-
-            response = await processor._handle_edit_message_event(data)
+            response = await processor.process_event({
+                "event_type": "edit_message",
+                "data": {
+                    "conversation_id": "T12345/C123456789",
+                    "message_id": "1662031200.123456",
+                    "text": "Updated text"
+                }
+            })
 
             assert response["request_completed"] is True
             processor.rate_limiter.limit_request.assert_called_once_with(
@@ -236,30 +211,33 @@ class TestOutgoingEventProcessor:
         async def test_handle_edit_message_missing_fields(self, processor):
             """Test handling missing fields in edit message request"""
             # Missing 'text' field
-            data = {
-                "conversation_id": "T12345/C123456789",
-                "message_id": "1662031200.123456"
-            }
-
-            response = await processor._handle_edit_message_event(data)
+            response = await processor.process_event({
+                "event_type": "edit_message",
+                "data": {
+                    "conversation_id": "T12345/C123456789",
+                    "message_id": "1662031200.123456"
+                }
+            })
             assert response["request_completed"] is False
 
             # Missing 'message_id' field
-            data = {
-                "conversation_id": "T12345/C123456789",
-                "text": "Updated text"
-            }
-
-            response = await processor._handle_edit_message_event(data)
+            response = await processor.process_event({
+                "event_type": "edit_message",
+                "data": {
+                    "conversation_id": "T12345/C123456789",
+                    "text": "Updated text"
+                }
+            })
             assert response["request_completed"] is False
 
             # Missing 'conversation_id' field
-            data = {
-                "message_id": "1662031200.123456",
-                "text": "Updated text"
-            }
-
-            response = await processor._handle_edit_message_event(data)
+            response = await processor.process_event({
+                "event_type": "edit_message",
+                "data": {
+                    "message_id": "1662031200.123456",
+                    "text": "Updated text"
+                }
+            })
             assert response["request_completed"] is False
 
     class TestDeleteMessage:
@@ -269,13 +247,13 @@ class TestOutgoingEventProcessor:
         async def test_delete_message_success(self, processor, slack_client_mock):
             """Test successfully deleting a message"""
             slack_client_mock.chat_delete.return_value = {"ok": True}
-
-            data = {
-                "conversation_id": "T12345/C123456789",
-                "message_id": "1662031200.123456"
-            }
-
-            response = await processor._handle_delete_message_event(data)
+            response = await processor.process_event({
+                "event_type": "delete_message",
+                "data": {
+                    "conversation_id": "T12345/C123456789",
+                    "message_id": "1662031200.123456"
+                }
+            })
 
             assert response["request_completed"] is True
             processor.rate_limiter.limit_request.assert_called_once_with(
@@ -290,15 +268,17 @@ class TestOutgoingEventProcessor:
         async def test_handle_delete_message_missing_fields(self, processor):
             """Test handling missing fields in delete message request"""
             # Missing 'message_id' field
-            data = {"conversation_id": "T12345/C123456789"}
-
-            response = await processor._handle_delete_message_event(data)
+            response = await processor.process_event({
+                "event_type": "delete_message",
+                "data": {"conversation_id": "T12345/C123456789"}
+            })
             assert response["request_completed"] is False
 
             # Missing 'conversation_id' field
-            data = {"message_id": "1662031200.123456"}
-
-            response = await processor._handle_delete_message_event(data)
+            response = await processor.process_event({
+                "event_type": "delete_message",
+                "data": {"message_id": "1662031200.123456"}
+            })
             assert response["request_completed"] is False
 
     class TestReactions:
@@ -309,14 +289,15 @@ class TestOutgoingEventProcessor:
             """Test successfully adding a reaction"""
             slack_client_mock.reactions_add.return_value = {"ok": True}
 
-            data = {
-                "conversation_id": "T12345/C123456789",
-                "message_id": "1662031200.123456",
-                "emoji": "thumbs_up"
-            }
-
             with patch.object(EmojiConverter, "standard_to_platform_specific", return_value="+1"):
-                response = await processor._handle_add_reaction_event(data)
+                response = await processor.process_event({
+                    "event_type": "add_reaction",
+                    "data": {
+                        "conversation_id": "T12345/C123456789",
+                        "message_id": "1662031200.123456",
+                        "emoji": "thumbs_up"
+                    }
+                })
 
                 assert response["request_completed"] is True
                 processor.rate_limiter.limit_request.assert_called_once_with(
@@ -333,17 +314,17 @@ class TestOutgoingEventProcessor:
             """Test successfully removing a reaction"""
             slack_client_mock.reactions_remove.return_value = {"ok": True}
 
-            data = {
-                "conversation_id": "T12345/C123456789",
-                "message_id": "1662031200.123456",
-                "emoji": "thumbs_up"
-            }
-
             with patch.object(EmojiConverter, "standard_to_platform_specific", return_value="+1"):
-                response = await processor._handle_remove_reaction_event(data)
+                response = await processor.process_event({
+                    "event_type": "remove_reaction",
+                    "data": {
+                        "conversation_id": "T12345/C123456789",
+                        "message_id": "1662031200.123456",
+                        "emoji": "thumbs_up"
+                    }
+                })
 
                 assert response["request_completed"] is True
-
                 processor.rate_limiter.limit_request.assert_called_once_with(
                     "remove_reaction", "T12345/C123456789"
                 )
@@ -360,15 +341,17 @@ class TestOutgoingEventProcessor:
         @pytest.mark.filterwarnings("ignore::RuntimeWarning")
         async def test_fetch_history_before(self, processor):
             """Test fetching history with 'before' parameter"""
-            data = {
-                "conversation_id": "T12345/C123456789",
-                "before": 1662031200000,  # millisecond timestamp
-                "limit": 10
-            }
             mock_history = [{"message": "test"}]
 
             with patch.object(HistoryFetcher, "fetch", return_value=mock_history):
-                response = await processor._handle_fetch_history_event(data)
+                response = await processor.process_event({
+                    "event_type": "fetch_history",
+                    "data": {
+                        "conversation_id": "T12345/C123456789",
+                        "before": 1662031200000,  # millisecond timestamp
+                        "limit": 10
+                    }
+                })
 
                 assert response["request_completed"] is True
                 assert response["history"] == mock_history
@@ -377,15 +360,17 @@ class TestOutgoingEventProcessor:
         @pytest.mark.filterwarnings("ignore::RuntimeWarning")
         async def test_fetch_history_after(self, processor):
             """Test fetching history with 'after' parameter"""
-            data = {
-                "conversation_id": "T12345/C123456789",
-                "after": 1662031200000,  # millisecond timestamp
-                "limit": 10
-            }
             mock_history = [{"message": "test"}]
 
             with patch.object(HistoryFetcher, "fetch", return_value=mock_history):
-                response = await processor._handle_fetch_history_event(data)
+                response = await processor.process_event({
+                    "event_type": "fetch_history",
+                    "data": {
+                        "conversation_id": "T12345/C123456789",
+                        "after": 1662031200000,  # millisecond timestamp
+                        "limit": 10
+                    }
+                })
 
                 assert response["request_completed"] is True
                 assert response["history"] == mock_history
@@ -393,21 +378,25 @@ class TestOutgoingEventProcessor:
         @pytest.mark.asyncio
         async def test_fetch_history_missing_parameters(self, processor):
             """Test fetching history with missing before/after parameters"""
-            data = {
-                "conversation_id": "T12345/C123456789",
-                "limit": 10
-            }
-            response = await processor._handle_fetch_history_event(data)
+            response = await processor.process_event({
+                "event_type": "fetch_history",
+                "data": {
+                    "conversation_id": "T12345/C123456789",
+                    "limit": 10
+                }
+            })
 
             assert response["request_completed"] is False
 
         @pytest.mark.asyncio
         async def test_handle_fetch_history_missing_conversation_id(self, processor):
             """Test handling missing conversation_id in fetch history request"""
-            data = {
-                "before": 1662031200000,
-                "limit": 10
-            }
-            response = await processor._handle_fetch_history_event(data)
+            response = await processor.process_event({
+                "event_type": "fetch_history",
+                "data": {
+                    "before": 1662031200000,
+                    "limit": 10
+                }
+            })
 
             assert response["request_completed"] is False

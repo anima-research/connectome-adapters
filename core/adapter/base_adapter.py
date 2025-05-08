@@ -4,6 +4,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
 
+from core.event_processors.connection_events import ConnectionEvent
 from core.rate_limiter.rate_limiter import RateLimiter
 from core.utils.config import Config
 
@@ -136,7 +137,7 @@ class BaseAdapter(ABC):
             event_type: event type (connect, disconnect)
         """
         await self.socketio_server.emit_event(
-            event_type, {"adapter_type": self.adapter_type}
+            event_type, ConnectionEvent(adapter_type=self.adapter_type).model_dump()
         )
 
     async def stop(self) -> None:
@@ -169,11 +170,10 @@ class BaseAdapter(ABC):
         for event_info in await self.incoming_events_processor.process_event(event):
             await self.socketio_server.emit_event("bot_request", event_info)
 
-    async def process_outgoing_event(self, event_type: str, data: Any) -> Dict[str, Any]:
+    async def process_outgoing_event(self, data: Any) -> Dict[str, Any]:
         """Process events from socket_io.client
 
         Args:
-            event_type: event type
             data: data for event
 
         Returns:
@@ -183,4 +183,4 @@ class BaseAdapter(ABC):
             logging.error("Adapter is not connected to perform action")
             return {"request_completed": False}
 
-        return await self.outgoing_events_processor.process_event(event_type, data)
+        return await self.outgoing_events_processor.process_event(data)

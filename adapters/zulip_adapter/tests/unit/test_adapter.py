@@ -128,16 +128,16 @@ class TestAdapter:
             """Test processing Socket.IO events"""
             adapter.outgoing_events_processor = events_processor_mock({"request_completed": True})
             adapter.client = MagicMock()
-            test_data = {"test": "socket_data"}
+            test_data = {"event_type": "send_message", "data": {"test": "socket_data"}}
 
-            response = await adapter.process_outgoing_event("send_message", test_data)
+            response = await adapter.process_outgoing_event(test_data)
             assert response["request_completed"] is True
-            adapter.outgoing_events_processor.process_event.assert_called_once_with("send_message", test_data)
+            adapter.outgoing_events_processor.process_event.assert_called_once_with(test_data)
 
         @pytest.mark.asyncio
         async def test_process_socket_io_event_not_connected(self, adapter):
             """Test processing Socket.IO events when not connected"""
             adapter.client = None
 
-            response = await adapter.process_outgoing_event("send_message", {"test": "socket_data"})
+            response = await adapter.process_outgoing_event({"event_type": "send_message", "data": {"test": "socket_data"}})
             assert response["request_completed"] is False
