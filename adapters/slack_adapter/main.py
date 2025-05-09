@@ -31,12 +31,6 @@ async def main():
         await adapter.start()
         while adapter.running:
             await asyncio.sleep(20)
-            await adapter.outgoing_events_processor.process_event(
-                "send_message",
-                {
-                "conversation_id": "T08NQV76M9C/C08NJGAMGUX",
-                "text": "Hello, world!"
-            })
     except (ValueError, FileNotFoundError) as e:
         print(f"Configuration error: {e}")
         print("Please ensure slack_config.yaml exists with required settings")

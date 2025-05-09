@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import emoji
 import json
 import logging
@@ -21,6 +22,7 @@ class OutgoingEventType(str, Enum):
     ADD_REACTION = "add_reaction"
     REMOVE_REACTION = "remove_reaction"
     FETCH_HISTORY = "fetch_history"
+    FETCH_ATTACHMENT = "fetch_attachment"
 
 class BaseOutgoingEventProcessor(ABC):
     """Processes events from socket.io and sends them to adapter client"""
@@ -53,7 +55,8 @@ class BaseOutgoingEventProcessor(ABC):
                 OutgoingEventType.DELETE_MESSAGE: self._handle_delete_message_event,
                 OutgoingEventType.ADD_REACTION: self._handle_add_reaction_event,
                 OutgoingEventType.REMOVE_REACTION: self._handle_remove_reaction_event,
-                OutgoingEventType.FETCH_HISTORY: self._handle_fetch_history_event
+                OutgoingEventType.FETCH_HISTORY: self._handle_fetch_history_event,
+                OutgoingEventType.FETCH_ATTACHMENT: self._handle_fetch_attachment_event
             }
             outgoing_event = OutgoingEventBuilder(data).build()
             handler = event_handlers.get(outgoing_event.event_type)
@@ -62,6 +65,36 @@ class BaseOutgoingEventProcessor(ABC):
         except Exception as e:
             logging.error(f"Error processing event: {e}", exc_info=True)
             return {"request_completed": False}
+
+    async def _handle_fetch_attachment_event(self, data: BaseModel) -> Dict[str, Any]:
+        """Fetch attachment content
+
+        Args:
+            data: Event data containing attachment_id
+
+        Returns:
+            Dict[str, Any]: Dictionary containing the status and content
+        """
+        try:
+            attachment = self.conversation_manager.attachment_cache.get_attachment(data.attachment_id)
+
+            if attachment:
+                local_file_path = os.path.join(
+                    self.config.get_setting("attachments", "storage_dir"),
+                    attachment.file_path
+                )
+                with open(local_file_path, "rb") as f:
+                    return {
+                        "request_completed": True,
+                        "content": base64.b64encode(f.read()).decode("utf-8")
+                    }
+        except Exception as e:
+            logging.error(
+                f"Failed to fetch attachment {data.attachment_id}: {e}",
+                exc_info=True
+            )
+
+        return {"request_completed": False}
 
     async def _handle_send_message_event(self, data: BaseModel) -> Dict[str, Any]:
         """Send a message to a conversation

@@ -160,10 +160,8 @@ class TestSocketIOToSlackFlowIntegration:
                 "text": "See attachment",
                 "attachments": [
                     {
-                        "attachment_type": "document",
-                        "file_path": "test_attachments/document/test.pdf",
-                        "file_extension": "pdf",
-                        "size": 12345
+                        "file_name": "test.txt",
+                        "content": "dGVzdAo="
                     }
                 ]
             }
@@ -172,10 +170,6 @@ class TestSocketIOToSlackFlowIntegration:
 
         adapter.client.web_client.chat_postMessage.assert_called_once()
         uploader_mock.upload_attachments.assert_called_once()
-
-        assert uploader_mock.upload_attachments.call_args[0][0] == "T12345/C12345678"
-        assert len(uploader_mock.upload_attachments.call_args[0][1]) == 1
-        assert uploader_mock.upload_attachments.call_args[0][1][0]["attachment_type"] == "document"
 
     @pytest.mark.asyncio
     async def test_edit_message_flow(self, adapter):

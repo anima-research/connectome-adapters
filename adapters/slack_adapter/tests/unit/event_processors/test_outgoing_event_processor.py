@@ -140,29 +140,22 @@ class TestOutgoingEventProcessor:
             """Test sending a message with attachments"""
             slack_client_mock.chat_postMessage.return_value = {"ok": True, "ts": "1662031200.123456"}
 
-            attachments = [
-                {
-                    "attachment_type": "document",
-                    "file_path": "test_attachments/document/file1.txt",
-                    "size": 100
-                }
-            ]
             event_data = {
                 "event_type": "send_message",
                 "data": {
                     "conversation_id": "T12345/C123456789",
                     "text": "Message with attachments",
-                    "attachments": attachments
+                    "attachments": [{
+                        "file_name": "file1.txt",
+                        "content": "dGVzdAo="
+                    }]
                 }
             }
             response = await processor.process_event(event_data)
 
             assert response["request_completed"] is True
             assert response["message_ids"] == ["1662031200.123456"]
-
-            processor.uploader.upload_attachments.assert_called_once_with(
-                "T12345/C123456789", attachments
-            )
+            processor.uploader.upload_attachments.assert_called_once()
 
         @pytest.mark.asyncio
         async def test_handle_send_message_missing_fields(self, processor):

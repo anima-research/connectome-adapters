@@ -7,7 +7,7 @@ from aiohttp import web
 from dataclasses import dataclass
 from typing import Dict, Any, Optional
 
-from core.event_processors.request_events import RequestEvent
+from core.event_processors.request_event_builder import RequestEventBuilder
 from core.utils.config import Config
 
 @dataclass
@@ -47,7 +47,7 @@ class SocketIOServer:
         self.processing_task = None
         self.is_processing = False
         self.request_map = {}
-
+        self.request_event_builder = RequestEventBuilder(self.adapter_type)
         @self.sio.event
         async def connect(sid, environ):
             self.connected_clients.add(sid)
@@ -77,7 +77,8 @@ class SocketIOServer:
             data: Event data
         """
         await self.sio.emit(event, data)
-        logging.info(f"Emitted event: {event} with data: {data}")
+        print(f"Emitted event: {event} with data: {data}")
+        #logging.info(f"Emitted event: {event} with data: {data}")
 
     def set_adapter(self, adapter: Any) -> None:
         """Set the reference to the adapter instance
@@ -134,7 +135,7 @@ class SocketIOServer:
         await self.event_queue.put(event)
         await self.sio.emit(
             "request_queued",
-            RequestEvent(adapter_type=self.adapter_type, request_id=request_id).model_dump(),
+            self.request_event_builder.build(request_id).model_dump(),
             room=sid
         )
         logging.debug(f"Queued event with request_id {request_id}")
@@ -154,7 +155,7 @@ class SocketIOServer:
         if request_id not in self.request_map:
             await self.sio.emit(
                 "request_failed",
-                RequestEvent(adapter_type=self.adapter_type, request_id=request_id).model_dump(),
+                self.request_event_builder.build(request_id).model_dump(),
                 room=sid
             )
             return
@@ -162,7 +163,7 @@ class SocketIOServer:
         del self.request_map[request_id]
         await self.sio.emit(
             "request_success",
-            RequestEvent(adapter_type=self.adapter_type, request_id=request_id).model_dump(),
+            self.request_event_builder.build(request_id).model_dump(),
             room=sid
         )
 
@@ -189,11 +190,7 @@ class SocketIOServer:
 
                 await self.sio.emit(
                     status,
-                    RequestEvent(
-                        adapter_type=self.adapter_type,
-                        request_id=event.request_id,
-                        data=data
-                    ).model_dump(),
+                    self.request_event_builder.build(event.request_id, data).model_dump(),
                     room=event.sid
                 )
 

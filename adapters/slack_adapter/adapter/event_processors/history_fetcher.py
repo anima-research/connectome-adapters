@@ -45,7 +45,7 @@ class HistoryFetcher(BaseHistoryFetcher):
             history_limit
         )
 
-        self.downloader = Downloader(self.config, self.client)
+        self.downloader = Downloader(self.config, self.client, False)
         self.users = {}
 
     async def _fetch_from_api(self) -> List[Dict[str, Any]]:
@@ -147,7 +147,7 @@ class HistoryFetcher(BaseHistoryFetcher):
                     }
                 )
 
-                for cached_msg in delta["added_messages"]:
+                for cached_msg in delta.get("added_messages", []):
                     formatted_history.append(cached_msg)
         else:
             for i, msg in enumerate(history):

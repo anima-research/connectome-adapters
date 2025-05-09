@@ -47,7 +47,7 @@ class HistoryFetcher(BaseHistoryFetcher):
             after,
             history_limit
         )
-        self.downloader = Downloader(self.config, self.client)
+        self.downloader = Downloader(self.config, self.client, False)
         self.users = {}
 
     async def _fetch_from_api(self) -> List[Dict[str, Any]]:
@@ -73,10 +73,13 @@ class HistoryFetcher(BaseHistoryFetcher):
             elif self.after:
                 result = await self._fetch_history_in_batches()
 
-            if self.cache_fetched_history:
-                result = await self._parse_and_store_fetched_history(result)
-            else:
-                result = await self._parse_fetched_history(result)
+            if result:
+                attachments = await self._download_attachments(result)
+
+                if self.cache_fetched_history:
+                    result = await self._parse_and_store_fetched_history(result, attachments)
+                else:
+                    result = await self._parse_fetched_history(result, attachments)
 
             return self._filter_and_limit_messages(result)
         except Exception as e:
@@ -154,55 +157,81 @@ class HistoryFetcher(BaseHistoryFetcher):
 
         return result.messages
 
-    async def _parse_and_store_fetched_history(self, messages: Any) -> List[Dict[str, Any]]:
-        """Parse fetched history
+    async def _download_attachments(self, messages: Any) -> Dict[Any, Any]:
+        """Download attachments
 
         Args:
             messages: Telegram conversation history
 
         Returns:
+            Dictionary of download results
+        """
+        download_tasks = []
+        message_map = {}
+        attachments = {}
+
+        for i, msg in enumerate(messages):
+            if hasattr(msg, 'media') or msg.media:
+                task = self.downloader.download_attachment(msg)
+                download_tasks.append(task)
+                message_map[task] = i
+
+        for task, result in zip(
+            download_tasks,
+            await asyncio.gather(*download_tasks, return_exceptions=True)
+        ):
+            if isinstance(result, Exception):
+                logging.error(f"Error downloading attachment: {result}")
+                continue
+            attachments[message_map[task]] = result
+
+        return attachments
+
+    async def _parse_and_store_fetched_history(self,
+                                               messages: Any,
+                                               attachments: Dict[Any, Any]) -> List[Dict[str, Any]]:
+        """Parse fetched historyattachments: Dict[Any, Any]
+
+        Args:
+            messages: Telegram conversation history
+            attachments: Dictionary of download results
+
+        Returns:
             List of formatted message history
         """
-        result = []
+        formatted_history = []
 
-        for msg in messages:
-            attachment_info = []
-
-            if hasattr(msg, 'media') or msg.media:
-                attachment_info.append(
-                    await self.downloader.download_attachment(
-                        msg,
-                        self.conversation_manager.attachment_download_required(msg)
-                    )
-                )
-
+        for i, msg in enumerate(messages):
+            attachment_info = attachments.get(i, {})
             delta = await self.conversation_manager.add_to_conversation({
                 "message": msg,
                 "user": self.users.get(self._get_sender_id(msg), None),
-                "attachments": attachment_info,
+                "attachments": [attachment_info] if attachment_info else [],
                 "display_bot_messages": True
             })
 
-            for message in delta["added_messages"]:
-                result.append(message)
+            for message in delta.get("added_messages", []):
+                formatted_history.append(message)
 
-        return result
+        return formatted_history
 
-    async def _parse_fetched_history(self, messages: Any) -> List[Dict[str, Any]]:
+    async def _parse_fetched_history(self,
+                                     messages: Any,
+                                     attachments: Dict[Any, Any]) -> List[Dict[str, Any]]:
         """Parse fetched history
 
         Args:
             messages: Telegram conversation history
-
+            attachments: Dictionary of download results
         Returns:
             List of formatted message history
         """
         result = []
 
-        for msg in messages:
+        for i, msg in enumerate(messages):
             sender_id = self._get_sender_id(msg)
             sender = self._get_sender_name(sender_id)
-            attachment_info = await self._get_attachment_info(msg)
+            attachment_info = self._format_attachment_info(attachments.get(i, {}))
 
             text = ""
             if hasattr(msg, "message") and msg.message:
@@ -218,7 +247,7 @@ class HistoryFetcher(BaseHistoryFetcher):
                     "conversation_id": self.conversation.conversation_id,
                     "sender": {
                         "user_id": str(sender_id) if sender_id else "Unknown",
-                        "display_name": sender
+                        "display_name": str(sender) if sender else "Unknown User"
                     },
                     "text": text,
                     "thread_id": str(reply_to_msg_id) if reply_to_msg_id else None,
@@ -274,44 +303,23 @@ class HistoryFetcher(BaseHistoryFetcher):
 
         return sender
 
-    async def _get_attachment_info(self, message: Any) -> Dict[str, Any]:
+    def _format_attachment_info(self, attachment: Any) -> Dict[str, Any]:
         """Get attachment info of a message
 
         Args:
-            message: Telegram message
+            attachment: Telegram attachment
 
         Returns:
             Attachment info or {}
         """
-        if not hasattr(message, 'media') or not message.media:
+        if not attachment:
             return {}
 
-        try:
-            metadata = await self.downloader.download_attachment(
-                message,
-                self.conversation_manager.attachment_download_required(message)
-            )
-
-            if not metadata :
-                return {}
-
-            if metadata["file_extension"]:
-                file_name = f"{metadata['attachment_id']}.{metadata['file_extension']}"
-            else:
-                file_name = metadata["attachment_id"]
-
-            return {
-                "attachment_id": metadata["attachment_id"],
-                "attachment_type": metadata["attachment_type"],
-                "file_extension": metadata["file_extension"],
-                "size": metadata["size"],
-                "file_path": os.path.join(
-                    self.config.get_setting("attachments", "storage_dir"),
-                    metadata["attachment_type"],
-                    metadata["attachment_id"],
-                    file_name
-                )
-            }
-        except Exception as e:
-            logging.warning(f"Error downloading attachment: {e}")
-            return {}
+        return {
+            "attachment_id": attachment["attachment_id"],
+            "attachment_type": attachment["attachment_type"],
+            "file_extension": attachment["file_extension"],
+            "size": attachment["size"],
+            "processable": attachment["processable"],
+            "content": attachment["content"]
+        }

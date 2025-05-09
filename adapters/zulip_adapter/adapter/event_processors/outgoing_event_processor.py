@@ -67,9 +67,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
                 "subject": subject
             })
 
-            if not self._check_api_request_success(
-                result, f"send message to {conversation_info.conversation_id}"
-            ):
+            if not self._check_api_request_success(result, f"send message to {conversation_info.conversation_id}"):
                 return {"request_completed": False}
 
             if "id" in result:

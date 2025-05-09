@@ -58,13 +58,16 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
                 attachments[i:i+attachment_limit]
                 for i in range(0, len(attachments), attachment_limit)
             ]
+            clean_up_paths = []
 
             for chunk in attachment_chunks:
                 await self.rate_limiter.limit_request("message", data.conversation_id)
-                response = await channel.send(files=self.uploader.upload_attachment(chunk))
+                files, paths = self.uploader.upload_attachment(chunk)
+                clean_up_paths.extend(paths)
+                response = await channel.send(files=files)
                 if hasattr(response, "id"):
                     message_ids.append(str(response.id))
-            self.uploader.clean_up_uploaded_files(attachments)
+            self.uploader.clean_up_uploaded_files(clean_up_paths)
 
         logging.info(f"Message sent to {data.conversation_id} with {len(attachments)} attachments")
         return {"request_completed": True, "message_ids": message_ids}

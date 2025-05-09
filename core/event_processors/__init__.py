@@ -6,6 +6,7 @@ from core.event_processors.base_outgoing_event_processor import OutgoingEventTyp
 from core.event_processors.connection_events import ConnectionEvent
 from core.event_processors.incoming_event_builder import IncomingEventBuilder
 from core.event_processors.incoming_events import (
+    IncomingAttachmentInfo,
     SenderInfo,
     ConversationStartedData,
     MessageReceivedData,
@@ -25,6 +26,7 @@ from core.event_processors.incoming_events import (
 )
 from core.event_processors.outgoing_event_builder import OutgoingEventBuilder
 from core.event_processors.outgoing_events import (
+    OutgoingAttachmentInfo,
     SendMessageData,
     EditMessageData,
     DeleteMessageData,
@@ -38,7 +40,14 @@ from core.event_processors.outgoing_events import (
     RemoveReactionEvent,
     FetchHistoryEvent
 )
-from core.event_processors.request_events import RequestEvent
+from core.event_processors.request_event_builder import RequestEventBuilder
+from core.event_processors.request_events import (
+    FetchedAttachmentData,
+    FetchedMessageData,
+    HistoryData,
+    SentMessageData,
+    RequestEvent
+)
 
 __all__ = [
     "BaseHistoryFetcher",
@@ -48,7 +57,7 @@ __all__ = [
     "OutgoingEventBuilder",
     "OutgoingEventType",
     "ConnectionEvent",
-    "RequestEvent",
+    "IncomingAttachmentInfo",
     "SenderInfo",
     "ConversationStartedData",
     "MessageReceivedData",
@@ -65,6 +74,7 @@ __all__ = [
     "ReactionRemovedEvent",
     "MessagePinnedEvent",
     "MessageUnpinnedEvent",
+    "OutgoingAttachmentInfo",
     "SendMessageData",
     "EditMessageData",
     "DeleteMessageData",
@@ -76,5 +86,11 @@ __all__ = [
     "DeleteMessageEvent",
     "AddReactionEvent",
     "RemoveReactionEvent",
-    "FetchHistoryEvent"
+    "FetchHistoryEvent",
+    "RequestEventBuilder",
+    "FetchAttachmentEvent",
+    "FetchedMessageData",
+    "HistoryData",
+    "SentMessageData",
+    "RequestEvent"
 ]

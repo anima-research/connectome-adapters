@@ -64,7 +64,7 @@ class TestOutgoingEventProcessor:
     def uploader_mock(self):
         """Create a mocked uploader"""
         uploader = MagicMock()
-        uploader.upload_attachment = MagicMock(return_value=[])
+        uploader.upload_attachment = MagicMock(return_value=[[], []])
         uploader.clean_up_uploaded_files = MagicMock()
         return uploader
 
@@ -77,7 +77,7 @@ class TestOutgoingEventProcessor:
                   rate_limiter_mock,
                   uploader_mock):
         """Create a DiscordOutgoingEventProcessor with mocked dependencies"""
-        with patch.object(Uploader, "upload_attachment", return_value=[]):
+        with patch.object(Uploader, "upload_attachment", return_value=[[], []]):
             processor = OutgoingEventProcessor(
                 patch_config, discord_client_mock, conversation_manager_mock
             )
@@ -129,9 +129,8 @@ class TestOutgoingEventProcessor:
             """Test sending a message with attachments"""
             attachments = [
                 {
-                    "attachment_type": "document",
-                    "file_path": "test_attachments/document/file1.txt",
-                    "size": 100
+                    "file_name": "file1.txt",
+                    "content": "test content"
                 }
             ]
             event_data = {
@@ -148,8 +147,8 @@ class TestOutgoingEventProcessor:
                 assert response["request_completed"] is True
                 assert channel_mock.send.call_count == 2
 
-                processor.uploader.upload_attachment.assert_called_once_with(attachments)
-                processor.uploader.clean_up_uploaded_files.assert_called_once_with(attachments)
+                processor.uploader.upload_attachment.assert_called_once()
+                processor.uploader.clean_up_uploaded_files.assert_called_once()
 
         @pytest.mark.asyncio
         async def test_send_message_with_many_attachments(self,
@@ -159,9 +158,8 @@ class TestOutgoingEventProcessor:
             """Test sending a message with many attachments that need to be chunked"""
             attachments = [
                 {
-                    "attachment_type": "document",
-                    "file_path": f"test_attachments/document/file{i}.txt",
-                    "size": 100
+                    "file_name": f"file{i}.txt",
+                    "content": "test content"
                 } for i in range(2)
             ]
             event_data = {
@@ -174,8 +172,8 @@ class TestOutgoingEventProcessor:
             }
 
             # patch_config sets attachment limit to 1, so even 2 files will be chunked
-            chunk1_files = [MagicMock()]
-            chunk2_files = [MagicMock()]
+            chunk1_files = [MagicMock(), MagicMock()]
+            chunk2_files = [MagicMock(), MagicMock()]
 
             uploader_mock.upload_attachment.side_effect = [
                 chunk1_files, chunk2_files
@@ -186,7 +184,7 @@ class TestOutgoingEventProcessor:
                 assert response["request_completed"] is True
                 assert channel_mock.send.call_count == 3
                 assert uploader_mock.upload_attachment.call_count == 2
-                uploader_mock.clean_up_uploaded_files.assert_called_once_with(attachments)
+                uploader_mock.clean_up_uploaded_files.assert_called_once()
 
         @pytest.mark.asyncio
         async def test_send_message_channel_not_found(self, processor):

@@ -58,7 +58,7 @@ class TestSocketIOToZulipFlowIntegration:
         uploader_mock = AsyncMock()
 
         async def mock_upload_attachment(attachment):
-            return "/user_uploads/test.jpg"
+            return "/user_uploads/test.txt"
         uploader_mock.upload_attachment.side_effect = mock_upload_attachment
 
         return uploader_mock
@@ -227,9 +227,8 @@ class TestSocketIOToZulipFlowIntegration:
                 "text": "See attachment",
                 "attachments": [
                     {
-                        "attachment_type": "image",
-                        "file_path": "/tmp/test.jpg",
-                        "size": 12345
+                        "file_name": "test.txt",
+                        "content": "dGVzdAo="
                     }
                 ]
             }
@@ -244,7 +243,7 @@ class TestSocketIOToZulipFlowIntegration:
         assert call_args["type"] == "private"
         assert call_args["to"] == ["test@example.com", "bot@example.com"]
         assert "See attachment" in call_args["content"]
-        assert "/user_uploads/test.jpg" in call_args["content"]
+        assert "/user_uploads/test.txt" in call_args["content"]
 
     @pytest.mark.asyncio
     async def test_edit_message_flow(self, adapter, zulip_client_mock, setup_private_conversation, setup_message):

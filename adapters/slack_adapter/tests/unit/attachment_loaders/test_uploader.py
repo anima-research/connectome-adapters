@@ -1,12 +1,25 @@
 import logging
 import os
 import pytest
+import shutil
 
 from unittest.mock import patch, MagicMock, AsyncMock
 from adapters.slack_adapter.adapter.attachment_loaders.uploader import Uploader
+from core.event_processors.outgoing_events import OutgoingAttachmentInfo
 
 class TestUploader:
     """Tests for the Slack Uploader class"""
+
+    @pytest.fixture(scope="class", autouse=True)
+    def ensure_test_directories(self):
+        """Create necessary test directories before tests and clean up after"""
+        os.makedirs("test_attachments", exist_ok=True)
+        os.makedirs("test_attachments/tmp_uploads", exist_ok=True)
+
+        yield
+
+        if os.path.exists("test_attachments"):
+            shutil.rmtree("test_attachments")
 
     @pytest.fixture
     def mock_client(self):
@@ -39,40 +52,11 @@ class TestUploader:
     def sample_attachment(self):
         """Create sample document attachment info"""
         return [
-            {
-                "attachment_type": "document",
-                "file_path": "/test/path/document123.pdf",
-                "size": 1000
-            }
+            OutgoingAttachmentInfo(
+                file_name="test.txt",
+                content="dGVzdAo="
+            )
         ]
-
-    @pytest.mark.asyncio
-    async def test_file_not_found(self, uploader, sample_attachment):
-        """Test handling missing file"""
-        with patch("os.path.exists", return_value=False):
-            with patch.object(logging, "error") as mock_log:
-                await uploader.upload_attachments("T123/C456", sample_attachment)
-
-                assert mock_log.called
-                assert "File not found" in mock_log.call_args[0][0]
-                assert not uploader.client.files_upload_v2.called
-
-    @pytest.mark.asyncio
-    async def test_file_too_large(self, uploader):
-        """Test handling file that exceeds size limit"""
-        oversized_attachment = [{
-            "attachment_type": "video",
-            "file_path": "/test/path/huge123.mp4",
-            "size": 51 * 1024 * 1024  # 51MB, above 50MB limit
-        }]
-
-        with patch("os.path.exists", return_value=True):
-            with patch.object(logging, "error") as mock_log:
-                await uploader.upload_attachments("T123/C456", oversized_attachment)
-
-                assert mock_log.called
-                assert "exceeds Slack's size limit" in mock_log.call_args[0][0]
-                assert not uploader.client.files_upload_v2.called
 
     @pytest.mark.asyncio
     async def test_upload_file_success(self, uploader, sample_attachment):
@@ -80,16 +64,14 @@ class TestUploader:
         with patch("os.path.exists", return_value=True):
             with patch("adapters.slack_adapter.adapter.attachment_loaders.uploader.move_attachment") as mock_move:
                 with patch("adapters.slack_adapter.adapter.attachment_loaders.uploader.create_attachment_dir") as mock_create_dir:
-                    with patch("adapters.slack_adapter.adapter.attachment_loaders.uploader.delete_empty_directory") as mock_delete_dir:
-                        await uploader.upload_attachments("T123/C456", sample_attachment)
+                    await uploader.upload_attachments("T123/C456", sample_attachment)
 
-                        uploader.client.files_upload_v2.assert_called_once_with(
-                            file="/test/path/document123.pdf",
-                            channel="C456"
-                        )
-                        assert mock_create_dir.called
-                        assert mock_move.called
-                        assert mock_delete_dir.called
+                    uploader.client.files_upload_v2.assert_called_once_with(
+                        file="test_attachments/tmp_uploads/test.txt",
+                        channel="C456"
+                    )
+                    assert mock_create_dir.called
+                    assert mock_move.called
 
     @pytest.mark.asyncio
     async def test_upload_file_api_error(self, uploader, sample_attachment):
@@ -120,23 +102,20 @@ class TestUploader:
     async def test_multiple_attachments(self, uploader):
         """Test uploading multiple attachments"""
         multiple_attachments = [
-            {
-                "attachment_type": "document",
-                "file_path": "/test/path/doc1.pdf",
-                "size": 1000
-            },
-            {
-                "attachment_type": "image",
-                "file_path": "/test/path/img1.jpg",
-                "size": 2000
-            }
+            OutgoingAttachmentInfo(
+                file_name="doc1.txt",
+                content="dGVzdAo="
+            ),
+            OutgoingAttachmentInfo(
+                file_name="doc2.txt",
+                content="dGVzdAo="
+            )
         ]
 
         with patch("os.path.exists", return_value=True):
             with patch("adapters.slack_adapter.adapter.attachment_loaders.uploader.move_attachment"):
                 with patch("adapters.slack_adapter.adapter.attachment_loaders.uploader.create_attachment_dir"):
-                    with patch("adapters.slack_adapter.adapter.attachment_loaders.uploader.delete_empty_directory"):
-                        await uploader.upload_attachments("T123/C456", multiple_attachments)
+                    await uploader.upload_attachments("T123/C456", multiple_attachments)
 
-                        assert uploader.client.files_upload_v2.call_count == 2
-                        assert uploader.rate_limiter.limit_request.call_count == 2
+                    assert uploader.client.files_upload_v2.call_count == 2
+                    assert uploader.rate_limiter.limit_request.call_count == 2

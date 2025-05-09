@@ -1,8 +1,8 @@
+import asyncio
+import discord
 import os
 import pytest
-import discord
 import shutil
-import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime, timezone
 
@@ -269,7 +269,9 @@ class TestDiscordToSocketIOFlowIntegration:
             "attachment_type": "image",
             "file_extension": "jpg",
             "created_at": datetime.now(timezone.utc),
-            "size": 12345
+            "size": 12345,
+            "processable": True,
+            "content": "Hello from Discord!"
         }]
         adapter.incoming_events_processor.downloader.download_attachment.return_value = attachment_result
 

@@ -96,16 +96,19 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             List of formatted message history
         """
         try:
-            return await HistoryFetcher(
-                self.config,
-                self.client,
-                self.conversation_manager,
-                delta["conversation_id"],
-                anchor=delta.get("added_messages", [])[-1].get("message_id")
-            ).fetch()
+            messages = delta.get("added_messages", [])
+            if messages:
+                return await HistoryFetcher(
+                    self.config,
+                    self.client,
+                    self.conversation_manager,
+                    delta["conversation_id"],
+                    anchor=messages[-1].get("message_id", None)
+                ).fetch()
         except Exception as e:
             logging.error(f"Error fetching conversation history: {e}", exc_info=True)
-            return []
+
+        return []
 
     async def _handle_edited_message(self, event: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Handle an edited message event from Slack

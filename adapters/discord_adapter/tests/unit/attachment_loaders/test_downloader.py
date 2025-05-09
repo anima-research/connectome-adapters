@@ -5,7 +5,7 @@ import pytest
 import shutil
 
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, mock_open, patch
 
 import core.utils.attachment_loading
 from adapters.discord_adapter.adapter.attachment_loaders.downloader import Downloader
@@ -60,31 +60,33 @@ class TestDownloader:
         with patch("os.path.exists", side_effect=[False, True]):  # File doesn't exist, then does after download
             with patch("core.utils.attachment_loading.create_attachment_dir"):
                 with patch("core.utils.attachment_loading.save_metadata_file"):
-                    with patch.object(logging, "info") as mock_log:
-                        result = await downloader.download_attachment(discord_message_mock)
+                    with patch("builtins.open", mock_open(read_data=b"test file content")):
+                        with patch.object(logging, "info") as mock_log:
+                            result = await downloader.download_attachment(discord_message_mock)
 
-                        assert len(result) == 1
-                        assert result[0]["attachment_id"] == "xyz123"
-                        assert result[0]["size"] == 12345
+                            assert len(result) == 1
+                            assert result[0]["attachment_id"] == "xyz123"
+                            assert result[0]["size"] == 12345
 
-                        discord_message_mock.attachments[0].save.assert_called_once()
+                            discord_message_mock.attachments[0].save.assert_called_once()
 
-                        assert mock_log.called
-                        assert "Downloaded" in mock_log.call_args_list[0][0][0]
+                            assert mock_log.called
+                            assert "Downloaded" in mock_log.call_args_list[0][0][0]
 
     @pytest.mark.asyncio
     async def test_download_attachment_existing_file(self, downloader, discord_message_mock):
         """Test handling an existing attachment"""
         with patch("os.path.exists", return_value=True):  # File already exists
             with patch("core.utils.attachment_loading.save_metadata_file"):
-                with patch.object(logging, "info") as mock_log:
-                    result = await downloader.download_attachment(discord_message_mock)
+                with patch("builtins.open", mock_open(read_data=b"test file content")):
+                    with patch.object(logging, "info") as mock_log:
+                        result = await downloader.download_attachment(discord_message_mock)
 
-                    assert len(result) == 1
-                    assert result[0]["attachment_id"] == "xyz123"
-                    assert result[0]["size"] == 12345
-                    assert mock_log.called
-                    assert "Skipping download" in mock_log.call_args_list[0][0][0]
+                        assert len(result) == 1
+                        assert result[0]["attachment_id"] == "xyz123"
+                        assert result[0]["size"] == 12345
+                        assert mock_log.called
+                        assert "Skipping download" in mock_log.call_args_list[0][0][0]
 
     @pytest.mark.asyncio
     async def test_download_attachment_no_attachments(self, downloader, discord_message_mock):

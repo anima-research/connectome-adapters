@@ -66,9 +66,7 @@ class TestDownloader:
         @pytest.mark.asyncio
         async def test_get_attachment_metadata_no_attachments(self, downloader):
             """Test extracting metadata from a message with no attachments"""
-            message = {
-                "content": "This is a message with no attachments"
-            }
+            message = {"content": "This is a message with no attachments"}
 
             assert await downloader._get_attachment_metadata(message) == []
 
@@ -79,16 +77,18 @@ class TestDownloader:
         async def test_download_attachment_new_file(self, downloader):
             """Test downloading a new attachment"""
             message = {
-                "content": "Check this file: [test.pdf](/user_uploads/1/ab/xyz123/test.pdf)"
+                "content": "Check this file: [test.txt](/user_uploads/1/ab/xyz123/test.txt)"
             }
 
             metadata = {
                 "attachment_id": "xyz123",
                 "attachment_type": "document",
-                "file_name": "test.pdf",
-                "file_extension": "pdf",
-                "file_path": "/user_uploads/1/ab/xyz123/test.pdf",
-                "created_at": datetime.now()
+                "file_name": "test.txt",
+                "file_extension": "txt",
+                "file_path": "/user_uploads/1/ab/xyz123/test.txt",
+                "created_at": datetime.now(),
+                "processable": True,
+                "content": "dGVzdAo="
             }
 
             with patch.object(downloader, "_get_attachment_metadata", return_value=[metadata]):
@@ -97,32 +97,29 @@ class TestDownloader:
                         with patch.object(downloader, "_download_file", return_value=True) as mock_download:
                             with patch("core.utils.attachment_loading.save_metadata_file"):
                                 with patch("os.path.getsize", return_value=12345):
-                                    with patch.object(logging, "info") as mock_log:
-                                        result = await downloader.download_attachment(message)
+                                    result = await downloader.download_attachment(message)
 
-                                        assert len(result) == 1
-                                        assert result[0]["attachment_id"] == "xyz123"
-                                        assert result[0]["size"] == 12345
-
-                                        mock_download.assert_called_once()
-
-                                        assert mock_log.called
-                                        assert "Downloaded" in mock_log.call_args_list[0][0][0]
+                                    assert len(result) == 1
+                                    assert result[0]["attachment_id"] == "xyz123"
+                                    assert result[0]["size"] == 12345
+                                    mock_download.assert_called_once()
 
         @pytest.mark.asyncio
         async def test_download_attachment_existing_file(self, downloader):
             """Test handling an existing attachment"""
             message = {
-                "content": "Check this file: [test.pdf](/user_uploads/1/ab/xyz123/test.pdf)"
+                "content": "Check this file: [test.txt](/user_uploads/1/ab/xyz123/test.txt)"
             }
 
             metadata = {
                 "attachment_id": "xyz123",
                 "attachment_type": "document",
-                "file_name": "test.pdf",
-                "file_extension": "pdf",
-                "file_path": "/user_uploads/1/ab/xyz123/test.pdf",
-                "created_at": datetime.now()
+                "file_name": "test.txt",
+                "file_extension": "txt",
+                "file_path": "/user_uploads/1/ab/xyz123/test.txt",
+                "created_at": datetime.now(),
+                "processable": True,
+                "content": None
             }
 
             with patch.object(downloader, "_get_attachment_metadata", return_value=[metadata]):
@@ -142,26 +139,30 @@ class TestDownloader:
         async def test_download_attachment_multiple_files(self, downloader):
             """Test downloading multiple attachments"""
             message = {
-                "content": "Here are files: [image.jpg](/user_uploads/1/cd/abc123/image.jpg) "
-                           "and [doc.pdf](/user_uploads/1/ef/def456/doc.pdf)"
+                "content": "Here are files: [file1.txt](/user_uploads/1/cd/abc123/file1.txt) "
+                           "and [file2.txt](/user_uploads/1/ef/def456/file2.txt)"
             }
 
             metadata1 = {
                 "attachment_id": "abc123",
-                "attachment_type": "image",
-                "file_name": "image.jpg",
-                "file_extension": "jpg",
-                "file_path": "/user_uploads/1/cd/abc123/image.jpg",
-                "created_at": datetime.now()
+                "attachment_type": "document",
+                "file_name": "file1.txt",
+                "file_extension": "txt",
+                "file_path": "/user_uploads/1/cd/abc123/file1.txt",
+                "created_at": datetime.now(),
+                "processable": True,
+                "content": "dGVzdAo="
             }
 
             metadata2 = {
                 "attachment_id": "def456",
                 "attachment_type": "document",
-                "file_name": "doc.pdf",
-                "file_extension": "pdf",
-                "file_path": "/user_uploads/1/ef/def456/doc.pdf",
-                "created_at": datetime.now()
+                "file_name": "file2.txt",
+                "file_extension": "txt",
+                "file_path": "/user_uploads/1/ef/def456/file2.txt",
+                "created_at": datetime.now(),
+                "processable": True,
+                "content": "dGVzdAo="
             }
 
             with patch.object(downloader, "_get_attachment_metadata", return_value=[metadata1, metadata2]):
@@ -180,13 +181,10 @@ class TestDownloader:
         @pytest.mark.asyncio
         async def test_download_attachment_no_attachments(self, downloader):
             """Test handling a message with no attachments"""
-            message = {
-                "content": "Just a plain text message"
-            }
+            message = {"content": "Just a plain text message"}
 
             with patch.object(downloader, "_get_attachment_metadata", return_value=[]):
-                result = await downloader.download_attachment(message)
-                assert result == []
+                assert await downloader.download_attachment(message) == []
 
     class TestUrlConstruction:
         """Tests for URL construction and API key handling"""

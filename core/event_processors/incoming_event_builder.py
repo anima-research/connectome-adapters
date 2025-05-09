@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Union
 from core.event_processors.incoming_events import (
     SenderInfo,
+    IncomingAttachmentInfo,
     ConversationStartedData,
     MessageReceivedData,
     MessageUpdatedData,
@@ -52,10 +53,9 @@ class IncomingEventBuilder:
             adapter_type=self.adapter_type,
             data=ConversationStartedData(
                 conversation_id=delta["conversation_id"],
-                history=history
+                history=[self._process_message(message) for message in history]
             )
         )
-
         return event.model_dump()
 
     def message_received(self, delta: Dict[str, Any]) -> Dict[str, Any]:
@@ -70,19 +70,7 @@ class IncomingEventBuilder:
         """
         event = MessageReceivedEvent(
             adapter_type=self.adapter_type,
-            data=MessageReceivedData(
-                adapter_name=self.adapter_name,
-                message_id=delta["message_id"],
-                conversation_id=delta["conversation_id"],
-                sender=SenderInfo(
-                    user_id=delta.get("sender", {}).get("user_id", "Unknown"),
-                    display_name=delta.get("sender", {}).get("display_name", "Unknown User")
-                ),
-                text=delta.get("text", ""),
-                thread_id=delta.get("thread_id"),
-                attachments=delta.get("attachments", []),
-                timestamp=delta["timestamp"]
-            )
+            data=self._process_message(delta)
         )
         return event.model_dump()
 
@@ -104,7 +92,7 @@ class IncomingEventBuilder:
                 conversation_id=delta["conversation_id"],
                 new_text=delta.get("text", ""),
                 timestamp=delta["timestamp"],
-                attachments=delta.get("attachments", [])
+                attachments=[IncomingAttachmentInfo(**attachment) for attachment in delta.get("attachments", [])]
             )
         )
         return event.model_dump()
@@ -197,3 +185,29 @@ class IncomingEventBuilder:
             raise ValueError(f"Unknown pin status event type: {event_type}")
 
         return event.model_dump()
+
+    def _process_message(self, delta: Dict[str, Any]) -> MessageReceivedData:
+        """
+        Process a message delta and return a MessageReceivedData object.
+
+        Args:
+            delta: Event change information
+
+        Returns:
+            MessageReceivedData object
+        """
+        sender = delta.get("sender", {})
+
+        return MessageReceivedData(
+            adapter_name=self.adapter_name,
+            message_id=delta["message_id"],
+            conversation_id=delta["conversation_id"],
+            sender=SenderInfo(
+                user_id=sender.get("user_id", "Unknown"),
+                display_name=sender.get("display_name", "Unknown User")
+            ),
+            text=delta.get("text", ""),
+            thread_id=delta.get("thread_id"),
+            attachments=[IncomingAttachmentInfo(**attachment) for attachment in delta.get("attachments", [])],
+            timestamp=delta["timestamp"]
+        )

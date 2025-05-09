@@ -1,7 +1,9 @@
 import aiohttp
 import asyncio
 import discord
+import os
 import pytest
+import shutil
 
 from unittest.mock import AsyncMock, MagicMock, patch
 from adapters.discord_webhook_adapter.adapter.adapter import Adapter
@@ -14,6 +16,18 @@ class TestSocketIOToDiscordWebhookFlowIntegration:
     """Integration tests for socket.io to Discord webhook flow"""
 
     # =============== FIXTURES ===============
+
+    @pytest.fixture(scope="class", autouse=True)
+    def ensure_test_directories(self):
+        """Create necessary test directories before tests and clean up after"""
+        os.makedirs("test_attachments", exist_ok=True)
+        os.makedirs("test_attachments/tmp_uploads", exist_ok=True)
+
+        yield
+
+        if os.path.exists("test_attachments"):
+            shutil.rmtree("test_attachments")
+
 
     @pytest.fixture
     def socketio_mock(self):

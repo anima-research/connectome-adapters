@@ -157,7 +157,7 @@ class TestSocketIOToDiscordFlowIntegration:
         setup_channel_conversation()
 
         mock_file = MagicMock()
-        uploader_mock.upload_attachment.return_value = [mock_file]
+        uploader_mock.upload_attachment.return_value = [[mock_file], ["tmp/test.txt"]]
 
         with patch.object(
             adapter.outgoing_events_processor,
@@ -171,9 +171,8 @@ class TestSocketIOToDiscordFlowIntegration:
                     "text": "See attachment",
                     "attachments": [
                         {
-                            "attachment_type": "image",
-                            "file_path": "test_attachments/image/test.jpg",
-                            "size": 12345
+                            "file_name": "test.txt",
+                            "content": "Hello from Discord!"
                         }
                     ]
                 }

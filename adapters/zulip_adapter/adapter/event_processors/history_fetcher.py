@@ -46,8 +46,7 @@ class HistoryFetcher(BaseHistoryFetcher):
             after,
             history_limit
         )
-
-        self.downloader = Downloader(self.config, self.client)
+        self.downloader = Downloader(self.config, self.client, False)
 
     async def _fetch_from_api(self) -> List[Dict[str, Any]]:
         """Fetch conversation history
@@ -172,6 +171,7 @@ class HistoryFetcher(BaseHistoryFetcher):
         """
         formatted_history = []
         attachments = await self._download_attachments(history)
+
         for i, msg in enumerate(history):
             if self.cache_fetched_history:
                 delta = await self.conversation_manager.add_to_conversation(
@@ -181,7 +181,8 @@ class HistoryFetcher(BaseHistoryFetcher):
                         "display_bot_messages": True
                     }
                 )
-                for cached_msg in delta["added_messages"]:
+
+                for cached_msg in delta.get("added_messages", []):
                     formatted_history.append(cached_msg)
             else:
                 formatted_history.append({

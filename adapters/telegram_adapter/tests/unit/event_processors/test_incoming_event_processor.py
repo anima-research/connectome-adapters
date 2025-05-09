@@ -116,10 +116,12 @@ class TestIncomingEventProcessor:
         async def test_handle_new_message(self, processor, message_event_mock, user_mock):
             """Test handling a new message with an attachment"""
             attachment_info = {
-                "attachment_type": "photo",
-                "attachment_id": "photo123",
-                "file_extension": "jpg",
-                "file_path": "/path/to/photo.jpg"
+                "attachment_type": "document",
+                "attachment_id": "some_id",
+                "file_extension": "txt",
+                "size": 12345,
+                "processable": True,
+                "content": "dGVzdAo="
             }
 
             processor.downloader.download_attachment.return_value = attachment_info
@@ -156,9 +158,7 @@ class TestIncomingEventProcessor:
             assert {"event_type": "conversation_started"} in result
             assert {"event_type": "message_received"} in result
 
-            processor.downloader.download_attachment.assert_called_once_with(
-                message_event_mock.message, True
-            )
+            processor.downloader.download_attachment.assert_called_once_with(message_event_mock.message)
             processor.conversation_manager.add_to_conversation.assert_called_once()
 
             history = processor._fetch_conversation_history.return_value

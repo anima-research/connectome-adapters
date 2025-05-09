@@ -21,7 +21,6 @@ class TestAttachmentCache:
                 "max_age_days": 30,
                 "max_total_attachments": 100,
                 "cleanup_interval_hours": 24,
-                "large_file_threshold_mb": 5,
                 "max_file_size_mb": 2048
             }
         }.get(section, {}).get(key, default)
@@ -41,7 +40,9 @@ class TestAttachmentCache:
             "attachment_type": "photo",
             "created_at": datetime.now(),
             "file_extension": "jpg",
-            "size": 12345
+            "size": 12345,
+            "processable": True,
+            "content": None
         }
 
     @pytest.fixture
@@ -52,7 +53,8 @@ class TestAttachmentCache:
             attachment_type=sample_attachment_info["attachment_type"],
             created_at=sample_attachment_info["created_at"],
             file_extension=sample_attachment_info["file_extension"],
-            size=sample_attachment_info["size"]
+            size=sample_attachment_info["size"],
+            processable=sample_attachment_info["processable"]
         )
         return attachment
 
@@ -124,7 +126,9 @@ class TestAttachmentCache:
                 "attachment_type": "photo",
                 "created_at": datetime.now().isoformat(),
                 "file_extension": "jpg",
-                "size": 12345
+                "size": 12345,
+                "processable": True,
+                "content": None
             }
 
             with open(os.path.join(attachment_dir, f"{attachment_id}.json"), "w") as f:
@@ -246,7 +250,9 @@ class TestAttachmentCache:
                     "attachment_type": "photo",
                     "created_at": datetime.now() - timedelta(minutes=i),  # Progressively older
                     "file_extension": "jpg",
-                    "size": 12345
+                    "size": 12345,
+                    "processable": True,
+                    "content": None
                 }
                 await attachment_cache.add_attachment(f"conv{i}", info)
             assert len(attachment_cache.attachments) == 5

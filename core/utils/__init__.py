@@ -2,7 +2,6 @@
 
 from core.utils.attachment_loading import (
     create_attachment_dir,
-    delete_empty_directory,
     get_attachment_type_by_extension,
     move_attachment,
     save_metadata_file
@@ -16,7 +15,6 @@ __all__ = [
     "EmojiConverter",
     "setup_logging",
     "create_attachment_dir",
-    "delete_empty_directory",
     "get_attachment_type_by_extension",
     "move_attachment",
     "save_metadata_file"

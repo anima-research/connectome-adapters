@@ -1,5 +1,6 @@
 import aiohttp
 import asyncio
+import base64
 import logging
 import os
 
@@ -17,18 +18,20 @@ from core.utils.config import Config
 class Downloader():
     """Handles efficient file downloads from Slack"""
 
-    def __init__(self, config: Config, client: Any):
+    def __init__(self, config: Config, client: Any, content_required: bool = True):
         """Initialize with a Config instance
 
         Args:
             config: Config instance
             client: Slack web client instance
+            content_required: Whether to pass content to the event processor
         """
         self.config = config
         self.client = client
+        self.content_required = content_required
         self.rate_limiter = RateLimiter.get_instance(config)
         self.download_dir = self.config.get_setting("attachments", "storage_dir")
-        self.chunk_size = 8 * 1024 * 1024  # 8MB chunks for large files
+        self.max_file_size = self.config.get_setting("attachments", "max_file_size_mb") * 1024 * 1024
 
     async def download_attachments(self, message: Any) -> List[Dict[str, Any]]:
         """Process attachments from a Slack message
@@ -53,92 +56,91 @@ class Downloader():
                 "attachment_id": file["id"],
                 "attachment_type": get_attachment_type_by_extension(file_extension),
                 "file_extension": file_extension,
+                "size": int(file["size"]),
                 "created_at": datetime.now(),
-                "size": file.get("size", 0)
+                "processable": False,
+                "content": None
             }
-            attachment_dir = os.path.join(
-                self.download_dir,
-                attachment_metadata["attachment_type"],
-                attachment_metadata["attachment_id"]
-            )
 
-            file_name = attachment_metadata["attachment_id"]
-            if file_extension:
-                file_name += "." + file_extension
-
-            local_file_path = os.path.join(attachment_dir, file_name)
-
-            if not os.path.exists(local_file_path):
-                try:
-                    create_attachment_dir(attachment_dir)
-                    await self.rate_limiter.limit_request("download")
-
-                    if attachment_metadata["size"] < 10 * 1024 * 1024:  # < 10MB
-                        await self._download_standard_file(file["id"], local_file_path)
-                    else:
-                        await self._download_large_file(file, local_file_path)
-
-                    logging.info(f"Downloaded {local_file_path}")
-                except Exception as e:
-                    logging.error(f"Error downloading {attachment_metadata['attachment_type']}: {e}")
-                    continue
+            if attachment_metadata["size"] > self.max_file_size:
+                logging.warning(f"Skipping download for {file['id']} because it is too large")
             else:
-                logging.info(f"Skipping download for {local_file_path} because it already exists")
+                attachment_dir = os.path.join(
+                    self.download_dir,
+                    attachment_metadata["attachment_type"],
+                    attachment_metadata["attachment_id"]
+                )
+                local_file_path = self._get_local_file_path(attachment_dir, attachment_metadata)
 
-            save_metadata_file(attachment_metadata, attachment_dir)
+                if await self._download_file(attachment_dir, local_file_path, attachment_metadata):
+                    attachment_metadata["processable"] = True
+                    save_metadata_file(attachment_metadata, attachment_dir)
+
+                    if self.content_required:
+                        try:
+                            with open(local_file_path, "rb") as f:
+                                file_content = f.read()
+                                attachment_metadata["content"] = base64.b64encode(file_content).decode("utf-8")
+                        except Exception as e:
+                            logging.error(f"Error reading file {local_file_path}: {e}")
+
             metadata.append(attachment_metadata)
 
         return metadata
 
-    async def _download_standard_file(self, file_id: str, file_path: str) -> None:
-        """Download small files directly using the Slack SDK
+    def _get_local_file_path(self,
+                             attachment_dir: str,
+                             attachment: Dict[str, Any]) -> str:
+        """Get the local file path for an attachment
 
         Args:
-            file_id: Slack file ID
-            file_path: Path to save the file
+            attachment_dir: The directory of the attachment
+            attachment: The attachment object
+
+        Returns:
+            The local file path for the attachment
         """
-        response = await self.client.files_info(file=file_id)
-        download_url = response["file"]["url_private"]
-        headers = {"Authorization": f"Bearer {self.client.token}"}
+        file_name = attachment["attachment_id"]
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(download_url, headers=headers) as response:
-                response.raise_for_status()
-                with open(file_path, "wb") as f:
-                    f.write(await response.read())
+        if attachment["file_extension"]:
+            file_name += "." + attachment["file_extension"]
 
-    async def _download_large_file(self, file_info: Dict[str, Any], file_path: str) -> None:
-        """Download large files in chunks with resumption support
+        return os.path.join(attachment_dir, file_name)
+
+    async def _download_file(self,
+                             attachment_dir: str,
+                             local_file_path: str,
+                             attachment: Dict[str, Any]) -> bool:
+        """Download an attachment and save it to the local file system
 
         Args:
-            file_info: File info dictionary from Slack API
-            file_path: Path to save the file
+            attachment_dir: The directory of the attachment
+            local_file_path: The local file path for the attachment
+            attachment: The attachment object
+
+        Returns:
+            True if the attachment was downloaded, False otherwise
         """
-        download_url = file_info["url_private"]
-        total_size = file_info["size"]
-        headers = {"Authorization": f"Bearer {self.client.token}"}
-        start_byte = 0
+        if not os.path.exists(local_file_path):
+            try:
+                create_attachment_dir(attachment_dir)
+                await self.rate_limiter.limit_request("download")
 
-        if os.path.exists(file_path):
-            start_byte = os.path.getsize(file_path)
-            if start_byte >= total_size:
-                return  # Already downloaded
-            headers["Range"] = f"bytes={start_byte}-"
+                response = await self.client.files_info(file=attachment["attachment_id"])
+                download_url = response["file"]["url_private"]
+                headers = {"Authorization": f"Bearer {self.client.token}"}
 
-        timeout = aiohttp.ClientTimeout(total=1800) # 30 minutes
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(download_url, headers=headers) as response:
+                        response.raise_for_status()
+                        with open(local_file_path, "wb") as f:
+                            f.write(await response.read())
 
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(download_url, headers=headers) as response:
-                response.raise_for_status()
-
-                mode = "ab" if start_byte > 0 else "wb"
-                with open(file_path, mode) as f:
-                    bytes_downloaded = start_byte
-                    async for chunk in response.content.iter_chunked(self.chunk_size):
-                        f.write(chunk)
-                        bytes_downloaded += len(chunk)
-
-                        if total_size > 100 * 1024 * 1024:  # > 100MB
-                            progress = min(100, int(bytes_downloaded * 100 / total_size))
-                            if progress % 20 == 0:  # Log every 20%
-                                logging.info(f"Downloading {file_info['id']}: {progress}% complete")
+                logging.info(f"Downloaded {local_file_path}")
+                return True
+            except Exception as e:
+                logging.error(f"Error downloading {attachment['attachment_type']}: {e}")
+                return False
+        else:
+            logging.info(f"Skipping download for {local_file_path} because it already exists")
+            return True

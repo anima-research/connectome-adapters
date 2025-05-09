@@ -1,17 +1,14 @@
-import asyncio
-import logging
-import os
-import mimetypes
 import aiohttp
+import asyncio
+import base64
+import logging
+import mimetypes
+import os
+import shutil
 
 from typing import Dict, Any, Optional
 from adapters.zulip_adapter.adapter.attachment_loaders.base_loader import BaseLoader
-from core.utils.attachment_loading import (
-    create_attachment_dir,
-    delete_empty_directory,
-    get_attachment_type_by_extension,
-    move_attachment
-)
+from core.utils.attachment_loading import create_attachment_dir, get_attachment_type_by_extension, move_attachment
 from core.utils.config import Config
 
 class Uploader(BaseLoader):
@@ -25,32 +22,51 @@ class Uploader(BaseLoader):
             client: Zulip client
         """
         super().__init__(config, client)
+        self.temp_dir = os.path.join(
+            self.config.get_setting("attachments", "storage_dir"),
+            "tmp_uploads"
+        )
+        os.makedirs(self.temp_dir, exist_ok=True)
 
-    async def upload_attachment(self, attachment: Dict[str, Any]) -> Optional[str]:
+    def __del__(self):
+        """Cleanup the temporary directory when object is garbage collected"""
+        try:
+            if os.path.exists(self.temp_dir):
+                shutil.rmtree(self.temp_dir, ignore_errors=True)
+                logging.info(f"Removed temporary upload directory: {self.temp_dir}")
+        except Exception as e:
+            logging.error(f"Error removing temporary directory: {e}")
+
+    async def upload_attachment(self, attachment: Any) -> Optional[str]:
         """Upload a file to Zulip
 
         Args:
-            attachment: Attachment details (json)
+            attachment: Attachment details
 
         Returns:
             Dictionary with attachment metadata or {} if error
         """
         try:
-            if not os.path.exists(attachment["file_path"]):
-                logging.error(f"File not found: {attachment['file_path']}")
+            try:
+                file_content = base64.b64decode(attachment.content)
+            except Exception as e:
+                logging.error(f"Failed to decode base64 content: {e}")
                 return None
 
-            if attachment["size"] > self.max_file_size:
-                logging.error(f"File exceeds Zulip's size limit: {attachment['size']/1024/1024:.2f} MB "
-                              f"(max {self.max_file_size/1024/1024:.2f} MB)")
+            if len(file_content) > self.max_file_size:
+                logging.error(f"Decoded content exceeds size limit: {len(file_content)/1024/1024:.2f} MB")
                 return None
 
-            result = await self._upload_file(attachment["file_path"])
+            temp_path = os.path.join(self.temp_dir, attachment.file_name)
+            with open(temp_path, "wb") as f:
+                f.write(file_content)
+
+            result = await self._upload_file(temp_path)
             if not result or "uri" not in result:
                 logging.error(f"Upload failed: {result}")
                 return None
 
-            self._clean_up_uploaded_file(attachment["file_path"], result["uri"])
+            self._clean_up_uploaded_file(temp_path, result["uri"])
             return result["uri"]
         except Exception as e:
             logging.error(f"Error uploading file: {str(e)}", exc_info=True)
@@ -112,17 +128,13 @@ class Uploader(BaseLoader):
             zulip_uri: Zulip URI of the uploaded file
         """
         file_extension = old_path.split(".")[-1]
-
         attachment_id = self._generate_attachment_id(zulip_uri)
         attachment_type = get_attachment_type_by_extension(file_extension)
+        attachment_dir = os.path.join(self.download_dir, attachment_type, attachment_id)
 
-        attachment_dir = os.path.join(
-            self.download_dir, attachment_type, attachment_id
-        )
-        file_path = os.path.join(
-            attachment_dir, f"{attachment_id}.{file_extension}"
-        )
+        file_name = str(attachment_id)
+        if "." in old_path:
+            file_name += "." + file_extension
 
         create_attachment_dir(attachment_dir)
-        move_attachment(old_path, file_path)
-        delete_empty_directory(old_path)
+        move_attachment(old_path, os.path.join(attachment_dir, file_name))

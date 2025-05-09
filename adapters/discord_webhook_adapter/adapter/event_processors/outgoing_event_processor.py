@@ -29,6 +29,13 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         self.conversation_manager = conversation_manager
         self.uploader = Uploader(self.config)
 
+    async def _handle_fetch_attachment_event(self, data: BaseModel) -> Dict[str, Any]:
+        """Fetch attachment event is not available for webhooks adapter.
+        We do not cache messages and attachments for webhooks adapter, therefore
+        we cannot fetch anything on demand.
+        """
+        raise NotImplementedError("Fetching attachments is not available for webhooks adapter")
+
     async def _send_message(self, data: BaseModel) -> Dict[str, Any]:
         """Send a message to a chat
 
@@ -55,7 +62,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
             message_ids.append(response.get("id", ""))
             self.conversation_manager.add_to_conversation({**response, **webhook_info})
 
-        self.uploader.clean_up_uploaded_files(data.attachments)
+        self.uploader.clean_up_uploaded_files(attachments)
         logging.info(f"Message sent to {data.conversation_id}")
         return {"request_completed": True, "message_ids": list(filter(len, message_ids))}
 

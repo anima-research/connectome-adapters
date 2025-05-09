@@ -119,7 +119,7 @@ class SlackClient:
                 except (asyncio.TimeoutError, asyncio.CancelledError):
                     pass  # Expected
 
-            if self.socket_client and self.socket_client.is_connected():
+            if self.socket_client and await self.socket_client.is_connected():
                 try:
                     await asyncio.wait_for(self.socket_client.disconnect(), timeout=5)
                 except asyncio.TimeoutError:

@@ -37,21 +37,6 @@ def create_attachment_dir(attachment_dir: str) -> str:
     except Exception as e:
         logging.error(f"Error creating attachment directory: {e}")
 
-def delete_empty_directory(file_path: str) -> None:
-    """Check if a directory is empty and delete it if so
-
-    Args:
-        file_path: File path
-    """
-    directory = os.path.dirname(file_path)
-
-    if os.path.exists(directory) and len(os.listdir(directory)) == 0:
-        try:
-            os.rmdir(directory)
-            logging.info(f"Removed directory: {directory}")
-        except Exception as e:
-            logging.error(f"Could not remove directory {directory}: {e}")
-
 def get_attachment_type_by_extension(file_extension: Optional[str]) -> str:
     """Determine the specific attachment type based on file extension
 
@@ -93,11 +78,14 @@ def save_metadata_file(metadata: Dict[str, Any], attachment_dir: str) -> None:
         IOError: If saving metadata fails
     """
     try:
+        data_copy = metadata.copy()
+        del data_copy["content"]
+
         metadata_path = os.path.join(
             attachment_dir, f"{metadata['attachment_id']}.json"
         )
         with open(metadata_path, "w") as f:
-            json.dump(metadata, f, indent=2, default=str)
+            json.dump(data_copy, f, indent=2, default=str)
     except Exception as e:
         logging.error(f"Error saving attachment metadata: {e}")
         raise IOError(f"Could not save attachment metadata: {e}")

@@ -25,13 +25,6 @@ class TestHistoryFetcher:
         return limiter
 
     @pytest.fixture
-    def downloader_mock(self):
-        """Create a mocked downloader"""
-        downloader = AsyncMock()
-        downloader.download_attachment = AsyncMock()
-        return downloader
-
-    @pytest.fixture
     def conversation_manager_mock(self):
         """Create a mocked conversation manager"""
         manager = AsyncMock(spec=Manager)
@@ -86,19 +79,6 @@ class TestHistoryFetcher:
         return message
 
     @pytest.fixture
-    def mock_attachments(self):
-        """Create mock attachment data"""
-        return [
-            {
-                "attachment_id": "987654",
-                "attachment_type": "image",
-                "file_extension": "jpg",
-                "file_path": "/path/to/image.jpg",
-                "size": 12345
-            }
-        ]
-
-    @pytest.fixture
     def channel_mock(self, mock_message_with_attachment, mock_message_reply):
         """Create a mocked Discord channel"""
         history = MagicMock()
@@ -118,10 +98,8 @@ class TestHistoryFetcher:
                         discord_webhook_client_mock,
                         conversation_manager_mock,
                         rate_limiter_mock,
-                        downloader_mock,
                         mock_message_with_attachment,
-                        mock_message_reply,
-                        mock_attachments):
+                        mock_message_reply):
         """Create a HistoryFetcher instance"""
         def _create(conversation_id, anchor=None, before=None, after=None, history_limit=None):
             conversation_manager_mock.get_conversation.return_value = None
@@ -136,11 +114,7 @@ class TestHistoryFetcher:
                 after=after,
                 history_limit=history_limit or 10
             )
-            fetcher.downloader = downloader_mock
             fetcher.rate_limiter = rate_limiter_mock
-            fetcher._download_attachments = AsyncMock(
-                return_value={0: mock_attachments, 1: []}
-            )
             fetcher._make_api_request = AsyncMock(
                 return_value=[
                     mock_message_with_attachment,
@@ -160,9 +134,7 @@ class TestHistoryFetcher:
         assert len(history) == 2  # Both messages are before the timestamp
 
     @pytest.mark.asyncio
-    async def test_fetch_with_after(self,
-                                    history_fetcher,
-                                    channel_mock):
+    async def test_fetch_with_after(self, history_fetcher):
         """Test fetching history with after timestamp"""
         fetcher = history_fetcher("987654321", after=1609501000000)  # Before both messages
         history = await fetcher.fetch()
@@ -175,15 +147,10 @@ class TestHistoryFetcher:
         fetcher = history_fetcher("nonexistent_id")
         assert await fetcher.fetch() == []
 
-    def test_format_message(self,
-                            history_fetcher,
-                            mock_message_with_attachment,
-                            mock_attachments):
+    def test_format_message(self, history_fetcher, mock_message_with_attachment):
         """Test formatting a message that isn't cached"""
         fetcher = history_fetcher("987654321")
-        result = fetcher._format_message(
-            mock_message_with_attachment, mock_attachments
-        )
+        result = fetcher._format_message(mock_message_with_attachment)
 
         assert result["message_id"] == "111222333"
         assert result["conversation_id"] == "987654321"
@@ -192,6 +159,4 @@ class TestHistoryFetcher:
         assert result["text"] == "Message with attachment"
         assert result["thread_id"] is None
         assert result["timestamp"] == 1609502400000
-        assert len(result["attachments"]) == 1
-        assert "created_at" not in result["attachments"][0]
-        assert "file_path" in result["attachments"][0]
+        assert len(result["attachments"]) == 0

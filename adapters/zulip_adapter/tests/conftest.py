@@ -33,8 +33,7 @@ def default_config_data():
             "max_age_days": 30,
             "max_total_attachments": 1000,
             "cleanup_interval_hours": 24,
-            "large_file_threshold_mb": 5,
-            "max_file_size_mb": 25
+            "max_file_size_mb": 1
         },
         "rate_limit": {
             "global_rpm": 120,

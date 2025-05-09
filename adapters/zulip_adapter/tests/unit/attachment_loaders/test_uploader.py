@@ -39,37 +39,6 @@ class TestUploader:
             "id": 12345
         }
 
-    class TestUploadAttachment:
-        """Tests for the upload_attachment method"""
-
-        @pytest.mark.asyncio
-        async def test_file_not_found(self, uploader, sample_standard_attachment):
-            """Test handling missing file"""
-            with patch("os.path.exists", return_value=False):
-                with patch.object(logging, "error") as mock_log:
-                    result = await uploader.upload_attachment(sample_standard_attachment)
-
-                    assert result is None
-                    assert mock_log.called
-                    assert "File not found" in mock_log.call_args[0][0]
-
-        @pytest.mark.asyncio
-        async def test_file_too_large(self, uploader):
-            """Test handling file that exceeds size limit"""
-            oversized_attachment = {
-                "attachment_type": "video",
-                "file_path": "/test/path/huge123.mp4",
-                "size": 50 * 1024 * 1024  # 50MB, above 25MB limit
-            }
-
-            with patch("os.path.exists", return_value=True):
-                with patch.object(logging, "error") as mock_log:
-                    result = await uploader.upload_attachment(oversized_attachment)
-
-                    assert result is None
-                    assert mock_log.called
-                    assert "exceeds Zulip's size limit" in mock_log.call_args[0][0]
-
     class TestUploadFile:
         """Tests for the _upload_file method"""
 

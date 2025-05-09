@@ -29,10 +29,13 @@ class TestHistoryFetcher:
         """Create a mocked downloader"""
         downloader = AsyncMock()
         downloader.download_attachment = AsyncMock(return_value={
-            "attachment_id": "test123",
-            "attachment_type": "photo",
-            "file_extension": "jpg",
-            "size": 12345
+            "attachment_id": "some_id",
+            "attachment_type": "document",
+            "file_extension": "txt",
+            "size": 12345,
+            "processable": True,
+            "content": "dGVzdAo=",
+            "created_at": datetime.now()
         })
         return downloader
 
@@ -108,11 +111,12 @@ class TestHistoryFetcher:
             "thread_id": "1000",
             "timestamp": 1627905600000,  # 2021-08-02 12:00:00 UTC
             "attachments": [{
-                "attachment_id": "test123",
-                "attachment_type": "photo",
-                "file_extension": "jpg",
-                "file_path": "/path/to/attachments/photo/test123/test123.jpg",
-                "size": 12345
+                "attachment_id": "some_id",
+                "attachment_type": "document",
+                "file_extension": "txt",
+                "size": 12345,
+                "processable": True,
+                "content": "dGVzdAo="
             }]
         }
 
@@ -244,15 +248,20 @@ class TestHistoryFetcher:
         user.username = "testuser"
         fetcher.users = {98765: user}
 
-        fetcher._get_attachment_info = AsyncMock(return_value={
-            "attachment_id": "test123",
-            "attachment_type": "photo",
-            "file_extension": "jpg",
-            "size": 12345,
-            "file_path": "/path/to/attachments/photo/test123/test123.jpg"
-        })
-
-        result = await fetcher._parse_fetched_history([mock_telegram_message])
+        result = await fetcher._parse_fetched_history(
+            [mock_telegram_message],
+            {
+                0: {
+                    "attachment_id": "some_id",
+                    "attachment_type": "document",
+                    "file_extension": "txt",
+                    "size": 12345,
+                    "processable": True,
+                    "content": "dGVzdAo=",
+                    "created_at": datetime.now()
+                }
+            }
+        )
 
         assert len(result) == 1
         assert result[0]["message_id"] == "1001"
@@ -260,6 +269,8 @@ class TestHistoryFetcher:
         assert result[0]["text"] == "Test message"
         assert result[0]["thread_id"] == "1000"
         assert len(result[0]["attachments"]) == 1
+        assert result[0]["attachments"][0]["attachment_id"] == "some_id"
+        assert "created_at" not in result[0]["attachments"][0]
 
     @pytest.mark.asyncio
     async def test_fetch_no_conversation(self, history_fetcher):

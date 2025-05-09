@@ -213,8 +213,10 @@ class TestManager:
         return {
             "attachment_id": "F12345678",
             "attachment_type": "document",
-            "file_extension": "pdf",
+            "file_extension": "txt",
             "created_at": datetime.now().isoformat(),
+            "processable": True,
+            "content": "dGVzdAo=",
             "size": 12345
         }
 
@@ -446,43 +448,14 @@ class TestManager:
             cached_attachment.attachment_id = "F12345678"
             manager.attachment_cache.add_attachment.return_value = cached_attachment
 
-            with patch.object(manager, "_attachment_to_dict", return_value=attachment_mock):
-                result = await manager._update_attachment(
-                    conversation_info, [attachment_mock]
-                )
-
-                assert len(result) == 1
-                assert result[0] == attachment_mock
-                assert "F12345678" in conversation_info.attachments
-                manager.attachment_cache.add_attachment.assert_called_once_with(
-                    "T12345678/C87654321", attachment_mock
-                )
-
-        @pytest.mark.asyncio
-        async def test_update_attachment_empty(self, manager):
-            """Test updating attachment info with empty attachment"""
-            conversation_info = ConversationInfo(
-                conversation_id="T12345678/C87654321",
-                conversation_type="channel"
+            result = await manager._update_attachment(
+                conversation_info, [attachment_mock]
             )
 
-            result = await manager._update_attachment(conversation_info, [None])
-            assert len(result) == 0
-            manager.attachment_cache.add_attachment.assert_not_called()
-
-        def test_attachment_to_dict(self, manager):
-            """Test converting attachment to dictionary"""
-            cached_attachment = MagicMock()
-            cached_attachment.attachment_id = "F12345678"
-            cached_attachment.attachment_type = "document"
-            cached_attachment.file_extension = "pdf"
-            cached_attachment.file_path = "document/F12345678/sample.pdf"
-            cached_attachment.size = 12345
-
-            result = manager._attachment_to_dict(cached_attachment)
-
-            assert result["attachment_id"] == "F12345678"
-            assert result["attachment_type"] == "document"
-            assert result["file_extension"] == "pdf"
-            assert "test_attachments" in result["file_path"]
-            assert result["size"] == 12345
+            assert len(result) == 1
+            assert result[0]["attachment_id"] == attachment_mock["attachment_id"]
+            assert result[0]["attachment_type"] == attachment_mock["attachment_type"]
+            assert "F12345678" in conversation_info.attachments
+            manager.attachment_cache.add_attachment.assert_called_once_with(
+                "T12345678/C87654321", attachment_mock
+            )

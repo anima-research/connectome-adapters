@@ -15,8 +15,7 @@ attachments:
   max_age_days: 30
   max_total_attachments: 1000
   cleanup_interval_hours: 24
-  large_file_threshold_mb: 5 # in MB
-  max_file_size_mb: 50 # in MB
+  max_file_size_mb: 5 # in MB
 caching:
   max_messages_per_conversation: 100
   max_total_messages: 1000

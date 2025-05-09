@@ -40,37 +40,6 @@ class Manager(BaseManager):
         self.message_builder = MessageBuilder(self.config)
         self.thread_handler = ThreadHandler(self.message_cache)
 
-    def attachment_download_required(self, message: Any) -> bool:
-        """Check if attachment download or upload is required for a message
-
-        Args:
-            message: Telethon message object
-
-        Returns:
-            True if download is required, False otherwise
-        """
-        if not message or not hasattr(message, "media") or not message.media:
-            return False
-
-        attachment_id = None
-        if hasattr(message, "photo") and message.photo:
-            attachment_id = str(message.photo.id)
-        elif hasattr(message, "document") and message.document:
-            attachment_id = str(message.document.id)
-
-        if attachment_id:
-            return (
-                attachment_id not in self.attachment_cache.attachments or
-                not os.path.exists(
-                    os.path.join(
-                        self.config.get_setting("attachments", "storage_dir"),
-                        self.attachment_cache.attachments[attachment_id].file_path
-                    )
-                )
-            )
-
-        return False
-
     async def _get_or_create_conversation_info(self, message: Any) -> Optional[ConversationInfo]:
         """Get existing conversation info or create a new one
 

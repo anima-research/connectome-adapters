@@ -16,9 +16,6 @@ class BaseLoader:
         self.config = config
         self.client = client
         self.download_dir = self.config.get_setting("attachments", "storage_dir")
-        self.large_file_threshold = self.config.get_setting(
-            "attachments", "large_file_threshold_mb"
-        ) * 1024 * 1024  # Convert to bytes
         self.max_file_size = self.config.get_setting(
             "attachments", "max_file_size_mb"
         ) * 1024 * 1024  # Convert to bytes

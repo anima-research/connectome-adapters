@@ -58,9 +58,10 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
         events = []
 
         try:
+            message = event.get("message", {})
             delta = await self.conversation_manager.add_to_conversation({
-                "message": event.get("message", {}),
-                "attachments": await self.downloader.download_attachment(event)
+                "message": message,
+                "attachments": await self.downloader.download_attachment(message)
             })
 
             if delta:

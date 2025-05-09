@@ -1,3 +1,5 @@
+import os
+
 from typing import Optional, Dict, Any
 from datetime import datetime
 from core.utils.attachment_loading import get_attachment_type_by_extension
@@ -15,9 +17,6 @@ class BaseLoader:
         self.client = client
         self.config = config
         self.download_dir = self.config.get_setting("attachments", "storage_dir")
-        self.large_file_threshold = self.config.get_setting(
-            "attachments", "large_file_threshold_mb"
-        ) * 1024 * 1024  # Convert to bytes
         self.max_file_size = self.config.get_setting(
             "attachments", "max_file_size_mb"
         ) * 1024 * 1024  # Convert to bytes
@@ -38,7 +37,9 @@ class BaseLoader:
             "attachment_id": None,
             "file_extension": None,
             "created_at": datetime.now(),
-            "size": self._get_file_size(message)
+            "processable": False,
+            "size": int(self._get_file_size(message)),
+            "content": None
         }
 
         if hasattr(message, "photo") and message.photo:
@@ -80,3 +81,22 @@ class BaseLoader:
             return None
         except Exception:
             return None
+
+    def _get_local_file_path(self,
+                             attachment_dir: str,
+                             attachment: Dict[str, Any]) -> str:
+        """Get the local file path for an attachment
+
+        Args:
+            attachment_dir: The directory of the attachment
+            attachment: The attachment object
+
+        Returns:
+            The local file path for the attachment
+        """
+        file_name = f"{attachment['attachment_id']}"
+
+        if attachment["file_extension"]:
+            file_name += f".{attachment['file_extension']}"
+
+        return os.path.join(attachment_dir, file_name)

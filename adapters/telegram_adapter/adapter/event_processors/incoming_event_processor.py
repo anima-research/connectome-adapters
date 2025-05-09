@@ -66,12 +66,7 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             delta = await self.conversation_manager.add_to_conversation({
                 "message": message,
                 "user": await self._get_user(message),
-                "attachments": [
-                    await self.downloader.download_attachment(
-                        message,
-                        self.conversation_manager.attachment_download_required(message)
-                    )
-                ]
+                "attachments": [await self.downloader.download_attachment(message)]
             })
 
             if delta:

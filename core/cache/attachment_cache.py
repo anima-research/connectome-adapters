@@ -5,7 +5,7 @@ import os
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Dict, Set, Optional, Any
+from typing import Any, Dict, Optional, Set
 
 from core.utils.config import Config
 
@@ -14,10 +14,11 @@ class CachedAttachment:
     """Information about a cached Telegram attachment"""
     attachment_id: str
     attachment_type: str
+    size: int
+    processable: bool = False
     created_at: datetime = field(default_factory=datetime.now)
-    file_extension: Optional[str] = None
-    size: Optional[int] = None
     conversations: Set[str] = field(default_factory=set)  # Set of conversation IDs where this appears
+    file_extension: Optional[str] = None
 
     @property
     def file_path(self) -> str:
@@ -87,6 +88,7 @@ class AttachmentCache:
                         ),
                         file_extension=metadata.get("file_extension"),
                         size=metadata.get("size"),
+                        processable=metadata.get("processable", True)
                     )
 
                     cached_attachment.conversations = set()
@@ -168,7 +170,8 @@ class AttachmentCache:
                     attachment_type=attachment_info["attachment_type"],
                     created_at=attachment_info["created_at"],
                     file_extension=attachment_info["file_extension"],
-                    size=attachment_info["size"]
+                    size=attachment_info["size"],
+                    processable=attachment_info["processable"]
                 )
 
             self.attachments[attachment_info["attachment_id"]].conversations.add(conversation_id)

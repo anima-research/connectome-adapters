@@ -5,9 +5,7 @@ import os
 
 from typing import Any, Dict, List, Optional
 
-from adapters.discord_webhook_adapter.adapter.attachment_loaders.downloader import Downloader
 from adapters.discord_webhook_adapter.adapter.conversation.manager import Manager
-
 from core.event_processors.base_history_fetcher import BaseHistoryFetcher
 from core.rate_limiter.rate_limiter import RateLimiter
 from core.utils.config import Config
@@ -47,7 +45,6 @@ class HistoryFetcher(BaseHistoryFetcher):
             history_limit
         )
         self.conversation_id = conversation_id
-        self.downloader = Downloader(self.config)
 
     async def fetch(self) -> List[Dict[str, Any]]:
         """Fetch conversation history
@@ -171,14 +168,11 @@ class HistoryFetcher(BaseHistoryFetcher):
             List of formatted message history
         """
         formatted_history = []
-        attachments = await self._download_attachments(history)
 
-        for i, msg in enumerate(history):
+        for msg in history:
             if self._is_discord_service_message(msg):
                 continue
-            formatted_history.append(
-                self._format_message(msg, attachments.get(i, []))
-            )
+            formatted_history.append(self._format_message(msg))
 
         return formatted_history
 
@@ -196,45 +190,11 @@ class HistoryFetcher(BaseHistoryFetcher):
             message.type != discord.MessageType.reply
         )
 
-    async def _download_attachments(self, history: List[Dict[str, Any]]) -> Dict[Any, Any]:
-        """Download attachments
-
-        Args:
-            history: List of message history
-
-        Returns:
-            Dictionary of download results
-        """
-        download_tasks = []
-        message_map = {}
-        attachments = {}
-
-        for i, msg in enumerate(history):
-            if not msg.attachments:
-                continue
-            task = self.downloader.download_attachment(msg)
-            download_tasks.append(task)
-            message_map[task] = i
-
-        for task, result in zip(
-            download_tasks,
-            await asyncio.gather(*download_tasks, return_exceptions=True)
-        ):
-            if isinstance(result, Exception):
-                logging.error(f"Error downloading attachment: {result}")
-                continue
-            attachments[message_map[task]] = result
-
-        return attachments
-
-    def _format_message(self,
-                        message: Any,
-                        attachments: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _format_message(self, message: Any) -> Dict[str, Any]:
         """Format a message that is not cached
 
         Args:
             message: Message to format
-            attachments: List of attachments
 
         Returns:
             Formatted message
@@ -253,22 +213,7 @@ class HistoryFetcher(BaseHistoryFetcher):
             "text": message.content,
             "thread_id": thread_id,
             "timestamp": int(message.created_at.timestamp() * 1e3),
-            "attachments": attachments
+            "attachments": []
         }
-
-        for attachment in formatted_message["attachments"]:
-            if "created_at" in attachment:
-                del attachment["created_at"]
-
-            file_name = attachment["attachment_id"]
-            if attachment["file_extension"]:
-                file_name += "." + attachment["file_extension"]
-
-            attachment["file_path"] = os.path.join(
-                self.config.get_setting("attachments", "storage_dir"),
-                attachment["attachment_type"],
-                attachment["attachment_id"],
-                file_name
-            )
 
         return formatted_message

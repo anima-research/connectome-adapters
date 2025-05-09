@@ -50,7 +50,7 @@ class HistoryFetcher(BaseHistoryFetcher):
             history_limit
         )
 
-        self.downloader = Downloader(self.config)
+        self.downloader = Downloader(self.config, content_required=False)
 
     async def _fetch_from_api(self) -> List[Dict[str, Any]]:
         """Fetch conversation history
@@ -181,7 +181,7 @@ class HistoryFetcher(BaseHistoryFetcher):
                         "display_bot_messages": True
                     }
                 )
-                for cached_msg in delta["added_messages"]:
+                for cached_msg in delta.get("added_messages", []):
                     formatted_history.append(cached_msg)
             else:
                 formatted_history.append(
@@ -253,16 +253,5 @@ class HistoryFetcher(BaseHistoryFetcher):
         for attachment in formatted_message["attachments"]:
             if "created_at" in attachment:
                 del attachment["created_at"]
-
-            file_name = attachment["attachment_id"]
-            if attachment["file_extension"]:
-                file_name += "." + attachment["file_extension"]
-
-            attachment["file_path"] = os.path.join(
-                self.config.get_setting("attachments", "storage_dir"),
-                attachment["attachment_type"],
-                attachment["attachment_id"],
-                file_name
-            )
 
         return formatted_message

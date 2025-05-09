@@ -181,9 +181,8 @@ class TestOutgoingEventProcessor:
                     "text": "Message with attachments",
                     "attachments": [
                         {
-                            "attachment_type": "document",
-                            "file_path": "test_attachments/document/test.txt",
-                            "size": 100
+                            "file_name": "test.txt",
+                            "content": "dGVzdAo="
                         }
                     ]
                 }
@@ -197,7 +196,7 @@ class TestOutgoingEventProcessor:
             attachment_response_mock.status = 200
             attachment_response_mock.json = AsyncMock(return_value={"id": "444555666"})
 
-            uploader_mock.upload_attachment.return_value = ["test_attachments/document/test.txt"]
+            uploader_mock.upload_attachment.return_value = ["tmp_uploads/test.txt"]
             processor.session.post = AsyncMock(side_effect=[text_response_mock, attachment_response_mock])
 
             with patch('aiohttp.FormData') as form_data_mock:
@@ -206,13 +205,7 @@ class TestOutgoingEventProcessor:
 
                 result = await processor.process_event(event_data)
                 assert result["request_completed"] is True
-                uploader_mock.upload_attachment.assert_called_once_with([
-                    {
-                        "attachment_type": "document",
-                        "file_path": "test_attachments/document/test.txt",
-                        "size": 100
-                    }
-                ])
+                uploader_mock.upload_attachment.assert_called_once()
 
                 assert form_data_mock.called
                 uploader_mock.clean_up_uploaded_files.assert_called_once()

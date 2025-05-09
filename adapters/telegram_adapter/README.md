@@ -104,3 +104,5 @@ socketio:
 * For supergroups: the negative supergroup ID with a -100 prefix
 
 2) Conversation Migrations. Telegram sometimes migrates groups to supergroups. The adapter does not track these migrations, however, it handles them anyway. Once the migration happens and the conversation continues, the adapter receives the first new message and retrieves the history that is sent to the connectome framework. After that, the old conversation will be removed from the adapter's cache as a result of standard cleanup process, while the new one will be maintained as usual.
+
+3) Telegram's File Expiration Policy. Attachments from older messages (typically more than a few days old) may no longer be downloadable, even though the messages themselves are still visible in history.

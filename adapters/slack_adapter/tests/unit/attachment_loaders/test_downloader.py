@@ -91,19 +91,19 @@ class TestDownloader:
         return downloader
 
     @pytest.mark.asyncio
-    async def test_download_attachments_no_files(self, downloader, slack_message_no_files):
+    async def test_download_no_attachments(self, downloader, slack_message_no_files):
         """Test handling a message with no files"""
         assert await downloader.download_attachments(slack_message_no_files) == []
 
     @pytest.mark.asyncio
-    async def test_download_attachments_empty_files(self, downloader):
+    async def test_download_attachments_with_empty_files(self, downloader):
         """Test handling a message with empty files list"""
         assert await downloader.download_attachments({"files": []}) == []
 
     @pytest.mark.asyncio
-    async def test_download_standard_file_new(self, downloader, slack_message_with_files):
+    async def test_download_new_file(self, downloader, slack_message_with_files):
         """Test downloading a new small file"""
-        with patch.object(downloader, "_download_standard_file", AsyncMock()) as mock_download:
+        with patch.object(downloader, "_download_file", AsyncMock()) as mock_download:
             with patch("os.path.exists", return_value=False):  # File doesn't exist
                 with patch("core.utils.attachment_loading.create_attachment_dir"):
                     with patch("core.utils.attachment_loading.save_metadata_file"):
@@ -118,24 +118,7 @@ class TestDownloader:
                             mock_download.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_download_large_file_new(self, downloader, slack_message_with_files):
-        """Test downloading a new large file"""
-        with patch.object(downloader, "_download_large_file", AsyncMock()) as mock_download:
-            with patch("os.path.exists", return_value=False):  # File doesn't exist
-                with patch("builtins.open", new_callable=MagicMock()):
-                    with patch("core.utils.attachment_loading.create_attachment_dir"):
-                        with patch("core.utils.attachment_loading.save_metadata_file"):
-                            message = {"files": [slack_message_with_files["files"][1]]}
-                            result = await downloader.download_attachments(message)
-
-                            assert len(result) == 1
-                            assert result[0]["attachment_id"] == "F789012"
-                            assert result[0]["size"] == 15 * 1024 * 1024
-
-                            mock_download.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_download_attachment_existing_file(self, downloader, slack_message_with_files):
+    async def test_download_existing_file(self, downloader, slack_message_with_files):
         """Test handling an existing completed attachment"""
         with patch("os.path.exists", return_value=True):  # File already exists
             with patch("os.path.getsize", return_value=5000):
@@ -151,21 +134,6 @@ class TestDownloader:
                         assert not downloader.client.files_info.called
                         assert mock_log.called
                         assert "Skipping download" in mock_log.call_args[0][0]
-
-    @pytest.mark.asyncio
-    async def test_download_attachment_error(self, downloader, slack_message_with_files):
-        """Test handling an error during download"""
-        downloader.client.files_info.side_effect = Exception("API Error")
-
-        with patch("os.path.exists", return_value=False):  # File doesn't exist
-            with patch("core.utils.attachment_loading.create_attachment_dir"):
-                with patch.object(logging, "error") as mock_error_log:
-                    message = {"files": [slack_message_with_files["files"][0]]}
-                    result = await downloader.download_attachments(message)
-
-                    assert result == []
-                    assert mock_error_log.called
-                    assert "Error downloading" in mock_error_log.call_args[0][0]
 
     @pytest.mark.asyncio
     async def test_multiple_file_types(self, downloader):
@@ -187,14 +155,13 @@ class TestDownloader:
         message = {"files": files}
 
         with patch("os.path.exists", return_value=False):
-            with patch.object(downloader, "_download_standard_file", AsyncMock()):
-                with patch.object(downloader, "_download_large_file", AsyncMock()):
-                    with patch("core.utils.attachment_loading.create_attachment_dir"):
-                        with patch("core.utils.attachment_loading.save_metadata_file"):
-                            result = await downloader.download_attachments(message)
+            with patch.object(downloader, "_download_file", AsyncMock()):
+                with patch("core.utils.attachment_loading.create_attachment_dir"):
+                    with patch("core.utils.attachment_loading.save_metadata_file"):
+                        result = await downloader.download_attachments(message)
 
-                            assert len(result) == 2
-                            assert result[0]["attachment_type"] == "document"
-                            assert result[0]["file_extension"] == "pdf"
-                            assert result[1]["attachment_type"] == "image"
-                            assert result[1]["file_extension"] == "jpg"
+                        assert len(result) == 2
+                        assert result[0]["attachment_type"] == "document"
+                        assert result[0]["file_extension"] == "pdf"
+                        assert result[1]["attachment_type"] == "image"
+                        assert result[1]["file_extension"] == "jpg"

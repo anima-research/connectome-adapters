@@ -6,12 +6,17 @@ class BaseOutgoingEvent(BaseModel):
     event_type: str
     data: Dict[str, Any]
 
+class OutgoingAttachmentInfo(BaseModel):
+    """Attachment model"""
+    file_name: str
+    content: str
+
 # Data models for outgoing events
 class SendMessageData(BaseModel):
     """Send message request data model"""
     conversation_id: str
     text: str
-    attachments: List[Dict[str, Any]] = Field(default_factory=list)
+    attachments: List[OutgoingAttachmentInfo] = Field(default_factory=list)
     custom_name: Optional[str] = None  # Only used for discord webhook adapter
 
 class EditMessageData(BaseModel):
@@ -37,6 +42,10 @@ class FetchHistoryData(BaseModel):
     limit: Optional[int] = None
     before: Optional[int] = None
     after: Optional[int] = None
+
+class FetchAttachmentData(BaseModel):
+    """Fetch attachment request data model"""
+    attachment_id: str
 
 # Complete request models
 class SendMessageEvent(BaseOutgoingEvent):
@@ -68,3 +77,8 @@ class FetchHistoryEvent(BaseOutgoingEvent):
     """Complete fetch history event model"""
     event_type: str = "fetch_history"
     data: FetchHistoryData
+
+class FetchAttachmentEvent(BaseOutgoingEvent):
+    """Complete fetch attachment event model"""
+    event_type: str = "fetch_attachment"
+    data: FetchAttachmentData

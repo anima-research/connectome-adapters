@@ -102,8 +102,12 @@ class TestOutgoingEventProcessor:
 
             attachment_info = {
                 "message": MagicMock(),
-                "attachment_id": "123",
-                "attachment_type": "photo"
+                "attachment_id": "some_id",
+                "attachment_type": "document",
+                "file_extension": "txt",
+                "size": 12345,
+                "processable": True,
+                "content": None
             }
             uploader_mock.upload_attachment.return_value = attachment_info
 
@@ -112,8 +116,9 @@ class TestOutgoingEventProcessor:
                 "data": {
                     "conversation_id": "123",
                     "text": "Hello, world!",
-                    "thread_id": None,
-                    "attachments": [{"file_path": "/path/to/file.jpg"}]
+                    "attachments": [
+                        {"file_name": "some_file.txt", "content": "dGVzdAo="}
+                    ]
                 }
             }
 

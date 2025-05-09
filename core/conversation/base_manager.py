@@ -52,15 +52,23 @@ class BaseManager(ABC):
         result = []
 
         for msg in self.message_cache.messages.get(conversation_id, {}).values():
+            if not msg.text and not msg.attachments:
+                continue
+
             msg_dict = msg.cache_to_dict().copy()
             msg_dict["attachments"] = []
 
             for attachment_id in msg.attachments:
-                attachment = self._attachment_to_dict(
-                    self.attachment_cache.get_attachment(attachment_id)
-                )
-                if attachment:
-                    msg_dict["attachments"].append(attachment)
+                cached_attachment = self.attachment_cache.get_attachment(attachment_id)
+                if cached_attachment:
+                    msg_dict["attachments"].append({
+                        "attachment_id": cached_attachment.attachment_id,
+                        "attachment_type": cached_attachment.attachment_type,
+                        "file_extension": cached_attachment.file_extension,
+                        "content": None,
+                        "size": cached_attachment.size,
+                        "processable": cached_attachment.processable
+                    })
 
             result.append(msg_dict)
 
@@ -204,11 +212,18 @@ class BaseManager(ABC):
             if not attachment:
                 continue
 
-            cached_attachment = await self.attachment_cache.add_attachment(
+            await self.attachment_cache.add_attachment(
                 conversation_info.conversation_id, attachment
             )
-            result.append(self._attachment_to_dict(cached_attachment))
-            conversation_info.attachments.add(cached_attachment.attachment_id)
+            conversation_info.attachments.add(attachment["attachment_id"])
+            result.append({
+                "attachment_id": attachment["attachment_id"],
+                "attachment_type": attachment["attachment_type"],
+                "file_extension": attachment["file_extension"],
+                "content": attachment["content"],
+                "size": attachment["size"],
+                "processable": attachment["processable"]
+            })
 
         return result
 
@@ -310,7 +325,7 @@ class BaseManager(ABC):
         if not cached_msg:
             cached_msg = await self.message_cache.get_message_by_id(conversation_id, message_id)
 
-        if cached_msg:
+        if cached_msg and (cached_msg.text or attachments):
             getattr(delta, list_to_update).append({
                 "message_id": cached_msg.message_id,
                 "conversation_id": conversation_id,
@@ -323,29 +338,6 @@ class BaseManager(ABC):
                 "thread_id": cached_msg.thread_id,
                 "attachments": attachments
             })
-
-    def _attachment_to_dict(self, attachment: CachedAttachment) -> Optional[Dict[str, Any]]:
-        """Convert attachment to dict
-
-        Args:
-            message: Attachment cache object
-
-        Returns:
-            Attachment dict or {} if attachment is None
-        """
-        if not attachment:
-            return {}
-
-        return {
-            "attachment_id": attachment.attachment_id,
-            "attachment_type": attachment.attachment_type,
-            "file_extension": attachment.file_extension,
-            "file_path": os.path.join(
-                self.config.get_setting("attachments", "storage_dir"),
-                attachment.file_path
-            ),
-            "size": attachment.size
-        }
 
     @abstractmethod
     async def _get_conversation_id(self, message: Any) -> Optional[str]:

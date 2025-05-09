@@ -26,6 +26,7 @@ class TestZulipToSocketIOFlowIntegration:
         os.makedirs("test_attachments", exist_ok=True)
         os.makedirs("test_attachments/image", exist_ok=True)
         os.makedirs("test_attachments/document", exist_ok=True)
+        os.makedirs("test_attachments/tmp_uploads", exist_ok=True)
 
         yield
 
@@ -273,10 +274,12 @@ class TestZulipToSocketIOFlowIntegration:
         """Test flow from Zulip message with attachment to socket.io event"""
         adapter.incoming_events_processor.downloader.download_attachment.return_value = [{
             "attachment_id": "abc123",
-            "attachment_type": "image",
-            "file_extension": "jpg",
+            "attachment_type": "document",
+            "file_extension": "txt",
             "created_at": datetime.now(),
-            "size": 12345
+            "size": 12345,
+            "processable": True,
+            "content": "dGVzdAo="
         }]
 
         event = create_zulip_event(event_type="message", message_type="private", with_attachment=True)
