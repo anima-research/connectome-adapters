@@ -17,6 +17,7 @@ class FetchedMessageData(BaseModel):
     sender: SenderInfo
     text: str = ""
     thread_id: Optional[str] = None
+    is_direct_message: bool = True
     attachments: List[IncomingAttachmentInfo] = Field(default_factory=list)
     timestamp: int
 

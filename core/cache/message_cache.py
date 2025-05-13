@@ -17,6 +17,7 @@ class CachedMessage:
     text: Optional[str]
     timestamp: Optional[int]
     is_from_bot: bool
+    is_direct_message: bool = True
     reply_to_message_id: Optional[str] = None
     reactions: Dict[str, int] = field(default_factory=dict)
     is_pinned: bool = False
@@ -38,7 +39,8 @@ class CachedMessage:
                 "display_name": self.sender_name
             },
             "text": self.text,
-            "timestamp": self.timestamp
+            "timestamp": self.timestamp,
+            "is_direct_message": self.is_direct_message
         }
 
 class MessageCache:
@@ -121,6 +123,7 @@ class MessageCache:
                 text=message_info["text"],
                 timestamp=message_info["timestamp"],
                 is_from_bot=message_info.get("is_from_bot", True),
+                is_direct_message=message_info.get("is_direct_message", True),
                 reply_to_message_id=message_info.get("reply_to_message_id", None)
             )
 

@@ -208,6 +208,7 @@ class IncomingEventBuilder:
             ),
             text=delta.get("text", ""),
             thread_id=delta.get("thread_id"),
+            is_direct_message=delta.get("is_direct_message", True),
             attachments=[IncomingAttachmentInfo(**attachment) for attachment in delta.get("attachments", [])],
             timestamp=delta["timestamp"]
         )

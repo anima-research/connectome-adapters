@@ -23,6 +23,7 @@ class MessageReceivedData(BaseModel):
     message_id: str
     conversation_id: str
     sender: SenderInfo
+    is_direct_message: bool
     text: Optional[str] = ""
     thread_id: Optional[str] = None
     attachments: Optional[List[IncomingAttachmentInfo]] = Field(default_factory=list)
