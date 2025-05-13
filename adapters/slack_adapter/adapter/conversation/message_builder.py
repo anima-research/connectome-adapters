@@ -9,6 +9,7 @@ class MessageBuilder(BaseMessageBuilder):
         self.message_data["message_id"] = str(message.get("ts", ""))
         self.message_data["conversation_id"] = conversation_id
         self.message_data["timestamp"] = int(float(message.get("ts", "0")) * 1e3)
+        self.message_data["is_direct_message"] = message.get("subtype", None) is None
         return self
 
     def with_content(self, message: Any) -> 'MessageBuilder':

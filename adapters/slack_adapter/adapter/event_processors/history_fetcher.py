@@ -137,6 +137,9 @@ class HistoryFetcher(BaseHistoryFetcher):
 
         if self.cache_fetched_history:
             for i, msg in enumerate(history):
+                if msg.get("subtype", None) is not None:
+                    continue
+
                 msg["conversation_id"] = self.conversation.conversation_id
                 delta = await self.conversation_manager.add_to_conversation(
                     {
@@ -151,6 +154,9 @@ class HistoryFetcher(BaseHistoryFetcher):
                     formatted_history.append(cached_msg)
         else:
             for i, msg in enumerate(history):
+                if msg.get("subtype", None) is not None:
+                    continue
+
                 formatted_history.append(
                     self._format_not_cached_message(
                         msg, attachments.get(i, []), await self._get_user_info(msg)
@@ -213,7 +219,8 @@ class HistoryFetcher(BaseHistoryFetcher):
             "text": message.get("text", ""),
             "thread_id": message.get("thread_ts", None),
             "timestamp": int(float(message.get("ts", "0")) * 1e3),
-            "attachments": attachments
+            "attachments": attachments,
+            "is_direct_message": message.get("subtype", None) is None
         }
 
     async def _get_user_info(self, message: Any) -> Optional[Dict[str, Any]]:

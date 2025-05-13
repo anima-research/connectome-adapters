@@ -59,6 +59,10 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
 
         try:
             message = event.get("message", {})
+
+            if message.get("sender_realm_str", "") == "zulipinternal":
+                return events
+
             delta = await self.conversation_manager.add_to_conversation({
                 "message": message,
                 "attachments": await self.downloader.download_attachment(message)

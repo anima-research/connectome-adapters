@@ -173,6 +173,9 @@ class HistoryFetcher(BaseHistoryFetcher):
         attachments = await self._download_attachments(history)
 
         for i, msg in enumerate(history):
+            if msg.get("sender_realm_str", "") == "zulipinternal":
+                continue
+
             if self.cache_fetched_history:
                 delta = await self.conversation_manager.add_to_conversation(
                     {

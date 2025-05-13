@@ -64,7 +64,7 @@ The core/ directory contains shared functionality that's reused across all adapt
 * Supports global, per-conversation, and per-operation limits
 
 3) Caching
-* Attachment Cache (temporary storage for media files)
+* Attachment Cache (short-term storage for media files)
 * Message Cache (short-term storage for message history and context)
 
 4) Base Conversation Management
@@ -154,26 +154,27 @@ The Socket.IO server handles requests from the connectome framework the followin
 * Event Reception. The server receives a `bot_response` event with event type and data (see table below). Request is assigned a unique request_id for tracking.
 * Queueing. Request is added to the event processing queue. Client receives a `request_queued` acknowledgment with the request_id.
 * Processing. Request is passed to the appropriate adapter method. Adapter performs the requested operation on the platform.
-* Response. On success, the client receives `request_success` with the request_id. On failure, the client receives `request_failed` with the request_id. For message sending, additional `message_ids` (platform-specific message identifiers) are included in the response. For history retrieval, additional `history` (platform-specific conversation history) is included in the response.
+* Response. On success, the client receives `request_success` with the request_id. On failure, the client receives `request_failed` with the request_id. For message sending, additional `message_ids` (platform-specific message identifiers) are included in the response. For history retrieval, additional `history` (platform-specific conversation history) is included in the response. Fot attachment fetching, additional `content` is included into response.
 * Request Cancellation. Clients can cancel pending requests via the `cancel_request` event. Cancelled requests are removed from the queue if not yet processed.
 
 The Socket.IO server handles the following event types from the connectome framework.
 
 | Event Type      | Description                              | Required Data                                   |
 |-----------------|------------------------------------------|-------------------------------------------------|
-| send_message    | Send a new message to a conversation     | { <br>&nbsp;&nbsp;"event_type": "send_message", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"text": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"attachments": List[Dict] <br>&nbsp;&nbsp;} <br>} |
+| send_message    | Send a new message to a conversation     | { <br>&nbsp;&nbsp;"event_type": "send_message", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"text": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"attachments": List[<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"file_name": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"content": str <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;} <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;] <br>&nbsp;&nbsp;} <br>} |
 | edit_message    | Edit an existing message                 | { <br>&nbsp;&nbsp;"event_type": "edit_message", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"message_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"text": str <br>&nbsp;&nbsp;} <br>}|
 | delete_message  | Delete a message                         | { <br>&nbsp;&nbsp;"event_type": "delete_message", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"message_id": str <br>&nbsp;&nbsp;} <br>}|
 | add_reaction    | Add a reaction to a message              | { <br>&nbsp;&nbsp;"event_type": "add_reaction", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"message_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"emoji": str <br>&nbsp;&nbsp;} <br>}|
 | remove_reaction | Remove a reaction from a message         | { <br>&nbsp;&nbsp;"event_type": "remove_reaction", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"message_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"emoji": str <br>&nbsp;&nbsp;} <br>}|
 | fetch_history   | Request conversation history (for more details on history fetching see "Important Flow Rules" section)             | { <br>&nbsp;&nbsp;"event_type": "fetch_history", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"limit": int, <br>&nbsp;&nbsp;&nbsp;&nbsp;"before": int <br>&nbsp;&nbsp;} <br>}|
+| fetch_attachment | Request attachment                       | { <br>&nbsp;&nbsp;"event_type": "fetch_attachment", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"attachment_id": str <br>&nbsp;&nbsp;} <br>}|
 
 ##### Examples of outgoing event flow
 
 1) Send message from the connectome framework to the adapter
 
+The request that triggers the `bot_response` event for socket.io server.
 ```json
-# request that triggers the `bot_response` event for socket.io server.
 {
   "event_type": "send_message",
   "data": {
@@ -182,20 +183,26 @@ The Socket.IO server handles the following event types from the connectome frame
     "attachments": []
   }
 }
+```
 
-# first emitted event is `request_queued` with the request_id.
+The first emitted event is `request_queued` with the request_id.
+```json
 {
   "adapter_type": "slack",
   "request_id": "R1"
 }
+```
 
-# after the request is processed in the adapter, the server emits either `request_failed`
+After the request is processed in the adapter, the server emits either `request_failed`
+```json
 {
   "adapter_type": "slack",
   "request_id": "R1"
 }
+```
 
-# or `request_success`.
+or `request_success`.
+```json
 {
   "adapter_type": "slack",
   "request_id": "R1",
@@ -207,19 +214,23 @@ The Socket.IO server handles the following event types from the connectome frame
 
 2) Cancel queued request
 
+The request that triggers the `cancel_request` event for socket.io server.
 ```json
-# request that triggers the `cancel_request` event for socket.io server.
 {
   "request_id": "R1"
 }
+```
 
-# after the request is processed in the adapter, the server emits either `request_failed`
+After the request is processed in the adapter, the server emits either `request_failed`
+```json
 {
   "adapter_type": "slack",
   "request_id": "R1"
 }
+```
 
-# or `request_success`.
+or `request_success`.
+```json
 {
   "adapter_type": "slack",
   "request_id": "R1"
@@ -253,7 +264,7 @@ Supported platform event types.
 | Event Type           | Description                              | Included Data                                                          |
 |----------------------|------------------------------------------|------------------------------------------------------------------------|
 | conversation_started | New conversation initialized |{ <br>&nbsp;&nbsp;"adapter_type": str, <br>&nbsp;&nbsp;"event_type": "conversation_started", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"history": List[Dict] <br>&nbsp;&nbsp;} <br>}|
-| message_received | New message from the platform | { <br>&nbsp;&nbsp;"adapter_type": str, <br>&nbsp;&nbsp;"event_type": "message_received", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"adapter_name": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"message_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"sender": { "user_id": str, "display_name": str }, <br>&nbsp;&nbsp;&nbsp;&nbsp;"text": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"thread_id": Optional[str], <br>&nbsp;&nbsp;&nbsp;&nbsp;"attachments": List[Dict], <br>&nbsp;&nbsp;&nbsp;&nbsp;"timestamp": int <br>&nbsp;&nbsp;} <br>} |
+| message_received | New message from the platform | { <br>&nbsp;&nbsp;"adapter_type": str, <br>&nbsp;&nbsp;"event_type": "message_received", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"adapter_name": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"message_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"sender": { "user_id": str, "display_name": str }, <br>&nbsp;&nbsp;&nbsp;&nbsp;"text": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"thread_id": Optional[str], <br>&nbsp;&nbsp;&nbsp;&nbsp;"attachments": List[Dict],  <br>&nbsp;&nbsp;&nbsp;&nbsp;"is_direct_message": bool, <br>&nbsp;&nbsp;&nbsp;&nbsp;"timestamp": int <br>&nbsp;&nbsp;} <br>} |
 | message_updated      | Message was edited                       |{ <br>&nbsp;&nbsp;"adapter_type": str, <br>&nbsp;&nbsp;"event_type": "message_updated", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"message_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"new_text": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str <br>&nbsp;&nbsp;} <br>}|
 | message_deleted      | Message was deleted                      |{ <br>&nbsp;&nbsp;"adapter_type": str, <br>&nbsp;&nbsp;"event_type": "message_deleted", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"message_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str <br>&nbsp;&nbsp;} <br>}|
 | reaction_added       | Reaction added to message                |{ <br>&nbsp;&nbsp;"adapter_type": str, <br>&nbsp;&nbsp;"event_type": "reaction_added", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"message_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"emoji": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str <br>&nbsp;&nbsp;} <br>}|
@@ -283,13 +294,24 @@ The adapter emits `conversation_started` event when a new conversation is detect
           "display_name": "Alice"
         },
         "thread_id": "root_message_id_101",
-        "attachments": [],
+        "is_direct_message": True,
+        "attachments": [
+          {
+            "attachment_id": "unique_attachment_id",
+            "attachment_type": "document",
+            "file_extension": "txt",
+            "size": 12345,
+            "processable": True,
+            "content": None
+          }
+        ],
         "timestamp": 1620000000000
       }
     ]
   }
 }
 ```
+
 After that, the adapter emits `message_received` event for a new message that started the conversation for the conversation manager.
 ```json
 {
@@ -305,11 +327,43 @@ After that, the adapter emits `message_received` event for a new message that st
       "display_name": "Bob"
     },
     "thread_id": "message_id_989",
-    "attachments": [],
+    "is_direct_message": True,
+    "attachments": [
+      {
+        "attachment_id": "unique_attachment_id",
+        "attachment_type": "document",
+        "file_extension": "txt",
+        "size": 12345,
+        "processable": True,
+        "content": "dGVzdAo="
+      }
+    ],
     "timestamp": 1620000000000
   }
 }
 ```
+
+##### Attachment handling
+The connectome-adapters framework provides a comprehensive system for processing attachments in both incoming (platform to LLM) and outgoing (LLM to platform) directions across different messaging platforms.
+
+1) Incoming Attachment Processing (Platform to LLM)
+
+* Message Reception. When a platform message contains attachments, the adapter identifies all attachments and extracts their metadata regardless of size. All attachments are included in the message metadata for awareness.
+* Automatic Download. The adapter automatically downloads all attachments that are under the configured `max_file_size_mb` limit. Attachments exceeding the size limit are marked with `processable` set to False and only metadata is retained. Downloaded attachments are stored in the attachment cache.
+* Size Limitations. The `max_file_size_mb` configuration is critical as it determines what can be processed. This limit should be set with multiple constraints in mind: a) Socket.IO transmission capacity (all attachments are sent together, underlying protocol allows up to 16MB during one transmission), b) LLM processing capabilities (what is the max size of a single attachment that can be handled by LLM in question).
+* History Fetching. When conversation history is fetched, all valid attachments (under size limit) are downloaded. Only attachment metadata is included in message history information. File content is not included in history responses to minimize payload size, therefore, `conetnt` is always None. Later, the necessary atatchment content can be fetched with the help of `fetch_attachment` request.
+
+2) Outgoing Attachment Processing (LLM to Platform)
+
+* Sending Attachments. The framework can include attachments with outgoing messages. The adapter processes file content and uploads it to the platform.
+* Fetch Attachment. The framework can explicitly request attachment content via `fetch_attachment`. The adapter accepts an attachment ID from the framework and checks if the attachment exists in the cache. If found, the cached attachment content is returned. If there is no cached attachment, then there request will fail.
+
+##### Data Handling and Caching
+connectome-adapters is designed with a strong focus on data minimization and ephemeral processing. Two key systems handle temporary data storage:
+
+1) Message Caching System. The message cache is designed for temporary storage of conversation context. Messages are stored only in memory, not persisted to disk. There is no permanent storage of message content. Message data is used only for context maintenance and history retrieval. It has automatic cleanup that runs at configurable intervals. Messages older than the configured time-to-live (TTL) are automatically removed. Default TTL is typically set to 24 hours but can be configured based on requirements. The message cache also follows the principle of minimal data retention. It only stores information needed for conversation tracking. It maintains just enough context for the connectome to engage effectively. Configuration options to limit the number of messages stored per conversation are also available.
+
+2) Attachment Cache. The attachment cache is designed for temporary storage of media files. Files are downloaded and stored in a temporary directory. The cache is used to avoid downloading the same file multiple times. When an adapter starts, it checks the configured `storage_dir` location. Any existing attachments in this directory are automatically added to the cache. This allows persistence across adapter restarts. A background task periodically runs to clean the attachment cache. Two main cleanup criteria are enforced: `max_age_days` (attachments older than this are removed) and `max_total_attachments` (if exceeded, oldest attachments are removed first). This ensures the cache doesn't grow unbounded; also, due to this the attachment cache follows the principle of minimal data retention. IMPORTANT! For security purposes, attachments must be manually deleted when an adapter is permanently decommissioned.
 
 ##### Important Flow Rules
 1) Conversation Initialization Requirement. The adapter must have received at least one message from a conversation before it will send to that conversation. This ensures the bot only responds in channels where it's added and where there is new messages activity.
@@ -320,13 +374,7 @@ After that, the adapter emits `message_received` event for a new message that st
 6) On-Demand History Retrieval. The adapter supports explicit history fetching via requests from the framework. This allows the connectome framework to obtain more context when needed for a conversation. Requests require either `after` or `before` parameter. Parameters must be timestamps in milliseconds (Unix epoch).
 6) Caching Strategy. The adapter first attempts to serve history requests from its cache. If the requested messages aren't in cache, the adapter will fetch them from platforms. This approach minimizes API usage while maintaining responsive performance.
 7) Cache Utilization. Fetched history is cached according to the `cache_fetched_history` configuration setting. When enabled, this improves performance for repeated history requests and reduces API load. Cache entries respect the configured TTL (time-to-live) settings to manage memory usage.
-
-##### Data Handling and Caching
-connectome-adapters is designed with a strong focus on data minimization and ephemeral processing. Two key systems handle temporary data storage:
-
-1) Message Caching System. The message cache is designed for temporary storage of conversation context. Messages are stored only in memory, not persisted to disk. There is no permanent storage of message content. Message data is used only for context maintenance and history retrieval. It has automatic cleanup that runs at configurable intervals. Messages older than the configured time-to-live (TTL) are automatically removed. Default TTL is typically set to 24 hours but can be configured based on requirements. The message cache also follows the principle of minimal data retention. It only stores information needed for conversation tracking. It maintains just enough context for the connectome to engage effectively. Configuration options to limit the number of messages stored per conversation are also available.
-
-2) Attachment Cache. The attachment cache is designed for temporary storage of media files. Files are downloaded and stored in a temporary directory. The cache is used to avoid downloading the same file multiple times. Files are deleted after a configurable TTL. There is also automatic cleanup, and the attachment cache follows the principle of minimal data retention.
+8) Attachments handling. All attachment content is transmitted through Socket.IO to LLMs. This creates a practical limit on attachment size. When multiple attachments are in a single message, their combined size must be considered. Additionally, the attachment cache contains potentially sensitive information, therefore, manual cleanup is required when decommissioning an adapter permanently. Regular automated cleaning helps minimize data exposure risk.
 
 ### Configuration
 The configuration is stored in YAML format. What can be configured is listed in README.md-s of relevant adapters.
