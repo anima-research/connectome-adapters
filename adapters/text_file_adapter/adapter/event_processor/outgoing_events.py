@@ -86,47 +86,44 @@ class UndoEvent(BaseEvent):
 
 class OutgoingEventBuilder:
     """Builder class for outgoing events"""
-    def __init__(self, data: Dict[str, Any]):
-        """Initialize the builder with the data"""
-        self.event_type = data.get("event_type", None)
-        self.data = data.get("data", {})
 
-    def build(self) -> BaseEvent:
-        """Build the event based on the event type"""
-        if self.event_type == "view":
-            validated_data = FileData(**self.data)
-            return ViewEvent(event_type=self.event_type, data=validated_data)
+    def build(self, data: Dict[str, Any]) -> BaseEvent:
+        """Build the event based on the event type
 
-        if self.event_type == "read":
-            validated_data = ReadData(**self.data)
-            return ReadEvent(event_type=self.event_type, data=validated_data)
+        Args:
+            data: The data to build the event from
 
-        if self.event_type == "create":
-            validated_data = ContentData(**self.data)
-            return CreateEvent(event_type=self.event_type, data=validated_data)
+        Returns:
+            The built event
+        """
+        event_type = data.get("event_type", None)
+        event_data = data.get("data", {})
 
-        if self.event_type == "delete":
-            validated_data = FileData(**self.data)
-            return DeleteEvent(event_type=self.event_type, data=validated_data)
+        if event_type == "view":
+            return ViewEvent(event_type=event_type, data=FileData(**event_data))
 
-        if self.event_type == "move":
-            validated_data = MoveData(**self.data)
-            return MoveEvent(event_type=self.event_type, data=validated_data)
+        if event_type == "read":
+            return ReadEvent(event_type=event_type, data=ReadData(**event_data))
 
-        if self.event_type == "update":
-            validated_data = ContentData(**self.data)
-            return UpdateEvent(event_type=self.event_type, data=validated_data)
+        if event_type == "create":
+            return CreateEvent(event_type=event_type, data=ContentData(**event_data))
 
-        if self.event_type == "insert":
-            validated_data = InsertData(**self.data)
-            return InsertEvent(event_type=self.event_type, data=validated_data)
+        if event_type == "delete":
+            return DeleteEvent(event_type=event_type, data=FileData(**event_data))
 
-        if self.event_type == "replace":
-            validated_data = ReplaceData(**self.data)
-            return ReplaceEvent(event_type=self.event_type, data=validated_data)
+        if event_type == "move":
+            return MoveEvent(event_type=event_type, data=MoveData(**event_data))
 
-        if self.event_type == "undo":
-            validated_data = FileData(**self.data)
-            return UndoEvent(event_type=self.event_type, data=validated_data)
+        if event_type == "update":
+            return UpdateEvent(event_type=event_type, data=ContentData(**event_data))
 
-        raise ValueError(f"Unknown event type: {self.event_type}")
+        if event_type == "insert":
+            return InsertEvent(event_type=event_type, data=InsertData(**event_data))
+
+        if event_type == "replace":
+            return ReplaceEvent(event_type=event_type, data=ReplaceData(**event_data))
+
+        if event_type == "undo":
+            return UndoEvent(event_type=event_type, data=FileData(**event_data))
+
+        raise ValueError(f"Unknown event type: {event_type}")

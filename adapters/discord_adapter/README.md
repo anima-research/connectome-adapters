@@ -72,8 +72,7 @@ caching:
   max_total_messages: 1000            # Maximum total messages in cache at once
   max_age_hours: 24                   # Maximum age of cached messages
   cache_maintenance_interval: 3600    # Seconds between cache cleanup runs
-  cache_fetched_history: True         # Whether to cache messages that are retrieved
-                                      # during history fetching
+  cache_fetched_history: True         # Whether to cache messages that are fetched as history
 logging:
   logging_level: "info"                                               # DEBUG, INFO, WARNING, ERROR, CRITICAL
   log_file_path: "adapters/discord_adapter/logs/development.log"      # Log file location
@@ -82,8 +81,7 @@ logging:
   backup_count: 3                                                     # Number of log file backups to keep
 
 rate_limit:
-  global_rpm: 30                      # Global rate limit (requests per minute),
-  									  # it includes ALL requests to Discord
+  global_rpm: 30                      # Requests per minute, it includes ALL requests to Discord
   per_conversation_rpm: 30            # Per-conversation rate limit
   message_rpm: 15                     # Message sending rate limit
 

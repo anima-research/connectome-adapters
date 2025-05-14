@@ -47,6 +47,7 @@ class Processor():
         self.max_file_size = self.config.get_setting(
             "adapter", "max_file_size"
         ) * 1024 * 1024
+        self.outgoing_event_builder = OutgoingEventBuilder()
 
     async def process_event(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Process an event based on its type
@@ -69,7 +70,7 @@ class Processor():
                 FileEventType.REPLACE: self._handle_replace_event,
                 FileEventType.UNDO: self._handle_undo_event
             }
-            outgoing_event = OutgoingEventBuilder(data).build()
+            outgoing_event = self.outgoing_event_builder.build(data)
             handler = event_handlers.get(outgoing_event.event_type)
 
             return await handler(outgoing_event.data)

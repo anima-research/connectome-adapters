@@ -38,6 +38,7 @@ class BaseOutgoingEventProcessor(ABC):
         self.client = client
         self.adapter_type = self.config.get_setting("adapter", "type")
         self.rate_limiter = RateLimiter.get_instance(self.config)
+        self.outgoing_event_builder = OutgoingEventBuilder()
 
     async def process_event(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Process an event based on its type
@@ -58,7 +59,7 @@ class BaseOutgoingEventProcessor(ABC):
                 OutgoingEventType.FETCH_HISTORY: self._handle_fetch_history_event,
                 OutgoingEventType.FETCH_ATTACHMENT: self._handle_fetch_attachment_event
             }
-            outgoing_event = OutgoingEventBuilder(data).build()
+            outgoing_event = self.outgoing_event_builder.build(data)
             handler = event_handlers.get(outgoing_event.event_type)
 
             return await handler(outgoing_event.data)
