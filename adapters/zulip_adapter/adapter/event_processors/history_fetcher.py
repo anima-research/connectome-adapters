@@ -150,7 +150,7 @@ class HistoryFetcher(BaseHistoryFetcher):
                 "anchor": self.anchor,
                 "num_before": num_before,
                 "num_after": num_after,
-                "include_anchor": False,
+                "include_anchor": self.anchor == "newest",
                 "apply_markdown": False
             })
         )

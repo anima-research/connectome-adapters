@@ -78,8 +78,8 @@ class SocketIOServer:
             data: Event data
         """
         await self.sio.emit(event, data)
-        #print(f"Emitted event: {event} with data: {data}")
-        logging.info(f"Emitted event: {event} with data: {data}")
+        print(f"Emitted event: {event} with data: {data}")
+        #logging.info(f"Emitted event: {event} with data: {data}")
 
     def set_adapter(self, adapter: Any) -> None:
         """Set the reference to the adapter instance

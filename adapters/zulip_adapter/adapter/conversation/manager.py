@@ -184,7 +184,10 @@ class Manager(BaseManager):
             Conversation name as string, or None if not found
         """
         if message.get("type", None) == "stream":
-            return message.get("display_recipient", None)
+            return (
+                message.get("display_recipient", None) or
+                message.get("stream_name", None)
+            )
         return None
 
     def _create_conversation_info(self,
