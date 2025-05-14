@@ -46,9 +46,7 @@ class Manager(BaseManager):
         """
         event.update({"type": "stream"})
 
-        old_conversation = self.get_conversation(
-            f"{event.get('stream_id', '')}/{event.get('orig_subject', '')}"
-        )
+        old_conversation = self.get_conversation(f"{event.get('stream_id', '')}/{event.get('orig_subject', '')}")
         new_conversation = await self._get_or_create_conversation_info(event)
 
         if not new_conversation:
@@ -64,13 +62,35 @@ class Manager(BaseManager):
             for message_id in messages:
                 delta.deleted_message_ids.append(message_id)
 
+                old_cached_msg = await self.message_cache.get_message_by_id(
+                    old_conversation.conversation_id, message_id
+                )
+                attachment_ids = old_cached_msg.attachments.copy() if old_cached_msg else set()
+
                 await self.message_cache.migrate_message(
-                    old_conversation.conversation_id,
-                    new_conversation.conversation_id,
-                    message_id
+                    old_conversation.conversation_id, new_conversation.conversation_id, message_id
                 )
                 self.conversations[new_conversation.conversation_id].messages.add(str(message_id))
                 self.conversations[old_conversation.conversation_id].messages.discard(str(message_id))
+
+                for attachment_id in attachment_ids:
+                    new_conversation.attachments.add(attachment_id)
+
+                    attachment = self.attachment_cache.get_attachment(attachment_id)
+                    if attachment:
+                        attachment.conversations.add(new_conversation.conversation_id)
+
+                    still_referenced = False
+                    if old_conversation.conversation_id in self.message_cache.messages:
+                        for other_msg_id, other_msg in self.message_cache.messages[old_conversation.conversation_id].items():
+                            if other_msg_id != message_id and attachment_id in other_msg.attachments:
+                                still_referenced = True
+                                break
+
+                    if not still_referenced:
+                        old_conversation.attachments.discard(attachment_id)
+                        if attachment:
+                            attachment.conversations.discard(old_conversation.conversation_id)
 
                 if not delta.fetch_history:
                     await self._update_delta_list(

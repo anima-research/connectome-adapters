@@ -48,6 +48,7 @@ class SocketIOServer:
         self.is_processing = False
         self.request_map = {}
         self.request_event_builder = RequestEventBuilder(self.adapter_type)
+
         @self.sio.event
         async def connect(sid, environ):
             self.connected_clients.add(sid)
@@ -77,8 +78,8 @@ class SocketIOServer:
             data: Event data
         """
         await self.sio.emit(event, data)
-        print(f"Emitted event: {event} with data: {data}")
-        #logging.info(f"Emitted event: {event} with data: {data}")
+        #print(f"Emitted event: {event} with data: {data}")
+        logging.info(f"Emitted event: {event} with data: {data}")
 
     def set_adapter(self, adapter: Any) -> None:
         """Set the reference to the adapter instance
@@ -135,7 +136,9 @@ class SocketIOServer:
         await self.event_queue.put(event)
         await self.sio.emit(
             "request_queued",
-            self.request_event_builder.build(request_id).model_dump(),
+            self.request_event_builder.build(
+                request_id, data.get("internal_request_id", None)
+            ).model_dump(),
             room=sid
         )
         logging.debug(f"Queued event with request_id {request_id}")
@@ -155,7 +158,9 @@ class SocketIOServer:
         if request_id not in self.request_map:
             await self.sio.emit(
                 "request_failed",
-                self.request_event_builder.build(request_id).model_dump(),
+                self.request_event_builder.build(
+                    request_id, data.get("internal_request_id", None)
+                ).model_dump(),
                 room=sid
             )
             return
@@ -163,7 +168,9 @@ class SocketIOServer:
         del self.request_map[request_id]
         await self.sio.emit(
             "request_success",
-            self.request_event_builder.build(request_id).model_dump(),
+            self.request_event_builder.build(
+                request_id, data.get("internal_request_id", None)
+            ).model_dump(),
             room=sid
         )
 
@@ -179,6 +186,11 @@ class SocketIOServer:
                     self.event_queue.task_done()
                     continue
 
+                internal_request_id = None
+                if "internal_request_id" in event.data:
+                    internal_request_id = event.data["internal_request_id"]
+                    del event.data["internal_request_id"]
+
                 result = await self.adapter.process_outgoing_event(event.data)
                 status = "request_success" if result["request_completed"] else "request_failed"
                 data = {}
@@ -187,10 +199,14 @@ class SocketIOServer:
                     data["message_ids"] = result["message_ids"]
                 elif result["request_completed"] and "history" in result:
                     data["history"] = result["history"]
+                elif result["request_completed"] and "content" in result:
+                    data["content"] = result["content"]
 
                 await self.sio.emit(
                     status,
-                    self.request_event_builder.build(event.request_id, data).model_dump(),
+                    self.request_event_builder.build(
+                        event.request_id, internal_request_id, data
+                    ).model_dump(),
                     room=event.sid
                 )
 

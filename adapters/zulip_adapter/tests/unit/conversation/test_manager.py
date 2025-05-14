@@ -33,11 +33,15 @@ class TestManager:
     @pytest.fixture
     def manager(self, patch_config):
         """Create a Manager with mocked dependencies"""
+        message_mock = MagicMock(spec=CachedMessage)
+        message_mock.attachments = set()  # Empty set of attachments
+
         with patch.object(MessageCache, "get_message_by_id", return_value=MagicMock(spec=MessageCache)), \
-             patch.object(AttachmentCache, "add_attachment", return_value=MagicMock(spec=AttachmentCache)):
+            patch.object(AttachmentCache, "add_attachment", return_value=MagicMock(spec=AttachmentCache)):
 
             manager = Manager(patch_config)
             manager.message_cache = AsyncMock(spec=MessageCache)
+            manager.message_cache.get_message_by_id.return_value = message_mock
             manager.attachment_cache = AsyncMock(spec=AttachmentCache)
             return manager
 

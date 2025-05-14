@@ -29,4 +29,5 @@ class RequestEvent(BaseModel):
     """Request event model"""
     adapter_type: str
     request_id: str
+    internal_request_id: Optional[str] = None
     data: Optional[Union[SentMessageData, HistoryData, FetchedAttachmentData]] = None

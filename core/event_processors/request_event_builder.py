@@ -15,8 +15,20 @@ class RequestEventBuilder:
         """Initialize the builder with the data"""
         self.adapter_type = adapter_type
 
-    def build(self, request_id: str, data: Optional[Dict[str, Any]] = {}) -> RequestEvent:
-        """Build the event based on the event type"""
+    def build(self,
+              request_id: str,
+              internal_request_id: Optional[str] = None,
+              data: Optional[Dict[str, Any]] = {}) -> RequestEvent:
+        """Build the event based on the event type
+
+        Args:
+            request_id: The request ID
+            internal_request_id: The internal request ID
+            data: The data to build the event from
+
+        Returns:
+            The request event
+        """
         validated_data = None
 
         if "message_ids" in data:
@@ -46,5 +58,6 @@ class RequestEventBuilder:
         return RequestEvent(
             adapter_type=self.adapter_type,
             request_id=request_id,
+            internal_request_id=internal_request_id,
             data=validated_data
         )

@@ -55,42 +55,48 @@ class TestRequestEventBuilder:
 
     def test_build_sent_message_data(self, request_event_builder):
         """Test building an event with SentMessageData."""
+        internal_request_id = "internal_req_123"
         request_id = "req_123"
         message_ids = ["msg_456", "msg_789"]
         data = {"message_ids": message_ids}
 
-        event = request_event_builder.build(request_id, data)
+        event = request_event_builder.build(request_id, internal_request_id, data)
 
         assert isinstance(event, RequestEvent)
         assert event.adapter_type == request_event_builder.adapter_type
         assert event.request_id == request_id
+        assert event.internal_request_id == internal_request_id
         assert isinstance(event.data, SentMessageData)
         assert event.data.message_ids == message_ids
 
     def test_build_fetched_attachment_data(self, request_event_builder):
         """Test building an event with FetchedAttachmentData."""
+        internal_request_id = "internal_req_456"
         request_id = "req_456"
         content = "base64encodedcontent"
         data = {"content": content}
 
-        event = request_event_builder.build(request_id, data)
+        event = request_event_builder.build(request_id, internal_request_id, data)
 
         assert isinstance(event, RequestEvent)
         assert event.adapter_type == request_event_builder.adapter_type
         assert event.request_id == request_id
+        assert event.internal_request_id == internal_request_id
         assert isinstance(event.data, FetchedAttachmentData)
         assert event.data.content == content
 
     def test_build_history_data(self, request_event_builder, sample_message_data, sample_attachment_info):
         """Test building an event with HistoryData."""
+        internal_request_id = "internal_req_789"
         request_id = "req_789"
         data = {"history": [sample_message_data]}
 
-        event = request_event_builder.build(request_id, data)
+        event = request_event_builder.build(request_id, internal_request_id, data)
 
         assert isinstance(event, RequestEvent)
         assert event.adapter_type == request_event_builder.adapter_type
         assert event.request_id == request_id
+        assert event.internal_request_id == internal_request_id
         assert isinstance(event.data, HistoryData)
         assert len(event.data.history) == 1
 
@@ -118,6 +124,7 @@ class TestRequestEventBuilder:
 
     def test_build_history_data_multiple_messages(self, request_event_builder, sample_message_data):
         """Test building an event with HistoryData containing multiple messages."""
+        internal_request_id = "internal_req_789"
         request_id = "req_789"
 
         # Create a second message with different data
@@ -127,7 +134,7 @@ class TestRequestEventBuilder:
 
         data = {"history": [sample_message_data, second_message]}
 
-        event = request_event_builder.build(request_id, data)
+        event = request_event_builder.build(request_id, internal_request_id, data)
 
         assert isinstance(event.data, HistoryData)
         assert len(event.data.history) == 2
@@ -139,13 +146,14 @@ class TestRequestEventBuilder:
 
     def test_build_history_data_empty(self, request_event_builder):
         """Test building an event with empty HistoryData."""
-        event = request_event_builder.build("req_789", {"history": []})
+        event = request_event_builder.build("req_789", "internal_req_789", {"history": []})
 
         assert isinstance(event.data, HistoryData)
         assert len(event.data.history) == 0
 
     def test_build_history_data_minimal_message(self, request_event_builder):
         """Test building history with minimal message data."""
+        internal_request_id = "internal_req_789"
         request_id = "req_789"
         minimal_message = {
             "message_id": "msg_123",
@@ -153,7 +161,9 @@ class TestRequestEventBuilder:
             "timestamp": int(datetime.now().timestamp() * 1000)
             # Missing optional fields
         }
-        event = request_event_builder.build(request_id, {"history": [minimal_message]})
+        event = request_event_builder.build(
+            request_id, internal_request_id, {"history": [minimal_message]}
+        )
 
         assert isinstance(event.data, HistoryData)
         assert len(event.data.history) == 1
@@ -172,30 +182,37 @@ class TestRequestEventBuilder:
 
     def test_build_with_empty_data(self, request_event_builder):
         """Test building an event with empty data."""
+        internal_request_id = "internal_req_empty"
         request_id = "req_empty"
-        event = request_event_builder.build(request_id)
+        event = request_event_builder.build(request_id, internal_request_id)
 
         assert isinstance(event, RequestEvent)
         assert event.adapter_type == request_event_builder.adapter_type
         assert event.request_id == request_id
+        assert event.internal_request_id == internal_request_id
         assert event.data is None
 
     def test_build_with_unrecognized_data(self, request_event_builder):
         """Test building an event with unrecognized data."""
+        internal_request_id = "internal_req_unknown"
         request_id = "req_unknown"
         data = {"unrecognized_field": "value"}
-        event = request_event_builder.build(request_id, data)
+        event = request_event_builder.build(request_id, internal_request_id, data)
 
         assert isinstance(event, RequestEvent)
         assert event.adapter_type == request_event_builder.adapter_type
         assert event.request_id == request_id
+        assert event.internal_request_id == internal_request_id
         assert event.data is None
 
     def test_model_validation(self, request_event_builder):
         """Test that built events validate properly and can be converted to dict."""
+        internal_request_id = "internal_req_123"
         request_id = "req_123"
         message_ids = ["msg_456", "msg_789"]
-        event = request_event_builder.build(request_id, {"message_ids": message_ids})
+        event = request_event_builder.build(
+            request_id, internal_request_id, {"message_ids": message_ids}
+        )
 
         # Test that the model can be converted to dict
         event_dict = event.model_dump()
@@ -203,6 +220,7 @@ class TestRequestEventBuilder:
         assert isinstance(event_dict, dict)
         assert event_dict["adapter_type"] == request_event_builder.adapter_type
         assert event_dict["request_id"] == request_id
+        assert event_dict["internal_request_id"] == internal_request_id
         assert "data" in event_dict
         assert "message_ids" in event_dict["data"]
         assert event_dict["data"]["message_ids"] == message_ids
