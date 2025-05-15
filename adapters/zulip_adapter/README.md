@@ -24,6 +24,8 @@ The long polling is handled in a separate asyncio loop to avoid blocking the mai
 
 The adapter can connect either as a bot or a user using zuliprc file.
 
+The Zulip adapter implements a robust reconnection strategy that maintains system stability during network fluctuations or service interruptions. When a connection issue is detected, the adapter first cleanly disconnects from Zulip's API, then re-establishes both the API connection and event queue registration. This approach ensures message continuity even after queue expiration (which can occur after extended periods of inactivity). The adapter intelligently tracks consecutive reconnection attempts and implements configurable limits to prevent excessive API calls during prolonged outages, while automatically resetting the counter upon successful reconnection to ensure long-term reliability.
+
 ### Configuration
 
 The Zulip adapter is configured through a YAML file with the following settings.
@@ -35,6 +37,7 @@ adapter:
   site: "https://example.com"                     # Zulip instance URL
   retry_delay: 5                                  # Seconds to wait between connection attempts
   connection_check_interval: 300                  # Seconds between connection health checks
+  max_reconnect_attempts: 5                       # Max number of attempts to reconnect if connection lost
   max_message_length: 9000                        # Maximum message length
   chunk_size: 8192                                # Chunk size for processing large files
   max_history_limit: 800                          # Maximum messages to retrieve at once

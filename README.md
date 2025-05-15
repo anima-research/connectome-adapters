@@ -399,8 +399,18 @@ The configuration is stored in YAML format. What can be configured is listed in 
 * User Information: Minimal tracking of user identifiers for conversation context
 * Conversation History: Configurable retention policies
 
+### Scalability Model
+The connectome-adapters employ a process-per-user architecture to ensure reliability and throughput scalability. Each adapter instance handles exactly one user's connection to a single platform (e.g., one Slack user, one Zulip bot, etc.) and runs in its own isolated process, listening on a dedicated port. This design intentionally separates concerns, allowing for independent scaling, targeted resource allocation, and fault isolation between adapter instances.
+
+For high-volume deployments, horizontal scaling is achieved by deploying multiple adapters with different user credentials, each handling a subset of conversations. While each adapter operates independently, they all communicate with the same central framework through the standardized Socket.IO interface, creating a unified experience at the application level. This architecture naturally supports load distribution across multiple machines and provides resilience against individual adapter failures.
+
+Discord webhook adapter is the exception to the one-user-per-adapter rule, as it can send/edit/delete messages through bots' webhook endpoints. This adapter can also be scaled because the configuration of bots is defined manually and bots can be split between different instances of webhook adapter running on different ports.
+
+Text file adapter is designed to work with a single operating system where it runs, yet it is possible to have more then one text file adapter running in the same OS.
+
+This architecture strikes a balance between the simplicity of having a single adapter per platform type and the scalability needs of enterprise deployments, allowing teams to start with a minimal deployment and scale out incrementally as their usage grows.
+
 ### Future work
 * Filesystem
 * WikiGraph
-* MCP Host
 * MCP Host

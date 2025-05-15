@@ -6,6 +6,7 @@ adapter:
     - bot_token: "bot_token_2"
       application_id: "application_id_2"
   connection_check_interval: 300  # Seconds to check connection
+  max_reconnect_attempts: 5
   max_message_length: 1999
   max_history_limit: 100
   max_pagination_iterations: 10

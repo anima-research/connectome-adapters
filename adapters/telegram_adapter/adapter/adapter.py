@@ -78,6 +78,10 @@ class Adapter(BaseAdapter):
         await self.rate_limiter.limit_request("get_me")
         return await self.client.client.get_me()
 
+    async def _reconnect_with_client(self) -> None:
+        """Reconnect with client"""
+        pass
+
     async def _teardown_client(self) -> None:
         """Teardown client"""
         try:

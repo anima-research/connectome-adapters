@@ -21,6 +21,8 @@ The adapter uses the official discord.py library to interact with the Discord AP
 
 The adapter connects to Discord as a bot user.
 
+In case of lost connection with Discord server discord.py handles attempt to reconnect without any additional help.
+
 ### Discord client Implementation
 
 The Discord client implementation connects to Discord's real-time gateway API and listens for events with the help of event handlers.
@@ -55,6 +57,7 @@ adapter:
   application_id: "your_application_id"  # Discord application ID
   retry_delay: 5                         # Seconds to wait between connection attempts
   connection_check_interval: 300         # Seconds between connection health checks
+  max_reconnect_attempts: 5              # Max number of attempts to reconnect if connection lost
   max_message_length: 1999               # Maximum message length (Discord limit: 2000)
   max_history_limit: 100                 # Maximum messages to fetch for history
   max_pagination_iterations: 10          # Maximum pagination iterations for history fetching

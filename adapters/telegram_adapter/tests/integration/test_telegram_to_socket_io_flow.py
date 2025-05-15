@@ -8,7 +8,6 @@ from telethon import functions
 from telethon.tl.types import ReactionEmoji
 
 from adapters.telegram_adapter.adapter.adapter import Adapter
-from adapters.telegram_adapter.adapter.telethon_client import TelethonClient
 from adapters.telegram_adapter.adapter.conversation.data_classes import ConversationInfo
 from adapters.telegram_adapter.adapter.event_processors.incoming_event_processor import IncomingEventProcessor
 from adapters.telegram_adapter.adapter.event_processors.outgoing_event_processor import OutgoingEventProcessor
@@ -55,18 +54,17 @@ class TestTelegramToSocketIOFlowIntegration:
     @pytest.fixture
     def adapter(self, patch_config, socketio_mock, telethon_client_mock, rate_limiter_mock):
         """Create a TelegramAdapter with mocked dependencies"""
-        with patch.object(TelethonClient, "__new__") as TelethonClientMock:
-            TelethonClientMock.return_value = telethon_client_mock
-            adapter = Adapter(patch_config, socketio_mock)
-            adapter.incoming_events_processor = IncomingEventProcessor(
-                patch_config, telethon_client_mock, adapter.conversation_manager
-            )
-            adapter.incoming_events_processor.rate_limiter = rate_limiter_mock
-            adapter.outgoing_events_processor = OutgoingEventProcessor(
-                patch_config, telethon_client_mock, adapter.conversation_manager
-            )
-            adapter.outgoing_events_processor.rate_limiter = rate_limiter_mock
-            yield adapter
+        adapter = Adapter(patch_config, socketio_mock)
+        adapter.client = telethon_client_mock
+        adapter.incoming_events_processor = IncomingEventProcessor(
+            patch_config, telethon_client_mock, adapter.conversation_manager
+        )
+        adapter.incoming_events_processor.rate_limiter = rate_limiter_mock
+        adapter.outgoing_events_processor = OutgoingEventProcessor(
+            patch_config, telethon_client_mock, adapter.conversation_manager
+        )
+        adapter.outgoing_events_processor.rate_limiter = rate_limiter_mock
+        return adapter
 
     @pytest.fixture
     def setup_conversation(self, adapter):

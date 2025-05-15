@@ -23,6 +23,7 @@ def default_config_data():
             "phone": "+1234567890",
             "retry_delay": 1,
             "connection_check_interval": 1,
+            "max_reconnect_attempts": 5,
             "flood_sleep_threshold": 10,
             "max_message_length": 20,
             "max_history_limit": 1,

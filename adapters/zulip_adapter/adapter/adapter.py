@@ -75,6 +75,20 @@ class Adapter(BaseAdapter):
         response = self.client.client.get_profile()
         return response and response.get("result", None) == "success"
 
+    async def _reconnect_with_client(self) -> None:
+        """Reconnect with client"""
+        if self.client:
+            logging.info("Attempting to reconnect Zulip client")
+            await self.client.disconnect()
+            await self.client.connect()
+            self.connected = self.client.running
+
+            if self.connected:
+                logging.info("Zulip client reconnected successfully")
+                await self.client.start_polling()
+            else:
+                logging.error("Failed to reconnect Zulip client")
+
     async def _teardown_client(self) -> None:
         """Teardown client"""
         if self.client:

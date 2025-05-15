@@ -99,15 +99,29 @@ class TestWebhookAdapter:
             adapter.client = discord_webhook_client_mock
 
             with patch.object(adapter, "_connection_exists", return_value=None):
-                with patch("asyncio.sleep", side_effect=[None, asyncio.CancelledError()]):
-                    try:
-                        await adapter._monitor_connection()
-                    except asyncio.CancelledError:
-                        pass
-
-                    adapter.socketio_server.emit_event.assert_called_once_with(
-                        "disconnect", {"adapter_type": adapter.adapter_type}
+                with patch.object(adapter, "_reconnect_with_client", return_value=None):
+                    max_attempts = 5
+                    adapter.config.get_setting = MagicMock(
+                        side_effect=lambda section, key, default=None:
+                        max_attempts if key == "max_reconnect_attempts" else 0
                     )
+                    sleep_calls = 0
+
+                    async def mock_sleep(*args, **kwargs):
+                        nonlocal sleep_calls
+                        sleep_calls += 1
+                        if sleep_calls > max_attempts + 1:  # +1 for the retry sleep
+                            raise asyncio.CancelledError()
+
+                    with patch("asyncio.sleep", side_effect=mock_sleep):
+                        try:
+                            await adapter._monitor_connection()
+                        except asyncio.CancelledError:
+                            pass
+
+                        adapter.socketio_server.emit_event.assert_called_once_with(
+                            "disconnect", {"adapter_type": adapter.adapter_type}
+                        )
 
     class TestEventProcessing:
         """Tests for event processing"""

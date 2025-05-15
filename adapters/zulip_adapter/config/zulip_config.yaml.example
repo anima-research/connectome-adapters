@@ -4,6 +4,7 @@ adapter:
   site: "https://example.com"
   retry_delay: 5
   connection_check_interval: 300  # Seconds to check connection
+  max_reconnect_attempts: 5
   max_message_length: 9000
   chunk_size: 8192
   max_history_limit: 800

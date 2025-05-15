@@ -53,28 +53,74 @@ class SlackClient:
                 logging.error(f"Failed to authenticate with Slack API: {e}")
                 return False
 
-            self.socket_client = SocketModeClient(
-                app_token=app_token,
-                web_client=self.web_client
-            )
-            self.socket_client.socket_mode_request_listeners.append(
-                self._handle_slack_event
-            )
-            connect_task = asyncio.create_task(self.socket_client.connect())
+            self.socket_client = SocketModeClient(app_token=app_token, web_client=self.web_client)
+            self.socket_client.socket_mode_request_listeners.append(self._handle_slack_event)
 
-            try:
-                await asyncio.wait_for(asyncio.shield(connect_task), timeout=15)
-                self.running = True
-                self._connection_task = connect_task
-                self._connection_start_time = time.time()
-                return True
-            except asyncio.TimeoutError:
-                logging.error("Timeout while connecting to Slack")
-                connect_task.cancel()
-                return False
+            return await self._setup_connect_task()
         except Exception as e:
             logging.error(f"Error initiating Slack connection: {e}")
             return False
+
+    async def reconnect(self) -> None:
+        """Reconnect to Slack"""
+        await self._cancel_connect_task()
+        await self._disconnect_socket_client()
+        await self._setup_connect_task()
+
+    async def disconnect(self) -> None:
+        """Disconnect from Slack"""
+        self.running = False
+
+        await self._cancel_connect_task()
+        await self._disconnect_socket_client()
+
+        self.socket_client = None
+        self.web_client = None
+
+        logging.info("Disconnected from Slack")
+
+    async def _setup_connect_task(self) -> bool:
+        """Setup the connect task
+
+        Returns:
+            bool: True if setup was successful, False otherwise
+        """
+        try:
+            connect_task = asyncio.create_task(self.socket_client.connect())
+
+            await asyncio.wait_for(asyncio.shield(connect_task), timeout=15)
+
+            self.running = True
+            self._connection_task = connect_task
+            self._connection_start_time = time.time()
+
+            return True
+        except asyncio.TimeoutError:
+            logging.error("Timeout while connecting to Slack")
+            connect_task.cancel()
+
+            return False
+
+    async def _cancel_connect_task(self) -> None:
+        """Cancel the connect task"""
+        try:
+            if self._connection_task and not self._connection_task.done():
+                self._connection_task.cancel()
+
+                try:
+                    await asyncio.wait_for(asyncio.shield(self._connection_task), timeout=5)
+                except (asyncio.TimeoutError, asyncio.CancelledError):
+                    pass  # Expected
+        except Exception as e:
+            logging.error(f"Error canceling connect task: {e}")
+
+    async def _disconnect_socket_client(self) -> None:
+        """Disconnect the socket client"""
+        try:
+            if self.socket_client and await self.socket_client.is_connected():
+                await asyncio.wait_for(self.socket_client.disconnect(), timeout=5)
+        except asyncio.TimeoutError:
+            pass
 
     async def _handle_slack_event(self, _: Any, request: Any) -> None:
         """Handle incoming Slack events
@@ -106,27 +152,3 @@ class SlackClient:
             })
         except Exception as e:
             logging.error(f"Error handling Slack event: {e}")
-
-    async def disconnect(self) -> None:
-        """Disconnect from Slack"""
-        self.running = False
-
-        try:
-            if self._connection_task and not self._connection_task.done():
-                self._connection_task.cancel()
-                try:
-                    await asyncio.wait_for(asyncio.shield(self._connection_task), timeout=5)
-                except (asyncio.TimeoutError, asyncio.CancelledError):
-                    pass  # Expected
-
-            if self.socket_client and await self.socket_client.is_connected():
-                try:
-                    await asyncio.wait_for(self.socket_client.disconnect(), timeout=5)
-                except asyncio.TimeoutError:
-                    logging.warning("Timeout while disconnecting from Slack socket")
-
-            self.socket_client = None
-            self.web_client = None
-            logging.info("Disconnected from Slack")
-        except Exception as e:
-            logging.error(f"Error disconnecting from Slack: {str(e)}")

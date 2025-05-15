@@ -79,6 +79,8 @@ async def get_or_create_webhook(self, conversation_id: str) -> Optional[Dict[str
         return self.webhooks[conversation_id]
 ```
 
+The webhook adapter uses discord.py, which handles reconnection automatically, to manage webhooks. Meanwhile, the primary functionality of this adapter is sending webhook requests via HTTP. The aiohttp.ClientSession being used doesn't have built-in reconnection because webhook requests are stateless, each is a separate HTTP call. As a result, there's no persistent "connection" that needs to be maintained with webhooks. Failed webhook requests can simply be retried on the next attempt.
+
 ### Multi-Bot Support
 
 The webhook adapter supports multiple bot tokens to access different Discord servers.
@@ -103,6 +105,7 @@ adapter:
       application_id: "application_id_2"  # Optional second application ID
     ...
   connection_check_interval: 300          # Seconds between connection health checks
+  max_reconnect_attempts: 5               # Max number of attempts to reconnect if connection lost
   max_message_length: 1999                # Maximum message length (Discord limit: 2000)
   max_history_limit: 100                  # Maximum messages to fetch for history
   max_pagination_iterations: 10           # Maximum pagination iterations for history

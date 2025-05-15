@@ -45,6 +45,8 @@ class BaseAdapter(ABC):
         self.outgoing_events_processor = None
         self.incoming_events_processor = None
         self.rate_limiter = RateLimiter.get_instance(self.config)
+        self.max_reconnect_attempts = self.config.get_setting("adapter", "max_reconnect_attempts")
+        self.current_reconnect_attempt = 0
 
     async def start(self) -> None:
         """Start the adapter"""
@@ -114,8 +116,14 @@ class BaseAdapter(ABC):
                     continue
 
                 if not await self._connection_exists():
-                    raise RuntimeError("Connection check failed")
+                    if self.current_reconnect_attempt >= self.max_reconnect_attempts:
+                        raise RuntimeError("Connection check failed")
 
+                    self.current_reconnect_attempt += 1
+                    await self._reconnect_with_client()
+                    continue
+
+                self.current_reconnect_attempt = 0
                 await self._emit_event("connect")
             except asyncio.CancelledError:
                 break
@@ -129,6 +137,11 @@ class BaseAdapter(ABC):
     async def _connection_exists(self) -> Optional[Any]:
         """Check connection"""
         raise NotImplementedError("Child classes must implement _connection_exists")
+
+    @abstractmethod
+    async def _reconnect_with_client(self) -> None:
+        """Reconnect with client"""
+        raise NotImplementedError("Child classes must implement _reconnect_with_client")
 
     async def _emit_event(self, event_type: str) -> None:
         """Emit event

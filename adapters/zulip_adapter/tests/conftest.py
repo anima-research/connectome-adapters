@@ -22,6 +22,7 @@ def default_config_data():
             "site": "https://zulip.example.com/",
             "retry_delay": 5,
             "connection_check_interval": 300,
+            "max_reconnect_attempts": 5,
             "max_message_length": 30,
             "chunk_size": 8192,
             "max_history_limit": 100,

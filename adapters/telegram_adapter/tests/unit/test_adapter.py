@@ -109,15 +109,26 @@ class TestAdapter:
             adapter.client = telethon_client_mock
             telethon_client_mock.client.get_me.return_value = None
 
-            with patch("asyncio.sleep", side_effect=[None, asyncio.CancelledError()]):
-                try:
-                    await adapter._monitor_connection()
-                except asyncio.CancelledError:
-                    pass
+            with patch.object(adapter, "_connection_exists", return_value=None):
+                with patch.object(adapter, "_reconnect_with_client", return_value=None):
+                    max_attempts = 5
+                    sleep_calls = 0
 
-                adapter.socketio_server.emit_event.assert_called_once_with(
-                    "disconnect", {"adapter_type": "telegram"}
-                )
+                    async def mock_sleep(*args, **kwargs):
+                        nonlocal sleep_calls
+                        sleep_calls += 1
+                        if sleep_calls > max_attempts + 1:  # +1 for the retry sleep
+                            raise asyncio.CancelledError()
+
+                    with patch("asyncio.sleep", side_effect=mock_sleep):
+                        try:
+                            await adapter._monitor_connection()
+                        except asyncio.CancelledError:
+                            pass
+
+                    adapter.socketio_server.emit_event.assert_called_once_with(
+                        "disconnect", {"adapter_type": "telegram"}
+                    )
 
     class TestEventProcessing:
         """Tests for event processing"""

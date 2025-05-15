@@ -88,9 +88,26 @@ class TestAdapter:
             adapter.running = True
             adapter.initialized = True
             adapter.client = zulip_client_mock
-            zulip_client_mock.client.get_profile.return_value = {"result": "error"}
+            connection_check_calls = 0
 
-            with patch("asyncio.sleep", side_effect=[None, asyncio.CancelledError()]):
+            async def mock_connection_exists():
+                nonlocal connection_check_calls
+                connection_check_calls += 1
+                if connection_check_calls > 5:  # Simulate max attempts
+                    raise RuntimeError("Connection check failed")
+                return False
+
+            adapter._connection_exists = mock_connection_exists
+            adapter._reconnect_with_client = AsyncMock()
+
+            sleep_calls = 0
+            async def mock_sleep(duration):
+                nonlocal sleep_calls
+                sleep_calls += 1
+                if sleep_calls > 7:
+                    raise asyncio.CancelledError()
+
+            with patch("asyncio.sleep", side_effect=mock_sleep):
                 try:
                     await adapter._monitor_connection()
                 except asyncio.CancelledError:

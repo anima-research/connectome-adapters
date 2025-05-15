@@ -93,6 +93,13 @@ class Adapter(BaseAdapter):
         """
         return await self.client.web_client.auth_test()
 
+    async def _reconnect_with_client(self) -> None:
+        """Reconnect with client"""
+        if self.client:
+            logging.info("Attempting to reconnect Slack client")
+            await self.client.reconnect()
+            self.connected = self.client.running
+
     async def _teardown_client(self) -> None:
         """Teardown client"""
         if self.client:

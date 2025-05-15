@@ -66,6 +66,10 @@ class Adapter(BaseAdapter):
                 return await response.json()
         return None
 
+    async def _reconnect_with_client(self) -> None:
+        """Reconnect with client"""
+        pass
+
     async def _teardown_client(self) -> None:
         """Teardown client"""
         if self.client:

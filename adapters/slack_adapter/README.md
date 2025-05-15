@@ -25,6 +25,8 @@ The adapter requires two types of tokens:
 
 The adapter connects to Slack as a bot user.
 
+The adapter employs a sophisticated reconnection mechanism specially designed for Socket Mode connections, which are used for real-time event delivery. When connectivity issues are detected, the adapter properly cleans up existing socket connections and tasks before establishing a new WebSocket connection, while preserving all object references to maintain system integrity. This implementation carefully manages asynchronous tasks with appropriate timeouts to prevent resource leaks, and includes proper state tracking to ensure the adapter can resume operations seamlessly after network interruptions. The reconnection logic is integrated with Slack's API authentication to verify both socket health and API access, providing comprehensive recovery capabilities for various failure scenarios.
+
 ### Configuration
 
 The Slack adapter is configured through a YAML file with the following settings.
@@ -36,6 +38,7 @@ adapter:
   app_token: "xapp-1-1234567890"      # Slack app token for Socket Mode (required)
   retry_delay: 5                      # Seconds to wait between connection attempts
   connection_check_interval: 300      # Seconds between connection health checks
+  max_reconnect_attempts: 5           # Max number of attempts to reconnect if connection lost
   max_message_length: 5000            # Maximum message length for Slack messages
   max_history_limit: 1000             # Maximum messages to fetch for history
   emoji_mappings: "adapters/slack_adapter/config/emoji_mappings.csv"  # Path to emoji mappings

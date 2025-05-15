@@ -56,6 +56,17 @@ class TestZulipToSocketIOFlowIntegration:
         return downloader_mock
 
     @pytest.fixture
+    def uploader_mock(self):
+        """Create a mocked Uploader"""
+        uploader_mock = AsyncMock()
+
+        async def mock_upload_attachment(attachment):
+            return "/user_uploads/test.txt"
+        uploader_mock.upload_attachment.side_effect = mock_upload_attachment
+
+        return uploader_mock
+
+    @pytest.fixture
     def emoji_converter_mock(self):
         """Create a fully mocked EmojiConverter"""
         converter = MagicMock()
@@ -77,26 +88,22 @@ class TestZulipToSocketIOFlowIntegration:
                 socketio_mock,
                 zulip_client_mock,
                 downloader_mock,
-                emoji_converter_mock):
+                uploader_mock):
         """Create a ZulipAdapter with mocked dependencies"""
-        with patch.object(ZulipClient, "__new__", return_value=zulip_client_mock), \
-             patch.object(Uploader, "__new__", return_value=AsyncMock()), \
-             patch.object(EmojiConverter, "get_instance", return_value=emoji_converter_mock) as uploader_mock:
+        adapter = Adapter(patch_config, socketio_mock)
+        adapter.client = zulip_client_mock
 
-            adapter = Adapter(patch_config, socketio_mock)
-            adapter.client = zulip_client_mock
+        adapter.outgoing_events_processor = OutgoingEventProcessor(
+            patch_config, zulip_client_mock, adapter.conversation_manager
+        )
+        adapter.outgoing_events_processor.uploader = uploader_mock
 
-            adapter.outgoing_events_processor = OutgoingEventProcessor(
-                patch_config, zulip_client_mock, adapter.conversation_manager
-            )
-            adapter.outgoing_events_processor.uploader = uploader_mock
+        adapter.incoming_events_processor = IncomingEventProcessor(
+            patch_config, zulip_client_mock, adapter.conversation_manager
+        )
+        adapter.incoming_events_processor.downloader = downloader_mock
 
-            adapter.incoming_events_processor = IncomingEventProcessor(
-                patch_config, zulip_client_mock, adapter.conversation_manager
-            )
-            adapter.incoming_events_processor.downloader = downloader_mock
-
-            yield adapter
+        return adapter
 
     @pytest.fixture
     def setup_private_conversation(self, adapter):
@@ -339,52 +346,66 @@ class TestZulipToSocketIOFlowIntegration:
         assert delete_event["data"]["conversation_id"] == "101_102"
 
     @pytest.mark.asyncio
-    async def test_add_reaction_flow(self, adapter, setup_private_conversation, setup_message, create_zulip_event):
+    async def test_add_reaction_flow(self,
+                                     adapter,
+                                     emoji_converter_mock,
+                                     setup_private_conversation,
+                                     setup_message,
+                                     create_zulip_event):
         """Test flow from Zulip add reaction to socket.io event"""
         setup_private_conversation()
         await setup_message("101_102", message_id="12345")
 
         event = create_zulip_event(event_type="reaction")
         event["op"] = "add"
-        result = await adapter.incoming_events_processor.process_event(event)
 
-        assert isinstance(result, list), "Expected _handle_reaction to return a list of events"
-        assert len(result) > 0, "Expected at least one event to be generated"
+        with patch.object(EmojiConverter, "get_instance", return_value=emoji_converter_mock):
+            result = await adapter.incoming_events_processor.process_event(event)
 
-        reaction_events = [e for e in result if e.get("event_type") == "reaction_added"]
-        assert len(reaction_events) == 1, "Expected one reaction_added event"
+            assert isinstance(result, list), "Expected _handle_reaction to return a list of events"
+            assert len(result) > 0, "Expected at least one event to be generated"
 
-        reaction_event = reaction_events[0]
-        assert reaction_event["data"]["message_id"] == "12345"
-        assert reaction_event["data"]["conversation_id"] == "101_102"
-        assert reaction_event["data"]["emoji"] == "thumbs_up"
+            reaction_events = [e for e in result if e.get("event_type") == "reaction_added"]
+            assert len(reaction_events) == 1, "Expected one reaction_added event"
 
-        cached_message = adapter.conversation_manager.message_cache.messages["101_102"]["12345"]
-        assert "thumbs_up" in cached_message.reactions
-        assert cached_message.reactions["thumbs_up"] == 1
+            reaction_event = reaction_events[0]
+            assert reaction_event["data"]["message_id"] == "12345"
+            assert reaction_event["data"]["conversation_id"] == "101_102"
+            assert reaction_event["data"]["emoji"] == "thumbs_up"
+
+            cached_message = adapter.conversation_manager.message_cache.messages["101_102"]["12345"]
+            assert "thumbs_up" in cached_message.reactions
+            assert cached_message.reactions["thumbs_up"] == 1
 
     @pytest.mark.asyncio
-    async def test_remove_reaction_flow(self, adapter, setup_private_conversation, setup_message, create_zulip_event):
+    async def test_remove_reaction_flow(self,
+                                        adapter,
+                                        emoji_converter_mock,
+                                        setup_private_conversation,
+                                        setup_message,
+                                        create_zulip_event):
         """Test flow from Zulip remove reaction to socket.io event"""
         setup_private_conversation()
         await setup_message("101_102", message_id="12345", reactions={"thumbs_up": 1, "thumbs_down": 1})
 
         event = create_zulip_event(event_type="reaction")
         event["op"] = "remove"
-        result = await adapter.incoming_events_processor.process_event(event)
 
-        assert isinstance(result, list), "Expected _handle_reaction to return a list of events"
-        assert len(result) > 0, "Expected at least one event to be generated"
+        with patch.object(EmojiConverter, "get_instance", return_value=emoji_converter_mock):
+            result = await adapter.incoming_events_processor.process_event(event)
 
-        reaction_events = [e for e in result if e.get("event_type") == "reaction_removed"]
-        assert len(reaction_events) == 1, "Expected one reaction_removed event"
+            assert isinstance(result, list), "Expected _handle_reaction to return a list of events"
+            assert len(result) > 0, "Expected at least one event to be generated"
 
-        reaction_event = reaction_events[0]
-        assert reaction_event["data"]["message_id"] == "12345"
-        assert reaction_event["data"]["conversation_id"] == "101_102"
-        assert reaction_event["data"]["emoji"] == "thumbs_up"
+            reaction_events = [e for e in result if e.get("event_type") == "reaction_removed"]
+            assert len(reaction_events) == 1, "Expected one reaction_removed event"
 
-        cached_message = adapter.conversation_manager.message_cache.messages["101_102"]["12345"]
-        assert "thumbs_up" not in cached_message.reactions
-        assert "thumbs_down" in cached_message.reactions
-        assert cached_message.reactions["thumbs_down"] == 1
+            reaction_event = reaction_events[0]
+            assert reaction_event["data"]["message_id"] == "12345"
+            assert reaction_event["data"]["conversation_id"] == "101_102"
+            assert reaction_event["data"]["emoji"] == "thumbs_up"
+
+            cached_message = adapter.conversation_manager.message_cache.messages["101_102"]["12345"]
+            assert "thumbs_up" not in cached_message.reactions
+            assert "thumbs_down" in cached_message.reactions
+            assert cached_message.reactions["thumbs_down"] == 1

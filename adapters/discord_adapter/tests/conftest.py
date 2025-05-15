@@ -23,6 +23,7 @@ def default_config_data():
             "retry_delay": 5,
             "connection_check_interval": 300,
             "max_message_length": 100,
+            "max_reconnect_attempts": 5,
             "max_history_limit": 10,
             "max_pagination_iterations": 1
         },

@@ -23,6 +23,8 @@ The adapter uses the Telethon library to interact with the Telegram API. This pr
 
 The adapter can connect either as a bot or a user. While the first option is recommended, the second one provides more options to interact with the Telegram content via tracking deleted messages, adding/removing reactions and fetching history.
 
+There is no automatic reconnection mechanism for Telegram; if anything fails, it should be restarted manually.
+
 ### Client Implementation
 
 The Telegram client implementation leverages Telethon's event system to process incoming messages and other events. For that the set of event handlers is implemented.
@@ -56,6 +58,7 @@ adapter:
   phone: "XXXXXXXX"                 # Your phone number (optional if bot_token provided)
   retry_delay: 5                    # Seconds to wait between connection attempts
   connection_check_interval: 300    # Seconds between connection health checks
+  max_reconnect_attempts: 5         # Max number of attempts to reconnect if connection lost
   flood_sleep_threshold: 120        # Seconds to sleep on flood wait
   max_message_length: 4000          # Maximum message length
   max_history_limit: 100            # Maximum messages to retrieve at once

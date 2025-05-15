@@ -76,6 +76,13 @@ class Adapter(BaseAdapter):
             self.config.get_setting("adapter", "adapter_id")
         )
 
+    async def _reconnect_with_client(self) -> None:
+        """Reconnect with client.
+        The official discord.py library handles reconnecting automatically.
+        So we don't need to do anything here.
+        """
+        pass
+
     async def _teardown_client(self) -> None:
         """Teardown client"""
         if self.client:
