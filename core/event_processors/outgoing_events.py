@@ -16,6 +16,8 @@ class SendMessageData(BaseModel):
     """Send message request data model"""
     conversation_id: str
     text: str
+    thread_id: Optional[str] = None
+    mentions: Optional[List[str]] = None
     attachments: List[OutgoingAttachmentInfo] = Field(default_factory=list)
     custom_name: Optional[str] = None  # Only used for discord webhook adapter
 
@@ -24,6 +26,7 @@ class EditMessageData(BaseModel):
     conversation_id: str
     message_id: str
     text: str
+    mentions: Optional[List[str]] = None
 
 class DeleteMessageData(BaseModel):
     """Delete message request data model"""

@@ -43,7 +43,9 @@ class TestOutgoingEventBuilder:
             "data": {
                 "conversation_id": "conv_123",
                 "text": "Hello, world!",
-                "attachments": [sample_attachment]
+                "attachments": [sample_attachment],
+                "thread_id": "thread_123",
+                "mentions": ["user_123", "user_456"]
             }
         }
 
@@ -125,6 +127,8 @@ class TestOutgoingEventBuilder:
         assert isinstance(event.data, SendMessageData)
         assert event.data.conversation_id == sample_send_message_data["data"]["conversation_id"]
         assert event.data.text == sample_send_message_data["data"]["text"]
+        assert event.data.thread_id == sample_send_message_data["data"]["thread_id"]
+        assert event.data.mentions == sample_send_message_data["data"]["mentions"]
 
         # Verify attachments
         assert len(event.data.attachments) == 1

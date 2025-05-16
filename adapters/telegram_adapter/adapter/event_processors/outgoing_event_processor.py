@@ -5,16 +5,16 @@ import logging
 import os
 import telethon
 
-from enum import Enum
 from pydantic import BaseModel
 from telethon import functions
 from telethon.tl.types import ReactionEmoji
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Union
 
 from adapters.telegram_adapter.adapter.attachment_loaders.uploader import Uploader
 from adapters.telegram_adapter.adapter.conversation.manager import Manager
 from adapters.telegram_adapter.adapter.event_processors.history_fetcher import HistoryFetcher
 
+from core.conversation.base_data_classes import UserInfo
 from core.event_processors.base_outgoing_event_processor import BaseOutgoingEventProcessor
 from core.utils.config import Config
 
@@ -29,11 +29,10 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
             client: Telethon client instance
             conversation_manager: Conversation manager for tracking message history
         """
-        super().__init__(config, client)
-        self.conversation_manager = conversation_manager
+        super().__init__(config, client, conversation_manager)
         self.uploader = Uploader(self.config, self.client)
 
-    async def _send_message(self, data: BaseModel) -> Dict[str, Any]:
+    async def _send_message(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
         """Send a message to a chat
 
         Args:
@@ -45,12 +44,21 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         conversation_id = self._format_conversation_id(data.conversation_id)
         entity = await self._get_entity(conversation_id)
         message_ids = []
+        reply_to_message_id = None
 
-        for message in self._split_long_message(data.text):
-            await self.rate_limiter.limit_request("message", conversation_id)
+        if data.thread_id:
+            try:
+                reply_to_message_id = int(data.thread_id)
+            except ValueError:
+                reply_to_message_id = None
+
+        for message in self._split_long_message(
+            self._mention_users(conversation_info, data.mentions, data.text)
+        ):
+            await self.rate_limiter.limit_request("message", data.conversation_id)
 
             message = await self.client.send_message(
-                entity=entity, message=message, reply_to=None
+                entity=entity, message=message, reply_to=reply_to_message_id
             )
             if hasattr(message, "id"):
                 message_ids.append(str(message.id))
@@ -58,8 +66,10 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
             await self.conversation_manager.add_to_conversation({"message": message})
 
         for attachment in data.attachments:
-            await self.rate_limiter.limit_request("message", conversation_id)
-            attachment_info = await self.uploader.upload_attachment(entity, attachment)
+            await self.rate_limiter.limit_request("message", data.conversation_id)
+            attachment_info = await self.uploader.upload_attachment(
+                entity, attachment, reply_to=reply_to_message_id
+            )
 
             if attachment_info and attachment_info.get("message"):
                 message = attachment_info["message"]
@@ -72,13 +82,14 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
                     "attachments": [attachment_info]
                 })
 
-        logging.info(f"Message sent to conversation {conversation_id}")
+        logging.info(f"Message sent to conversation {data.conversation_id}")
         return {"request_completed": True, "message_ids": message_ids}
 
-    async def _edit_message(self, data: BaseModel) -> Dict[str, Any]:
+    async def _edit_message(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
         """Edit a message
 
         Args:
+            conversation_info: Conversation info
             data: Event data containing conversation_id, message_id, and text
 
         Returns:
@@ -87,17 +98,17 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         conversation_id = self._format_conversation_id(data.conversation_id)
         entity = await self._get_entity(conversation_id)
 
-        await self.rate_limiter.limit_request("edit_message", conversation_id)
+        await self.rate_limiter.limit_request("edit_message", data.conversation_id)
         await self.conversation_manager.update_conversation({
             "event_type": "edited_message",
             "message": await self.client.edit_message(
                 entity=entity,
                 message=int(data.message_id),
-                text=data.text
+                text=self._mention_users(conversation_info, data.mentions, data.text)
             )
         })
 
-        logging.info(f"Message edited in conversation {conversation_id}")
+        logging.info(f"Message edited in conversation {data.conversation_id}")
         return {"request_completed": True}
 
     async def _delete_message(self, data: BaseModel) -> Dict[str, Any]:
@@ -195,7 +206,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         logging.info(f"Reaction removed from message in conversation {conversation_id}")
         return {"request_completed": True}
 
-    async def _fetch_history(self, data: BaseModel) -> Dict[str, Any]:
+    async def _fetch_history(self, data: BaseModel) -> List[Any]:
         """Fetch history of a conversation
 
         Args:
@@ -204,13 +215,9 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
                   limit (optional, default is taken from config)
 
         Returns:
-            Dict[str, Any]: Dictionary containing the status and history
+            List[Any]: List of history items
         """
-        if not data.before and not data.after:
-            logging.error("No before or after datetime provided")
-            return {"request_completed": False}
-
-        history = await HistoryFetcher(
+        return await HistoryFetcher(
             self.config,
             self.client,
             self.conversation_manager,
@@ -220,7 +227,38 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
             history_limit=data.limit
         ).fetch()
 
-        return {"request_completed": True, "history": history}
+    def _conversation_should_exist(self) -> bool:
+        """Check if a conversation should exist before sending or editing a message
+
+        Returns:
+            bool: True if a conversation should exist, False otherwise
+
+        Note:
+            In Telegram the existence of a conversation is mandatory.
+        """
+        return True
+
+    def _adapter_specific_mention_all(self) -> str:
+        """Mention all users in a conversation
+
+        Telegram doesn't have a native "mention all" feature,
+        so we cannot mention all users in a conversation.
+        """
+        return ""
+
+    def _adapter_specific_mention_user(self, user_info: UserInfo) -> str:
+        """Mention a user in a conversation
+
+        Args:
+            user_info: User info
+
+        Returns:
+            str: Mention a user in a conversation
+
+        Note:
+            Telegram allows mentioning only users with username field set.
+        """
+        return f"@{user_info.username} " if user_info.username else ""
 
     def _format_conversation_id(self, conversation_id: Union[str, int]) -> Union[str, int]:
         """Format a conversation ID based on conversation type

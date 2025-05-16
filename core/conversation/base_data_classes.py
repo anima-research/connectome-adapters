@@ -24,13 +24,6 @@ class UserInfo():
     is_bot: bool = False
 
     @property
-    def mention(self) -> str:
-        """Get a mention string for the user"""
-        if self.username:
-            return f"@{self.username}"
-        return f"User {self.user_id}"
-
-    @property
     def display_name(self) -> str:
         """Get a human-readable display name"""
         if self.username:

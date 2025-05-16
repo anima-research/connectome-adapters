@@ -92,6 +92,7 @@ class TestTelethonClient:
                 assert telethon_client.me == me
 
         @pytest.mark.asyncio
+        @pytest.mark.filterwarnings("ignore::RuntimeWarning")
         async def test_connect_no_credentials(self, telethon_client, telegram_client_mock):
             """Test connecting with no authentication credentials"""
             telethon_client.bot_token = None

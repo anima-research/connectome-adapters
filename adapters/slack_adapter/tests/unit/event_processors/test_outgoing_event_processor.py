@@ -38,7 +38,10 @@ class TestOutgoingEventProcessor:
     @pytest.fixture
     def conversation_manager_mock(self):
         """Create a mocked conversation manager"""
-        return AsyncMock()
+        manager = AsyncMock()
+        manager.get_conversation = MagicMock()
+        manager.get_conversation_member = MagicMock()
+        return manager
 
     @pytest.fixture
     def rate_limiter_mock(self):

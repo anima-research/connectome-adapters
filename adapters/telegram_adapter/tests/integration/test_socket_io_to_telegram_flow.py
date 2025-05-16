@@ -155,13 +155,19 @@ class TestSocketIOToTelegramFlowIntegration:
     # =============== TEST METHODS ===============
 
     @pytest.mark.asyncio
-    async def test_send_message_flow(self, adapter, telethon_client_mock, create_message_response):
+    async def test_send_message_flow(self,
+                                     adapter,
+                                     telethon_client_mock,
+                                     setup_conversation,
+                                     create_message_response):
         """Test the complete flow from socket.io send_message to Telethon call"""
+        setup_conversation()
+
         entity = MagicMock()
         telethon_client_mock.get_entity.return_value = entity
         telethon_client_mock.send_message.return_value = create_message_response(text="Hello, world!")
 
-        assert len(adapter.conversation_manager.conversations) == 0
+        assert len(adapter.conversation_manager.conversations) == 1
         assert len(adapter.conversation_manager.message_cache.messages) == 0
 
         response = await adapter.outgoing_events_processor.process_event({

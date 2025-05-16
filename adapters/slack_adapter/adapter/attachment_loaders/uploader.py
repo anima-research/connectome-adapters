@@ -39,16 +39,14 @@ class Uploader():
         except Exception as e:
             logging.error(f"Error removing temporary directory: {e}")
 
-    async def upload_attachments(self,
-                                 conversation_id: str,
-                                 attachments: List[Any]) -> None:
+    async def upload_attachments(self, data: Any) -> None:
         """Upload a file to Slack
 
         Args:
             conversation_id: Conversation ID to share the file in
             attachments: List of attachment details
         """
-        for attachment in attachments:
+        for attachment in data.attachments:
             try:
                 try:
                     file_content = base64.b64decode(attachment.content)
@@ -64,12 +62,18 @@ class Uploader():
                 with open(temp_path, "wb") as f:
                     f.write(file_content)
 
-                await self.rate_limiter.limit_request("message", conversation_id)
-                response = await self.client.files_upload_v2(
-                    file=temp_path, channel=conversation_id.split("/")[-1]
-                )
+                await self.rate_limiter.limit_request("message", data.conversation_id)
 
+                upload_params = {
+                    "file": temp_path,
+                    "channel": data.conversation_id.split("/")[-1]
+                }
+                if data.thread_id:
+                    upload_params["thread_ts"] = data.thread_id
+
+                response = await self.client.files_upload_v2(**upload_params)
                 file_id = response.get("file", {}).get("id", None)
+
                 if file_id:
                     self._clean_up_uploaded_file(temp_path, file_id)
             except Exception as e:

@@ -6,6 +6,7 @@ import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from adapters.slack_adapter.adapter.adapter import Adapter
+from adapters.slack_adapter.adapter.conversation.data_classes import ConversationInfo
 from adapters.slack_adapter.adapter.attachment_loaders.uploader import Uploader
 from adapters.slack_adapter.adapter.event_processors.outgoing_event_processor import OutgoingEventProcessor
 from adapters.slack_adapter.adapter.event_processors.history_fetcher import HistoryFetcher
@@ -123,11 +124,25 @@ class TestSocketIOToSlackFlowIntegration:
 
         return adapter
 
+    @pytest.fixture
+    def setup_conversation(self, adapter):
+        """Setup a test conversation with a user"""
+        def _setup():
+            conversation_id = "T12345/C12345678"
+            adapter.conversation_manager.conversations[conversation_id] = ConversationInfo(
+                conversation_id=conversation_id,
+                conversation_type="channel"
+            )
+            return adapter.conversation_manager.conversations[conversation_id]
+        return _setup
+
     # =============== TEST METHODS ===============
 
     @pytest.mark.asyncio
-    async def test_send_message_flow(self, adapter):
+    async def test_send_message_flow(self, adapter, setup_conversation):
         """Test sending a simple message to Slack"""
+        setup_conversation()
+
         response = await adapter.process_outgoing_event({
             "event_type": "send_message",
             "data": {
@@ -149,8 +164,10 @@ class TestSocketIOToSlackFlowIntegration:
         )
 
     @pytest.mark.asyncio
-    async def test_send_message_with_attachment_flow(self, adapter, uploader_mock):
+    async def test_send_message_with_attachment_flow(self, adapter, uploader_mock, setup_conversation):
         """Test sending a message with an attachment to Slack"""
+        setup_conversation()
+
         uploader_mock.upload_attachments.return_value = []
 
         response = await adapter.process_outgoing_event({
@@ -172,8 +189,10 @@ class TestSocketIOToSlackFlowIntegration:
         uploader_mock.upload_attachments.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_edit_message_flow(self, adapter):
+    async def test_edit_message_flow(self, adapter, setup_conversation):
         """Test the complete flow from socket.io edit_message to Slack API call"""
+        setup_conversation()
+
         response = await adapter.process_outgoing_event({
             "event_type": "edit_message",
             "data": {

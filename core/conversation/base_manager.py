@@ -74,6 +74,23 @@ class BaseManager(ABC):
 
         return result
 
+    def get_conversation_member(self, conversation_id: str, user_id: str) -> Optional[UserInfo]:
+        """Get the member info for a given conversation and user ID
+
+        Args:
+            conversation_id: The ID of the conversation to get member info for
+            user_id: The ID of the user to get info for
+
+        Returns:
+            The member info for the given conversation and user ID, or None if it doesn't exist
+        """
+        conversation = self.get_conversation(conversation_id)
+
+        if not conversation:
+            return None
+
+        return conversation.known_members.get(user_id, None)
+
     async def add_to_conversation(self, event: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new conversation or add a message to an existing conversation
 

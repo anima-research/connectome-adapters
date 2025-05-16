@@ -5,7 +5,7 @@ import shutil
 
 from unittest.mock import patch, MagicMock, AsyncMock
 from adapters.slack_adapter.adapter.attachment_loaders.uploader import Uploader
-from core.event_processors.outgoing_events import OutgoingAttachmentInfo
+from core.event_processors.outgoing_events import OutgoingAttachmentInfo, SendMessageData
 
 class TestUploader:
     """Tests for the Slack Uploader class"""
@@ -49,22 +49,26 @@ class TestUploader:
         return uploader
 
     @pytest.fixture
-    def sample_attachment(self):
-        """Create sample document attachment info"""
-        return [
-            OutgoingAttachmentInfo(
-                file_name="test.txt",
-                content="dGVzdAo="
-            )
-        ]
+    def sample_send_message_data(self):
+        """Create sample send message data"""
+        return SendMessageData(
+            conversation_id="T123/C456",
+            text="Test message",
+            attachments=[
+                OutgoingAttachmentInfo(
+                    file_name="test.txt",
+                    content="dGVzdAo="
+                )
+            ]
+        )
 
     @pytest.mark.asyncio
-    async def test_upload_file_success(self, uploader, sample_attachment):
+    async def test_upload_file_success(self, uploader, sample_send_message_data):
         """Test successful file upload"""
         with patch("os.path.exists", return_value=True):
             with patch("adapters.slack_adapter.adapter.attachment_loaders.uploader.move_attachment") as mock_move:
                 with patch("adapters.slack_adapter.adapter.attachment_loaders.uploader.create_attachment_dir") as mock_create_dir:
-                    await uploader.upload_attachments("T123/C456", sample_attachment)
+                    await uploader.upload_attachments(sample_send_message_data)
 
                     uploader.client.files_upload_v2.assert_called_once_with(
                         file="test_attachments/tmp_uploads/test.txt",
@@ -74,7 +78,7 @@ class TestUploader:
                     assert mock_move.called
 
     @pytest.mark.asyncio
-    async def test_upload_file_api_error(self, uploader, sample_attachment):
+    async def test_upload_file_api_error(self, uploader, sample_send_message_data):
         """Test handling API errors"""
         uploader.client.files_upload_v2.return_value = {
             "ok": False,
@@ -83,25 +87,25 @@ class TestUploader:
 
         with patch("os.path.exists", return_value=True):
             with patch.object(logging, "error"):
-                await uploader.upload_attachments("T123/C456", sample_attachment)
+                await uploader.upload_attachments(sample_send_message_data)
                 assert uploader.client.files_upload_v2.called
 
     @pytest.mark.asyncio
-    async def test_upload_file_exception(self, uploader, sample_attachment):
+    async def test_upload_file_exception(self, uploader, sample_send_message_data):
         """Test handling exceptions during upload"""
         uploader.client.files_upload_v2.side_effect = Exception("Network error")
 
         with patch("os.path.exists", return_value=True):
             with patch.object(logging, "error") as mock_log:
-                await uploader.upload_attachments("T123/C456", sample_attachment)
+                await uploader.upload_attachments(sample_send_message_data)
 
                 assert mock_log.called
                 assert "Error uploading file" in mock_log.call_args[0][0]
 
     @pytest.mark.asyncio
-    async def test_multiple_attachments(self, uploader):
+    async def test_multiple_attachments(self, uploader, sample_send_message_data):
         """Test uploading multiple attachments"""
-        multiple_attachments = [
+        sample_send_message_data.attachments = [
             OutgoingAttachmentInfo(
                 file_name="doc1.txt",
                 content="dGVzdAo="
@@ -115,7 +119,7 @@ class TestUploader:
         with patch("os.path.exists", return_value=True):
             with patch("adapters.slack_adapter.adapter.attachment_loaders.uploader.move_attachment"):
                 with patch("adapters.slack_adapter.adapter.attachment_loaders.uploader.create_attachment_dir"):
-                    await uploader.upload_attachments("T123/C456", multiple_attachments)
+                    await uploader.upload_attachments(sample_send_message_data)
 
                     assert uploader.client.files_upload_v2.call_count == 2
                     assert uploader.rate_limiter.limit_request.call_count == 2

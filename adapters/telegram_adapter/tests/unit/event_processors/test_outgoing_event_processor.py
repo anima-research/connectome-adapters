@@ -31,6 +31,8 @@ class TestOutgoingEventProcessor:
         manager.add_to_conversation = AsyncMock()
         manager.update_conversation = AsyncMock()
         manager.delete_from_conversation = AsyncMock()
+        manager.get_conversation = MagicMock()
+        manager.get_conversation_member = MagicMock()
         manager.conversations = {}
         return manager
 

@@ -39,7 +39,9 @@ class OutgoingEventBuilder:
                 data=SendMessageData(
                     conversation_id=event_data.get("conversation_id", None),
                     text=event_data.get("text", None),
+                    thread_id=event_data.get("thread_id", None),
                     custom_name=event_data.get("custom_name", None),
+                    mentions=event_data.get("mentions", []),
                     attachments=attachments
                 )
             )

@@ -8,8 +8,9 @@ import os
 from abc import ABC, abstractmethod
 from enum import Enum
 from pydantic import BaseModel
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 
+from core.conversation.base_data_classes import BaseConversationInfo, UserInfo
 from core.event_processors.outgoing_event_builder import OutgoingEventBuilder
 from core.rate_limiter.rate_limiter import RateLimiter
 from core.utils.config import Config
@@ -27,15 +28,17 @@ class OutgoingEventType(str, Enum):
 class BaseOutgoingEventProcessor(ABC):
     """Processes events from socket.io and sends them to adapter client"""
 
-    def __init__(self, config: Config, client: Any):
+    def __init__(self, config: Config, client: Any, conversation_manager: Any):
         """Initialize the socket.io events processor
 
         Args:
             config: Config instance
             client: A client instance
+            conversation_manager: A conversation manager instance
         """
         self.config = config
         self.client = client
+        self.conversation_manager = conversation_manager
         self.adapter_type = self.config.get_setting("adapter", "type")
         self.rate_limiter = RateLimiter.get_instance(self.config)
         self.outgoing_event_builder = OutgoingEventBuilder()
@@ -107,7 +110,15 @@ class BaseOutgoingEventProcessor(ABC):
             Dict[str, Any]: Dictionary containing the status and message_ids
         """
         try:
-            return await self._send_message(data)
+            conversation_info = None
+
+            if self._conversation_should_exist():
+                conversation_info = self.conversation_manager.get_conversation(data.conversation_id)
+                if not conversation_info:
+                    logging.error(f"Conversation {data.conversation_id} not found")
+                    return {"request_completed": False}
+
+            return await self._send_message(conversation_info, data)
         except Exception as e:
             logging.error(
                 f"Failed to send message to conversation {data.conversation_id}: {e}",
@@ -116,7 +127,7 @@ class BaseOutgoingEventProcessor(ABC):
             return {"request_completed": False}
 
     @abstractmethod
-    async def _send_message(self, data: BaseModel) -> Dict[str, Any]:
+    async def _send_message(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
         """Send a message to a conversation"""
         raise NotImplementedError("Child classes must implement _send_message")
 
@@ -130,7 +141,15 @@ class BaseOutgoingEventProcessor(ABC):
             Dict[str, Any]: Dictionary containing the status
         """
         try:
-            return await self._edit_message(data)
+            conversation_info = None
+
+            if self._conversation_should_exist():
+                conversation_info = self.conversation_manager.get_conversation(data.conversation_id)
+                if not conversation_info:
+                    logging.error(f"Conversation {data.conversation_id} not found")
+                    return {"request_completed": False}
+
+            return await self._edit_message(conversation_info, data)
         except Exception as e:
             logging.error(
                 f"Failed to edit message {data.message_id}: {e}",
@@ -139,7 +158,7 @@ class BaseOutgoingEventProcessor(ABC):
             return {"request_completed": False}
 
     @abstractmethod
-    async def _edit_message(self, data: BaseModel) -> Dict[str, Any]:
+    async def _edit_message(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
         """Send a message to a conversation"""
         raise NotImplementedError("Child classes must implement _edit_message")
 
@@ -225,7 +244,12 @@ class BaseOutgoingEventProcessor(ABC):
             Dict[str, Any]: Dictionary containing the status and history
         """
         try:
-            return await self._fetch_history(data)
+            if not data.before and not data.after:
+                logging.error("No before or after datetime provided")
+                return {"request_completed": False}
+
+            history = await self._fetch_history(data)
+            return {"request_completed": True, "history": history}
         except Exception as e:
             logging.error(
                 f"Failed to fetch history of conversation {data.conversation_id}: {e}",
@@ -234,9 +258,14 @@ class BaseOutgoingEventProcessor(ABC):
             return {"request_completed": False}
 
     @abstractmethod
-    async def _fetch_history(self, data: BaseModel) -> Dict[str, Any]:
+    async def _fetch_history(self, data: BaseModel) -> List[Any]:
         """Fetch history of a conversation"""
         raise NotImplementedError("Child classes must implement _fetch_history")
+
+    @abstractmethod
+    async def _conversation_should_exist(self) -> bool:
+        """Check if a conversation should exist before sending or editing a message"""
+        raise NotImplementedError("Child classes must implement _conversation_should_exist")
 
     def _split_long_message(self, text: str) -> List[str]:
         """Split a long message at sentence boundaries to fit within adapter's message length limits.
@@ -285,3 +314,45 @@ class BaseOutgoingEventProcessor(ABC):
             message_parts.append(remaining_text)
 
         return message_parts
+
+    def _mention_users(self,
+                       conversation_info: BaseConversationInfo,
+                       mentions: List[str],
+                       text: str) -> str:
+        """Mention users in a message
+
+        Args:
+            conversation_info: Conversation info
+            mentions: List of user ids to mention
+            text: Message text
+
+        Returns:
+            str: Message text with users mentioned
+        """
+        if not mentions:
+            return text
+
+        users = ""
+
+        for mention in mentions:
+            if mention == "all":
+                users += self._adapter_specific_mention_all()
+                continue
+
+            user_info = self.conversation_manager.get_conversation_member(
+                conversation_info.conversation_id, mention
+            )
+            if user_info:
+                users += self._adapter_specific_mention_user(user_info)
+
+        return users + text
+
+    @abstractmethod
+    def _adapter_specific_mention_all(self) -> str:
+        """Mention all users in a conversation"""
+        raise NotImplementedError("Child classes must implement _adapter_specific_mention_all")
+
+    @abstractmethod
+    def _adapter_specific_mention_user(self, user_info: UserInfo) -> str:
+        """Mention a user in a conversation"""
+        raise NotImplementedError("Child classes must implement _adapter_specific_mention_user")

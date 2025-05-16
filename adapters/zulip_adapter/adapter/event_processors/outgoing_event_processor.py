@@ -4,12 +4,13 @@ import logging
 import os
 
 from pydantic import BaseModel
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from adapters.zulip_adapter.adapter.attachment_loaders.uploader import Uploader
 from adapters.zulip_adapter.adapter.conversation.manager import Manager
 from adapters.zulip_adapter.adapter.event_processors.history_fetcher import HistoryFetcher
 
+from core.conversation.base_data_classes import UserInfo
 from core.event_processors.base_outgoing_event_processor import BaseOutgoingEventProcessor
 from core.utils.config import Config
 from core.utils.emoji_converter import EmojiConverter
@@ -25,25 +26,21 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
             client: Zulip client instance
             conversation_manager: Conversation manager for tracking message history
         """
-        super().__init__(config, client)
-        self.conversation_manager = conversation_manager
+        super().__init__(config, client, conversation_manager)
         self.uploader = Uploader(self.config, self.client)
 
-    async def _send_message(self, data: BaseModel) -> Dict[str, Any]:
+    async def _send_message(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
         """Send a message to a chat
 
         Args:
+            conversation_info: Conversation info
             data: Event data containing conversation_id, text, and optional attachments
 
         Returns:
             Dict[str, Any]: Dictionary containing the status and message_ids
         """
-        conversation_info = self.conversation_manager.get_conversation(data.conversation_id)
-        if not conversation_info:
-            logging.error(f"Conversation {data.conversation_id} not found")
-            return {"request_completed": False}
+        messages = self._split_long_message(self._mention_users(conversation_info, data.mentions, data.text))
 
-        messages = self._split_long_message(data.text)
         for attachment in data.attachments:
             await self.rate_limiter.limit_request("upload_attachment", conversation_info.conversation_id)
             uri = await self.uploader.upload_attachment(attachment)
@@ -76,10 +73,11 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         logging.info(f"Message sent to {conversation_info.conversation_id}")
         return {"request_completed": True, "message_ids": message_ids}
 
-    async def _edit_message(self, data: BaseModel) -> Dict[str, Any]:
+    async def _edit_message(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
         """Edit a message
 
         Args:
+            conversation_info: Conversation info
             data: Event data containing conversation_id, message_id, and text
 
         Returns:
@@ -89,7 +87,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
 
         message_data = {
             "message_id": int(data.message_id),
-            "content": data.text
+            "content": self._mention_users(conversation_info, data.mentions, data.text)
         }
 
         if not self._check_api_request_success(
@@ -181,7 +179,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         logging.info(f"Reaction {data.emoji} removed from message {data.message_id}")
         return {"request_completed": True}
 
-    async def _fetch_history(self, data: BaseModel) -> Dict[str, Any]:
+    async def _fetch_history(self, data: BaseModel) -> List[Any]:
         """Fetch history of a conversation
 
         Args:
@@ -189,13 +187,9 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
                   limit (optional, default is taken from config)
 
         Returns:
-            Dict[str, Any]: Dictionary containing the status and history
+            List[Any]: List of history items
         """
-        if not data.before and not data.after:
-            logging.error("No before or after datetime provided")
-            return {"request_completed": False}
-
-        history = await HistoryFetcher(
+        return await HistoryFetcher(
             self.config,
             self.client,
             self.conversation_manager,
@@ -205,7 +199,35 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
             history_limit=data.limit
         ).fetch()
 
-        return {"request_completed": True, "history": history}
+    def _conversation_should_exist(self) -> bool:
+        """Check if a conversation should exist before sending or editing a message
+
+        Returns:
+            bool: True if a conversation should exist, False otherwise
+
+        Note:
+            In Zulip the existence of a conversation is mandatory.
+        """
+        return True
+
+    def _adapter_specific_mention_all(self) -> str:
+        """Mention all users in a conversation
+
+        Returns:
+            str: Mention all users in a conversation
+        """
+        return "@**all** "
+
+    def _adapter_specific_mention_user(self, user_info: UserInfo) -> str:
+        """Mention a user in a conversation
+
+        Args:
+            user_info: User info
+
+        Returns:
+            str: Mention a user in a conversation
+        """
+        return f"@**{user_info.display_name}** "
 
     def _check_api_request_success(self,
                                    result: Optional[Dict[str, Any]],

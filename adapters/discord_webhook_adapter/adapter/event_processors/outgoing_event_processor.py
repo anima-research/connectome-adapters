@@ -10,6 +10,7 @@ from adapters.discord_webhook_adapter.adapter.attachment_loaders.uploader import
 from adapters.discord_webhook_adapter.adapter.conversation.manager import Manager
 
 from adapters.discord_webhook_adapter.adapter.event_processors.history_fetcher import HistoryFetcher
+from core.conversation.base_data_classes import UserInfo
 from core.event_processors.base_outgoing_event_processor import BaseOutgoingEventProcessor
 from core.utils.config import Config
 
@@ -24,9 +25,8 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
             client: Discord client instance
             conversation_manager: Conversation manager for tracking message history
         """
-        super().__init__(config, client)
+        super().__init__(config, client, conversation_manager)
         self.session = self.client.session
-        self.conversation_manager = conversation_manager
         self.uploader = Uploader(self.config)
 
     async def _handle_fetch_attachment_event(self, data: BaseModel) -> Dict[str, Any]:
@@ -36,10 +36,11 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         """
         raise NotImplementedError("Fetching attachments is not available for webhooks adapter")
 
-    async def _send_message(self, data: BaseModel) -> Dict[str, Any]:
+    async def _send_message(self, _: Any, data: BaseModel) -> Dict[str, Any]:
         """Send a message to a chat
 
         Args:
+            conversation_info: Conversation info (not used in this adapter)
             data: Event data containing conversation_id, text, and optional attachments
 
         Returns:
@@ -129,10 +130,11 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
 
         return responses
 
-    async def _edit_message(self, data: BaseModel) -> Dict[str, Any]:
+    async def _edit_message(self, _: Any, data: BaseModel) -> Dict[str, Any]:
         """Edit a message
 
         Args:
+            conversation_info: Conversation info (not used in this adapter)
             data: Event data containing conversation_id, message_id, and text
 
         Returns:
@@ -172,7 +174,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         logging.info(f"Message {data.message_id} deleted successfully")
         return {"request_completed": True}
 
-    async def _fetch_history(self, data: BaseModel) -> Dict[str, Any]:
+    async def _fetch_history(self, data: BaseModel) -> List[Any]:
         """Fetch history of a conversation
 
         Args:
@@ -181,14 +183,11 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
                   limit (optional, default is taken from config)
 
         Returns:
-            Dict[str, Any]: Dictionary containing the status and history
+            List[Any]: History
         """
-        if not data.before and not data.after:
-            logging.error("No before or after datetime provided")
-            return {"request_completed": False}
-
         webhook_info = await self._get_webhook_info(data.conversation_id)
-        history = await HistoryFetcher(
+
+        return await HistoryFetcher(
             self.config,
             self.client.get_client_bot(webhook_info["bot_token"]),
             self.conversation_manager,
@@ -197,8 +196,6 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
             after=data.after,
             history_limit=data.limit
         ).fetch()
-
-        return {"request_completed": True, "history": history}
 
     async def _get_webhook_info(self, conversation_id: str) -> Dict[str, Any]:
         """Get webhook info for a conversation
@@ -227,3 +224,22 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
     async def _remove_reaction(self, data: BaseModel) -> Dict[str, Any]:
         """Remove a reaction from a message. Not supported for webhooks adapter"""
         raise NotImplementedError("removing reactions is not supported for webhooks adapter")
+
+    def _conversation_should_exist(self) -> bool:
+        """Check if a conversation should exist before sending or editing a message
+
+        Returns:
+            bool: True if a conversation should exist, False otherwise
+
+        Note:
+            In Discord webhook adapter the existence of a conversation is never checked.
+        """
+        return False
+
+    def _adapter_specific_mention_all(self) -> str:
+        """Mention all users in a conversation"""
+        raise NotImplementedError("mentioning is not supported for webhooks adapter")
+
+    def _adapter_specific_mention_user(self, user_info: UserInfo) -> str:
+        """Mention a user in a conversation"""
+        raise NotImplementedError("mentioning is not supported for webhooks adapter")
