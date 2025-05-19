@@ -30,8 +30,8 @@ class UserBuilder:
 
         user_info = UserInfo(user_id=user_id)
         user_info.username = getattr(user, "username", None)
-        user_info.first_name = getattr(user, "first_name", "Unknown")
-        user_info.last_name = getattr(user, "last_name", "Unknown")
+        user_info.first_name = getattr(user, "first_name", None)
+        user_info.last_name = getattr(user, "last_name", None)
         user_info.is_bot = getattr(user, "bot", False)
         conversation_info.known_members[user_id] = user_info
 

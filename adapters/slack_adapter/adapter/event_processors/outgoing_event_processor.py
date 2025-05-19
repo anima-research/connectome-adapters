@@ -132,7 +132,6 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         channel_id = data.conversation_id.split("/")[-1]
 
         await self.rate_limiter.limit_request("add_reaction", data.conversation_id)
-
         response = await self.client.reactions_add(
             channel=channel_id,
             timestamp=data.message_id,
@@ -158,7 +157,6 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         channel_id = data.conversation_id.split("/")[-1]
 
         await self.rate_limiter.limit_request("remove_reaction", data.conversation_id)
-
         response = await self.client.reactions_remove(
             channel=channel_id,
             timestamp=data.message_id,
@@ -192,6 +190,48 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
             after=data.after,
             history_limit=data.limit
         ).fetch()
+
+    async def _pin_message(self, data: BaseModel) -> Dict[str, Any]:
+        """Pin a message
+
+        Args:
+            data: Event data containing conversation_id and message_id
+
+        Returns:
+            Dict[str, Any]: Dictionary containing the status
+        """
+        channel_id = data.conversation_id.split("/")[-1]
+
+        await self.rate_limiter.limit_request("pin_message", data.conversation_id)
+        response = await self.client.pins_add(channel=channel_id, timestamp=data.message_id)
+
+        if not response.get("ok", None):
+            raise Exception(f"Failed to pin message: {response['error']}")
+
+        logging.info(f"Message {data.message_id} pinned successfully")
+
+        return {"request_completed": True}
+
+    async def _unpin_message(self, data: BaseModel) -> Dict[str, Any]:
+        """Unpin a message
+
+        Args:
+            data: Event data containing conversation_id and message_id
+
+        Returns:
+            Dict[str, Any]: Dictionary containing the status
+        """
+        channel_id = data.conversation_id.split("/")[-1]
+
+        await self.rate_limiter.limit_request("unpin_message", data.conversation_id)
+        response = await self.client.pins_remove(channel=channel_id, timestamp=data.message_id)
+
+        if not response.get("ok", None):
+            raise Exception(f"Failed to unpin message: {response['error']}")
+
+        logging.info(f"Message {data.message_id} unpinned successfully")
+
+        return {"request_completed": True}
 
     def _conversation_should_exist(self) -> bool:
         """Check if a conversation should exist before sending or editing a message

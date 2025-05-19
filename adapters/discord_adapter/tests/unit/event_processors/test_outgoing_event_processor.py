@@ -342,3 +342,71 @@ class TestOutgoingEventProcessor:
             channel_mock.fetch_message.assert_called_once_with(987654321)
             message = channel_mock.fetch_message.return_value
             message.remove_reaction.assert_called_once_with("👍", discord_client_mock.user)
+
+    class TestPinStatusUpdate:
+        """Tests for pin and unpin message methods"""
+
+        @pytest.mark.asyncio
+        async def test_pin_message_success(self, processor, channel_mock):
+            """Test successfully pinning a message"""
+            response = await processor.process_event({
+                "event_type": "pin_message",
+                "data": {
+                    "conversation_id": "123456789",
+                    "message_id": "987654321"
+                }
+            })
+            assert response["request_completed"] is True
+
+            processor.rate_limiter.limit_request.assert_called_once_with(
+                "pin_message", "123456789"
+            )
+            channel_mock.fetch_message.assert_called_once_with(987654321)
+            message = channel_mock.fetch_message.return_value
+            message.pin.assert_called_once()
+
+        @pytest.mark.asyncio
+        async def test_pin_message_not_found(self, processor, channel_mock):
+            """Test pinning a message that doesn't exist"""
+            channel_mock.fetch_message.side_effect = discord.NotFound(MagicMock(), "Message not found")
+
+            response = await processor.process_event({
+                "event_type": "pin_message",
+                "data": {
+                    "conversation_id": "123456789",
+                    "message_id": "987654321"
+                }
+            })
+            assert response["request_completed"] is False
+
+        @pytest.mark.asyncio
+        async def test_unpin_message_success(self, processor, channel_mock):
+            """Test successfully unpinning a message"""
+            response = await processor.process_event({
+                "event_type": "unpin_message",
+                "data": {
+                    "conversation_id": "123456789",
+                    "message_id": "987654321"
+                }
+            })
+            assert response["request_completed"] is True
+
+            processor.rate_limiter.limit_request.assert_called_once_with(
+                "unpin_message", "123456789"
+            )
+            channel_mock.fetch_message.assert_called_once_with(987654321)
+            message = channel_mock.fetch_message.return_value
+            message.unpin.assert_called_once()
+
+        @pytest.mark.asyncio
+        async def test_unpin_message_not_found(self, processor, channel_mock):
+            """Test unpinning a message that doesn't exist"""
+            channel_mock.fetch_message.side_effect = discord.NotFound(MagicMock(), "Message not found")
+            response = await processor.process_event({
+                "event_type": "unpin_message",
+                "data": {
+                    "conversation_id": "123456789",
+                    "message_id": "987654321"
+                }
+            })
+            assert response["request_completed"] is False

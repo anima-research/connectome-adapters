@@ -199,6 +199,14 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
             history_limit=data.limit
         ).fetch()
 
+    async def _pin_message(self, data: BaseModel) -> Dict[str, Any]:
+        """Pin a message. Not supported for Zulip adapter"""
+        raise NotImplementedError("pinning messages is not supported for Zulip adapter")
+
+    async def _unpin_message(self, data: BaseModel) -> Dict[str, Any]:
+        """Unpin a message. Not supported for Zulip adapter"""
+        raise NotImplementedError("unpinning messages is not supported for Zulip adapter")
+
     def _conversation_should_exist(self) -> bool:
         """Check if a conversation should exist before sending or editing a message
 

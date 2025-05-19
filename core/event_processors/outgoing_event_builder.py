@@ -7,6 +7,7 @@ from core.event_processors.outgoing_events import (
     ReactionData,
     FetchHistoryData,
     FetchAttachmentData,
+    PinStatusData,
     BaseOutgoingEvent,
     SendMessageEvent,
     EditMessageEvent,
@@ -14,7 +15,9 @@ from core.event_processors.outgoing_events import (
     AddReactionEvent,
     RemoveReactionEvent,
     FetchHistoryEvent,
-    FetchAttachmentEvent
+    FetchAttachmentEvent,
+    PinMessageEvent,
+    UnpinMessageEvent
 )
 
 class OutgoingEventBuilder:
@@ -80,6 +83,18 @@ class OutgoingEventBuilder:
             return FetchAttachmentEvent(
                 event_type=event_type,
                 data=FetchAttachmentData(**event_data)
+            )
+
+        if event_type == "pin_message":
+            return PinMessageEvent(
+                event_type=event_type,
+                data=PinStatusData(**event_data)
+            )
+
+        if event_type == "unpin_message":
+            return UnpinMessageEvent(
+                event_type=event_type,
+                data=PinStatusData(**event_data)
             )
 
         raise ValueError(f"Unknown event type: {event_type}")

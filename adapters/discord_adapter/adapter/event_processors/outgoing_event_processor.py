@@ -177,6 +177,42 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
             history_limit=data.limit
         ).fetch()
 
+    async def _pin_message(self, data: BaseModel) -> Dict[str, Any]:
+        """Pin a message
+
+        Args:
+            data: Event data containing conversation_id and message_id
+
+        Returns:
+            Dict[str, Any]: Dictionary containing the status
+        """
+        channel = await self._get_channel(data.conversation_id)
+        message = await channel.fetch_message(int(data.message_id))
+
+        await self.rate_limiter.limit_request("pin_message", data.conversation_id)
+        await message.pin()
+
+        logging.info(f"Message {data.message_id} pinned successfully")
+        return {"request_completed": True}
+
+    async def _unpin_message(self, data: BaseModel) -> Dict[str, Any]:
+        """Unpin a message
+
+        Args:
+            data: Event data containing conversation_id and message_id
+
+        Returns:
+            Dict[str, Any]: Dictionary containing the status
+        """
+        channel = await self._get_channel(data.conversation_id)
+        message = await channel.fetch_message(int(data.message_id))
+
+        await self.rate_limiter.limit_request("unpin_message", data.conversation_id)
+        await message.unpin()
+
+        logging.info(f"Message {data.message_id} unpinned successfully")
+        return {"request_completed": True}
+
     def _conversation_should_exist(self) -> bool:
         """Check if a conversation should exist before sending or editing a message
 

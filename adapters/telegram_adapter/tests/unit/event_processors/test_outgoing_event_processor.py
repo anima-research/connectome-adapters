@@ -426,6 +426,79 @@ class TestOutgoingEventProcessor:
             result = processor._update_reactions_list(None, "👍")
             assert result == []
 
+    class TestPinUnpin:
+        """Tests for pin/unpin message methods"""
+
+        @pytest.mark.asyncio
+        async def test_pin_message_success(self, processor, telethon_client_mock):
+            """Test successfully pinning a message"""
+            telethon_client_mock.return_value = MagicMock()
+            telethon_client_mock.get_entity.return_value = "entity"
+
+            response = await processor.process_event({
+                "event_type": "pin_message",
+                "data": {
+                    "conversation_id": "123",
+                    "message_id": "456"
+                }
+            })
+
+            assert response["request_completed"] is True
+            telethon_client_mock.assert_called_once()
+            processor.rate_limiter.limit_request.assert_called_with("pin_message", "123")
+
+        @pytest.mark.asyncio
+        async def test_pin_message_missing_required_fields(self, processor):
+            """Test pinning a message with missing required fields"""
+            # Missing conversation_id
+            response = await processor.process_event({
+                "event_type": "pin_message",
+                "data": {"message_id": "456"}
+            })
+            assert response["request_completed"] is False
+
+            # Missing message_id
+            response = await processor.process_event({
+                "event_type": "pin_message",
+                "data": {"conversation_id": "123"}
+            })
+            assert response["request_completed"] is False
+
+        @pytest.mark.asyncio
+        async def test_unpin_message_success(self, processor, telethon_client_mock):
+            """Test successfully unpinning a message"""
+            telethon_client_mock.return_value = MagicMock()
+            telethon_client_mock.get_entity.return_value = "entity"
+
+            response = await processor.process_event({
+                "event_type": "unpin_message",
+                "data": {
+                    "conversation_id": "123",
+                    "message_id": "456"
+                }
+            })
+
+            assert response["request_completed"] is True
+            telethon_client_mock.assert_called_once()
+            processor.rate_limiter.limit_request.assert_called_with("unpin_message", "123")
+
+        @pytest.mark.asyncio
+        async def test_unpin_message_missing_required_fields(self, processor):
+            """Test unpinning a message with missing required fields"""
+            # Missing conversation_id
+            response = await processor.process_event({
+                "event_type": "unpin_message",
+                "data": {"message_id": "456"}
+            })
+            assert response["request_completed"] is False
+
+            # Missing message_id (when not unpinning all)
+            response = await processor.process_event({
+                "event_type": "unpin_message",
+                "data": {"conversation_id": "123"}
+            })
+            assert response["request_completed"] is False
+
     class TestHelperMethods:
         """Tests for helper methods"""
 

@@ -225,6 +225,14 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         """Remove a reaction from a message. Not supported for webhooks adapter"""
         raise NotImplementedError("removing reactions is not supported for webhooks adapter")
 
+    async def _pin_message(self, data: BaseModel) -> Dict[str, Any]:
+        """Pin a message. Not supported for webhooks adapter"""
+        raise NotImplementedError("pinning messages is not supported for webhooks adapter")
+
+    async def _unpin_message(self, data: BaseModel) -> Dict[str, Any]:
+        """Unpin a message. Not supported for webhooks adapter"""
+        raise NotImplementedError("unpinning messages is not supported for webhooks adapter")
+
     def _conversation_should_exist(self) -> bool:
         """Check if a conversation should exist before sending or editing a message
 

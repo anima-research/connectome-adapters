@@ -227,6 +227,62 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
             history_limit=data.limit
         ).fetch()
 
+    async def _pin_message(self, data: BaseModel) -> Dict[str, Any]:
+        """Pin a message
+
+        Args:
+            data: Event data containing conversation_id and message_id
+
+        Returns:
+            Dict[str, Any]: Dictionary containing the status
+        """
+        entity = await self._get_entity(self._format_conversation_id(data.conversation_id))
+
+        await self.rate_limiter.limit_request("pin_message", data.conversation_id)
+        message = await self.client(functions.messages.UpdatePinnedMessageRequest(
+            peer=entity, id=int(data.message_id), silent=False
+        ))
+
+        if message:
+            await self.conversation_manager.update_conversation({
+                "event_type": "pinned_message",
+                "message": {
+                    "conversation_id": data.conversation_id,
+                    "message_id": data.message_id
+                }
+            })
+
+        logging.info(f"Message {data.message_id} pinned in conversation {data.conversation_id}")
+        return {"request_completed": True}
+
+    async def _unpin_message(self, data: BaseModel) -> Dict[str, Any]:
+        """Unpin a message
+
+        Args:
+            data: Event data containing conversation_id and message_id
+
+        Returns:
+            Dict[str, Any]: Dictionary containing the status
+        """
+        entity = await self._get_entity(self._format_conversation_id(data.conversation_id))
+
+        await self.rate_limiter.limit_request("unpin_message", data.conversation_id)
+        message = await self.client(functions.messages.UpdatePinnedMessageRequest(
+            peer=entity, id=int(data.message_id), unpin=True
+        ))
+
+        if message:
+            await self.conversation_manager.update_conversation({
+                "event_type": "unpinned_message",
+                "message": {
+                    "conversation_id": data.conversation_id,
+                    "message_id": data.message_id
+                }
+            })
+
+        logging.info(f"Message {data.message_id} unpinned in conversation {data.conversation_id}")
+        return {"request_completed": True}
+
     def _conversation_should_exist(self) -> bool:
         """Check if a conversation should exist before sending or editing a message
 

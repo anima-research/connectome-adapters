@@ -149,53 +149,19 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
         Returns:
             List of events to emit (typically empty for this case)
         """
-        events = []
+        message = event["event"]
 
         try:
-            message = event["event"].action_message
+            if message and hasattr(message, "action_message") and message.action_message:
+                return await self._pin_message(message.action_message)
 
-            if message and hasattr(message, "action"):
-                action = message.action
-                action_type = type(action).__name__
-
-                if action_type == "MessageActionPinMessage":
-                    delta = await self.conversation_manager.update_conversation({
-                        "event_type": "pinned_message",
-                        "message": message
-                    })
-
-                    if delta:
-                        for message_id in delta.get("pinned_message_ids", []):
-                            events.append(
-                                self.incoming_event_builder.pin_status_update(
-                                    "message_pinned",
-                                    {
-                                        "message_id": message_id,
-                                        "conversation_id": delta["conversation_id"]
-                                    }
-                                )
-                            )
-            elif not message and hasattr(event["event"], "original_update"):
-                delta = await self.conversation_manager.update_conversation({
-                    "event_type": "unpinned_message",
-                    "message": event["event"].original_update
-                })
-
-                if delta:
-                    for message_id in delta.get("unpinned_message_ids", []):
-                        events.append(
-                            self.incoming_event_builder.pin_status_update(
-                                "message_unpinned",
-                                {
-                                    "message_id": message_id,
-                                    "conversation_id": delta["conversation_id"]
-                                }
-                            )
-                        )
+            if message and hasattr(message, "original_update") and message.original_update:
+                print(message.original_update)
+                return await self._unpin_message(message.original_update)
         except Exception as e:
             logging.error(f"Error handling chat action: {e}", exc_info=True)
 
-        return events
+        return []
 
     async def _fetch_conversation_history(self,
                                           conversation_id: str) -> List[Dict[str, Any]]:
@@ -240,3 +206,67 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             logging.error(f"Error getting user: {e}")
 
         return None
+
+    async def _pin_message(self, message: Any) -> List[Dict[str, Any]]:
+        """Pin a message in Telegram
+
+        Args:
+            message: Telethon message object
+
+        Returns:
+            List of events to emit (typically empty for this case)
+        """
+        events = []
+
+        if hasattr(message, "action"):
+            action = message.action
+            action_type = type(action).__name__
+
+            if action_type == "MessageActionPinMessage":
+                delta = await self.conversation_manager.update_conversation({
+                    "event_type": "pinned_message",
+                    "message": message
+                })
+
+                if delta:
+                    for message_id in delta.get("pinned_message_ids", []):
+                        events.append(
+                            self.incoming_event_builder.pin_status_update(
+                                "message_pinned",
+                                {
+                                    "message_id": message_id,
+                                    "conversation_id": delta["conversation_id"]
+                                }
+                            )
+                        )
+
+        return events
+
+    async def _unpin_message(self, message: Any) -> List[Dict[str, Any]]:
+        """Unpin a message in Telegram
+
+        Args:
+            message: Telethon message object
+
+        Returns:
+            List of events to emit
+        """
+        events = []
+        delta = await self.conversation_manager.update_conversation({
+            "event_type": "unpinned_message",
+            "message": message
+        })
+
+        if delta:
+            for message_id in delta.get("unpinned_message_ids", []):
+                events.append(
+                    self.incoming_event_builder.pin_status_update(
+                        "message_unpinned",
+                        {
+                            "message_id": message_id,
+                            "conversation_id": delta["conversation_id"]
+                        }
+                    )
+                )
+
+        return events

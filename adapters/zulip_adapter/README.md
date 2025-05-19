@@ -85,5 +85,3 @@ socketio:
 2) Topic Migrations. Zulip allows moving messages between topics, so the adapter tracks these topic migrations. When a message or group of messages is moved to a different topic, the adapter detects this change and emits relevant events. It handles three distinct scenarios when messages are moved between topics:
 * Migration to a New Topic. When messages are moved to a previously non-existent topic, the adapter sends a `conversation_started` event for the new topic and fetches history for the new topic to establish context. It also emits `message_deleted` events for all moved messages in the original topic.
 * Migration Between Existing Topics. When messages are moved between two topics that both already exist, the adapter emits `message_deleted` events for the moved messages in the source topic and `message_received` events for the moved messages in the destination topic. No conversation_started event is needed since both topics are known.
-
-3) Limitations. The Zulip adapter has no pin/unpin functionality. Zulip doesn't support pinning messages, so this feature is not implemented.

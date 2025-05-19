@@ -46,6 +46,11 @@ class FetchHistoryData(BaseModel):
     before: Optional[int] = None
     after: Optional[int] = None
 
+class PinStatusData(BaseModel):
+    """Pin status request data model"""
+    conversation_id: str
+    message_id: str
+
 class FetchAttachmentData(BaseModel):
     """Fetch attachment request data model"""
     attachment_id: str
@@ -85,3 +90,13 @@ class FetchAttachmentEvent(BaseOutgoingEvent):
     """Complete fetch attachment event model"""
     event_type: str = "fetch_attachment"
     data: FetchAttachmentData
+
+class PinMessageEvent(BaseOutgoingEvent):
+    """Complete pin message event model"""
+    event_type: str = "pin_message"
+    data: PinStatusData
+
+class UnpinMessageEvent(BaseOutgoingEvent):
+    """Complete unpin message event model"""
+    event_type: str = "unpin_message"
+    data: PinStatusData

@@ -197,14 +197,16 @@ class IncomingEventBuilder:
             MessageReceivedData object
         """
         sender = delta.get("sender", {})
+        sender_id = sender["user_id"] if "user_id" in sender and sender["user_id"] else "Unknown"
+        sender_name = sender["display_name"] if "display_name" in sender and sender["display_name"] else "Unknown User"
 
         return MessageReceivedData(
             adapter_name=self.adapter_name,
             message_id=delta["message_id"],
             conversation_id=delta["conversation_id"],
             sender=SenderInfo(
-                user_id=sender.get("user_id", "Unknown"),
-                display_name=sender.get("display_name", "Unknown User")
+                user_id=sender_id,
+                display_name=sender_name
             ),
             text=delta.get("text", ""),
             thread_id=delta.get("thread_id"),

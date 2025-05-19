@@ -386,3 +386,74 @@ class TestSocketIOToTelegramFlowIntegration:
             cached_message = adapter.conversation_manager.message_cache.messages["456"]["123"]
             assert "thumbs_up" not in cached_message.reactions
             assert len(cached_message.reactions) == 0
+
+    @pytest.mark.asyncio
+    async def test_pin_message_flow(self,
+                                    adapter,
+                                    telethon_client_mock,
+                                    setup_conversation,
+                                    setup_conversation_known_member,
+                                    setup_message,
+                                    create_message_response):
+        """Test the complete flow from socket.io pin_message to Telethon call"""
+        telethon_client_mock.get_entity.return_value = MagicMock()
+
+        with patch(
+            "adapters.telegram_adapter.adapter.event_processors.outgoing_event_processor.functions"
+        ) as mock_functions:
+
+            mock_functions.messages.UpdatePinnedMessageRequest.return_value = MagicMock()
+            setup_conversation()
+            setup_conversation_known_member()
+            await setup_message()
+            telethon_client_mock.return_value = create_message_response()
+
+            response = await adapter.outgoing_events_processor.process_event({
+                "event_type": "pin_message",
+                "data": {
+                    "conversation_id": "456",
+                    "message_id": "123"
+                }
+            })
+            assert response["request_completed"] is True
+
+            telethon_client_mock.get_entity.assert_called_once()
+            mock_functions.messages.UpdatePinnedMessageRequest.assert_called_once()
+            assert "123" in adapter.conversation_manager.conversations["456"].pinned_messages
+
+    @pytest.mark.asyncio
+    async def test_unpin_message_flow(self,
+                                      adapter,
+                                      telethon_client_mock,
+                                      setup_conversation,
+                                      setup_conversation_known_member,
+                                      setup_message,
+                                      create_message_response):
+        """Test the complete flow from socket.io unpin_message to Telethon call"""
+        telethon_client_mock.get_entity.return_value = MagicMock()
+
+        with patch(
+            "adapters.telegram_adapter.adapter.event_processors.outgoing_event_processor.functions"
+        ) as mock_functions:
+
+            mock_functions.messages.UpdatePinnedMessageRequest.return_value = MagicMock()
+            setup_conversation()
+            setup_conversation_known_member()
+            await setup_message()
+            adapter.conversation_manager.conversations["456"].pinned_messages.add("123")
+            telethon_client_mock.return_value = create_message_response()
+
+            assert "123" in adapter.conversation_manager.conversations["456"].pinned_messages
+
+            response = await adapter.outgoing_events_processor.process_event({
+                "event_type": "unpin_message",
+                "data": {
+                    "conversation_id": "456",
+                    "message_id": "123"
+                }
+            })
+            assert response["request_completed"] is True
+
+            telethon_client_mock.get_entity.assert_called_once()
+            mock_functions.messages.UpdatePinnedMessageRequest.assert_called_once()
+            assert "123" not in adapter.conversation_manager.conversations["456"].pinned_messages

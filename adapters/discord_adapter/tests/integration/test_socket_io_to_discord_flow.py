@@ -140,6 +140,8 @@ class TestSocketIOToDiscordFlowIntegration:
         message.delete = AsyncMock(return_value=MagicMock())
         message.add_reaction = AsyncMock(return_value=MagicMock())
         message.remove_reaction = AsyncMock(return_value=MagicMock())
+        message.pin = AsyncMock(return_value=MagicMock())
+        message.unpin = AsyncMock(return_value=MagicMock())
 
         channel.fetch_message = AsyncMock(return_value=message)
 
@@ -299,3 +301,59 @@ class TestSocketIOToDiscordFlowIntegration:
             channel_mock.fetch_message.assert_called_once_with(111222333)
             message = channel_mock.fetch_message.return_value
             message.remove_reaction.assert_called_once_with("👍", adapter.client.bot.user)
+
+    @pytest.mark.asyncio
+    async def test_pin_message_flow(self,
+                                    adapter,
+                                    setup_channel_conversation,
+                                    setup_message,
+                                    channel_mock):
+        """Test the complete flow from socket.io pin_message to Discord call"""
+        setup_channel_conversation()
+        await setup_message("987654321/123456789")
+
+        with patch.object(
+            adapter.outgoing_events_processor,
+            "_get_channel",
+            return_value=channel_mock
+        ):
+            response = await adapter.outgoing_events_processor.process_event({
+                "event_type": "pin_message",
+                "data": {
+                    "conversation_id": "987654321/123456789",
+                    "message_id": "111222333"
+                }
+            })
+            assert response["request_completed"] is True
+
+            channel_mock.fetch_message.assert_called_once_with(111222333)
+            message = channel_mock.fetch_message.return_value
+            message.pin.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_unpin_message_flow(self,
+                                      adapter,
+                                      setup_channel_conversation,
+                                      setup_message,
+                                      channel_mock):
+        """Test the complete flow from socket.io unpin_message to Discord call"""
+        setup_channel_conversation()
+        await setup_message("987654321/123456789")
+
+        with patch.object(
+            adapter.outgoing_events_processor,
+            "_get_channel",
+            return_value=channel_mock
+        ):
+            response = await adapter.outgoing_events_processor.process_event({
+                "event_type": "unpin_message",
+                "data": {
+                    "conversation_id": "987654321/123456789",
+                    "message_id": "111222333"
+                }
+            })
+            assert response["request_completed"] is True
+
+            channel_mock.fetch_message.assert_called_once_with(111222333)
+            message = channel_mock.fetch_message.return_value
+            message.unpin.assert_called_once()

@@ -9,13 +9,16 @@ from core.event_processors.outgoing_events import (
     ReactionData,
     FetchHistoryData,
     FetchAttachmentData,
+    PinStatusData,
     SendMessageEvent,
     EditMessageEvent,
     DeleteMessageEvent,
     AddReactionEvent,
     RemoveReactionEvent,
     FetchHistoryEvent,
-    FetchAttachmentEvent
+    FetchAttachmentEvent,
+    PinMessageEvent,
+    UnpinMessageEvent
 )
 from core.event_processors.outgoing_event_builder import OutgoingEventBuilder
 
@@ -115,6 +118,28 @@ class TestOutgoingEventBuilder:
             "event_type": "fetch_attachment",
             "data": {
                 "attachment_id": "att_789"
+            }
+        }
+
+    @pytest.fixture
+    def sample_pin_message_data(self):
+        """Fixture for sample pin message data."""
+        return {
+            "event_type": "pin_message",
+            "data": {
+                "conversation_id": "conv_123",
+                "message_id": "msg_456"
+            }
+        }
+
+    @pytest.fixture
+    def sample_unpin_message_data(self):
+        """Fixture for sample unpin message data."""
+        return {
+            "event_type": "unpin_message",
+            "data": {
+                "conversation_id": "conv_123",
+                "message_id": "msg_456"
             }
         }
 
@@ -226,6 +251,26 @@ class TestOutgoingEventBuilder:
         assert event.event_type == "fetch_attachment"
         assert isinstance(event.data, FetchAttachmentData)
         assert event.data.attachment_id == sample_fetch_attachment_data["data"]["attachment_id"]
+
+    def test_build_pin_message(self, event_builder, sample_pin_message_data):
+        """Test building a pin_message event."""
+        event = event_builder.build(sample_pin_message_data)
+
+        assert isinstance(event, PinMessageEvent)
+        assert event.event_type == "pin_message"
+        assert isinstance(event.data, PinStatusData)
+        assert event.data.conversation_id == sample_pin_message_data["data"]["conversation_id"]
+        assert event.data.message_id == sample_pin_message_data["data"]["message_id"]
+
+    def test_build_unpin_message(self, event_builder, sample_unpin_message_data):
+        """Test building an unpin_message event."""
+        event = event_builder.build(sample_unpin_message_data)
+
+        assert isinstance(event, UnpinMessageEvent)
+        assert event.event_type == "unpin_message"
+        assert isinstance(event.data, PinStatusData)
+        assert event.data.conversation_id == sample_unpin_message_data["data"]["conversation_id"]
+        assert event.data.message_id == sample_unpin_message_data["data"]["message_id"]
 
     def test_unknown_event_type(self, event_builder):
         """Test handling of unknown event types."""

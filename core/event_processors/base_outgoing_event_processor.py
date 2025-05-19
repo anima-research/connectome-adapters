@@ -24,6 +24,8 @@ class OutgoingEventType(str, Enum):
     REMOVE_REACTION = "remove_reaction"
     FETCH_HISTORY = "fetch_history"
     FETCH_ATTACHMENT = "fetch_attachment"
+    PIN_MESSAGE = "pin_message"
+    UNPIN_MESSAGE = "unpin_message"
 
 class BaseOutgoingEventProcessor(ABC):
     """Processes events from socket.io and sends them to adapter client"""
@@ -60,7 +62,9 @@ class BaseOutgoingEventProcessor(ABC):
                 OutgoingEventType.ADD_REACTION: self._handle_add_reaction_event,
                 OutgoingEventType.REMOVE_REACTION: self._handle_remove_reaction_event,
                 OutgoingEventType.FETCH_HISTORY: self._handle_fetch_history_event,
-                OutgoingEventType.FETCH_ATTACHMENT: self._handle_fetch_attachment_event
+                OutgoingEventType.FETCH_ATTACHMENT: self._handle_fetch_attachment_event,
+                OutgoingEventType.PIN_MESSAGE: self._handle_pin_event,
+                OutgoingEventType.UNPIN_MESSAGE: self._handle_unpin_event
             }
             outgoing_event = self.outgoing_event_builder.build(data)
             handler = event_handlers.get(outgoing_event.event_type)
@@ -261,6 +265,56 @@ class BaseOutgoingEventProcessor(ABC):
     async def _fetch_history(self, data: BaseModel) -> List[Any]:
         """Fetch history of a conversation"""
         raise NotImplementedError("Child classes must implement _fetch_history")
+
+    async def _handle_pin_event(self, data: BaseModel) -> Dict[str, Any]:
+        """Pin a message
+
+        Args:
+            data: Event data containing
+                  conversation_id,
+                  message_id
+
+        Returns:
+            Dict[str, Any]: Dictionary containing the status
+        """
+        try:
+            return await self._pin_message(data)
+        except Exception as e:
+            logging.error(
+                f"Failed to pin message {data.message_id}: {e}",
+                exc_info=True
+            )
+            return {"request_completed": False}
+
+    @abstractmethod
+    async def _pin_message(self, data: BaseModel) -> Dict[str, Any]:
+        """Pin a message"""
+        raise NotImplementedError("Child classes must implement _pin_message")
+
+    async def _handle_unpin_event(self, data: BaseModel) -> Dict[str, Any]:
+        """Unpin a message
+
+        Args:
+            data: Event data containing
+                  conversation_id,
+                  message_id
+
+        Returns:
+            Dict[str, Any]: Dictionary containing the status
+        """
+        try:
+            return await self._unpin_message(data)
+        except Exception as e:
+            logging.error(
+                f"Failed to unpin message {data.message_id}: {e}",
+                exc_info=True
+            )
+            return {"request_completed": False}
+
+    @abstractmethod
+    async def _unpin_message(self, data: BaseModel) -> Dict[str, Any]:
+        """Unpin a message"""
+        raise NotImplementedError("Child classes must implement _unpin_message")
 
     @abstractmethod
     async def _conversation_should_exist(self) -> bool:

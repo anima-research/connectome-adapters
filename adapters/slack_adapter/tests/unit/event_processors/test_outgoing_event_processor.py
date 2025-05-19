@@ -330,6 +330,87 @@ class TestOutgoingEventProcessor:
                     name="+1"  # Using mock converter's behavior
                 )
 
+    class TestPinStatusUpdate:
+        """Tests for the pin/unpin message methods"""
+
+        @pytest.mark.asyncio
+        async def test_pin_message_success(self, processor, slack_client_mock):
+            """Test successfully pinning a message"""
+            slack_client_mock.pins_add.return_value = {"ok": True}
+
+            response = await processor.process_event({
+                "event_type": "pin_message",
+                "data": {
+                    "conversation_id": "T12345/C123456789",
+                    "message_id": "1662031200.123456"
+                }
+            })
+
+            assert response["request_completed"] is True
+            processor.rate_limiter.limit_request.assert_called_once_with(
+                "pin_message", "T12345/C123456789"
+            )
+            slack_client_mock.pins_add.assert_called_once_with(
+                channel="C123456789",
+                timestamp="1662031200.123456"
+            )
+
+        @pytest.mark.asyncio
+        async def test_pin_message_missing_fields(self, processor):
+            """Test handling missing fields in pin message request"""
+            # Missing 'message_id' field
+            response = await processor.process_event({
+                "event_type": "pin_message",
+                "data": {"conversation_id": "T12345/C123456789"}
+            })
+            assert response["request_completed"] is False
+
+            # Missing 'conversation_id' field
+            response = await processor.process_event({
+                "event_type": "pin_message",
+                "data": {"message_id": "1662031200.123456"}
+            })
+            assert response["request_completed"] is False
+
+        @pytest.mark.asyncio
+        async def test_unpin_message_success(self, processor, slack_client_mock):
+            """Test successfully unpinning a message"""
+            slack_client_mock.pins_remove.return_value = {"ok": True}
+
+            response = await processor.process_event({
+                "event_type": "unpin_message",
+                "data": {
+                    "conversation_id": "T12345/C123456789",
+                    "message_id": "1662031200.123456"
+                }
+            })
+
+            assert response["request_completed"] is True
+            processor.rate_limiter.limit_request.assert_called_once_with(
+                "unpin_message", "T12345/C123456789"
+            )
+            slack_client_mock.pins_remove.assert_called_once_with(
+                channel="C123456789",
+                timestamp="1662031200.123456"
+            )
+
+        @pytest.mark.asyncio
+        async def test_unpin_message_missing_fields(self, processor):
+            """Test handling missing fields in unpin message request"""
+            # Missing 'message_id' field
+            response = await processor.process_event({
+                "event_type": "unpin_message",
+                "data": {"conversation_id": "T12345/C123456789"}
+            })
+            assert response["request_completed"] is False
+
+            # Missing 'conversation_id' field
+            response = await processor.process_event({
+                "event_type": "unpin_message",
+                "data": {"message_id": "1662031200.123456"}
+            })
+            assert response["request_completed"] is False
+
     class TestFetchHistory:
         """Tests for the fetch_history method"""
 

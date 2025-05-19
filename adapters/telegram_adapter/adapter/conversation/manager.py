@@ -84,7 +84,11 @@ class Manager(BaseManager):
 
     async def _get_conversation_id_from_update(self, message: Any) -> Optional[str]:
         """Get the conversation ID from a message"""
-        return await self._get_conversation_id(await self._get_peer(message))
+        if isinstance(message, dict):
+            return message.get("conversation_id", None)
+
+        peer = await self._get_peer(message)
+        return await self._get_conversation_id(peer if peer else message)
 
     async def _get_conversation_type(self, peer: Any) -> Optional[str]:
         """Get the conversation type from a Telethon peer
@@ -179,13 +183,13 @@ class Manager(BaseManager):
             return
 
         if event_type == TelegramEventType.PINNED_MESSAGE:
-            cached_msg = await self._pin_message(message, conversation_info, delta)
+            cached_msg = await self._pin_message(message, conversation_info)
             if cached_msg:
                 delta.pinned_message_ids.append(cached_msg.message_id)
             return
 
         if event_type == TelegramEventType.UNPINNED_MESSAGE:
-            cached_msg = await self._unpin_message(message, conversation_info, delta)
+            cached_msg = await self._unpin_message(message, conversation_info)
             if cached_msg:
                 delta.unpinned_message_ids.append(cached_msg.message_id)
 
@@ -251,42 +255,52 @@ class Manager(BaseManager):
 
     async def _pin_message(self,
                            message: Any,
-                           conversation_info: ConversationInfo,
-                           delta: ConversationDelta) -> None:
+                           conversation_info: ConversationInfo) -> None:
         """Process a pinned message event
 
         Args:
             message: Telethon message object
             conversation_info: Conversation info object
-            delta: Delta object to update
         """
+        message_id = None
+        timestamp = int(datetime.now().timestamp() * 1e3)
+
         if hasattr(message, 'reply_to') and message.reply_to:
+            message_id = str(message.reply_to.reply_to_msg_id)
+            timestamp = int(getattr(message, "date", datetime.now()).timestamp() * 1e3)
+        elif isinstance(message, dict):
+            message_id = message.get("message_id", None)
+
+        if message_id:
             return await self._update_pin_status(
-                str(message.reply_to.reply_to_msg_id),
-                conversation_info,
-                True,
-                int(getattr(message, "date", datetime.now()).timestamp() * 1e3)
+                message_id, conversation_info, True, timestamp
             )
+
         return None
 
     async def _unpin_message(self,
                              message: Any,
-                             conversation_info: ConversationInfo,
-                             delta: ConversationDelta) -> None:
+                             conversation_info: ConversationInfo) -> None:
         """Process an unpinned message event
 
         Args:
             message: Telethon message object
             conversation_info: Conversation info object
-            delta: Delta object to update
         """
+        message_id = None
         if hasattr(message, 'messages') and message.messages:
+            message_id = str(message.messages[0])
+        elif isinstance(message, dict):
+            message_id = message.get("message_id", None)
+
+        if message_id:
             return await self._update_pin_status(
-                str(message.messages[0]),
+                message_id,
                 conversation_info,
                 False,
                 int(datetime.now().timestamp() * 1e3)
             )
+
         return None
 
     async def _update_pin_status(self,

@@ -302,3 +302,43 @@ class TestSocketIOToSlackFlowIntegration:
             assert response["request_completed"] is True
             assert "history" in response
             assert response["history"] == mock_history
+
+    @pytest.mark.asyncio
+    async def test_pin_message_flow(self, adapter, setup_conversation):
+        """Test the complete flow from socket.io pin_message to Slack API call"""
+        setup_conversation()
+        adapter.client.web_client.pins_add = AsyncMock(return_value={"ok": True})
+
+        response = await adapter.process_outgoing_event({
+            "event_type": "pin_message",
+            "data": {
+                "conversation_id": "T12345/C12345678",
+                "message_id": "1662031200.123456"
+            }
+        })
+        assert response["request_completed"] is True
+
+        adapter.client.web_client.pins_add.assert_called_once_with(
+            channel="C12345678",
+            timestamp="1662031200.123456"
+        )
+
+    @pytest.mark.asyncio
+    async def test_unpin_message_flow(self, adapter, setup_conversation):
+        """Test the complete flow from socket.io unpin_message to Slack API call"""
+        setup_conversation()
+        adapter.client.web_client.pins_remove = AsyncMock(return_value={"ok": True})
+
+        response = await adapter.process_outgoing_event({
+            "event_type": "unpin_message",
+            "data": {
+                "conversation_id": "T12345/C12345678",
+                "message_id": "1662031200.123456"
+            }
+        })
+        assert response["request_completed"] is True
+
+        adapter.client.web_client.pins_remove.assert_called_once_with(
+            channel="C12345678",
+            timestamp="1662031200.123456"
+        )

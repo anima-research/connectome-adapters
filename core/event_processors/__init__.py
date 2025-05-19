@@ -32,13 +32,16 @@ from core.event_processors.outgoing_events import (
     DeleteMessageData,
     ReactionData,
     FetchHistoryData,
+    PinStatusData,
     BaseOutgoingEvent,
     SendMessageEvent,
     EditMessageEvent,
     DeleteMessageEvent,
     AddReactionEvent,
     RemoveReactionEvent,
-    FetchHistoryEvent
+    FetchHistoryEvent,
+    PinMessageEvent,
+    UnpinMessageEvent
 )
 from core.event_processors.request_event_builder import RequestEventBuilder
 from core.event_processors.request_events import (
@@ -80,6 +83,7 @@ __all__ = [
     "DeleteMessageData",
     "ReactionData",
     "FetchHistoryData",
+    "PinStatusData",
     "BaseOutgoingEvent",
     "SendMessageEvent",
     "EditMessageEvent",
@@ -87,6 +91,8 @@ __all__ = [
     "AddReactionEvent",
     "RemoveReactionEvent",
     "FetchHistoryEvent",
+    "PinMessageEvent",
+    "UnpinMessageEvent",
     "RequestEventBuilder",
     "FetchAttachmentEvent",
     "FetchedMessageData",
