@@ -25,9 +25,26 @@ class HistoryData(BaseModel):
     """History data model"""
     history: List[FetchedMessageData] = Field(default_factory=list)
 
+class ReadFileData(BaseModel):
+    """Read file data model"""
+    file_content: str
+
+class ViewDirectoryData(BaseModel):
+    """View directory data model"""
+    directories: Optional[List[str]] = []
+    files: Optional[List[str]] = []
+
 class RequestEvent(BaseModel):
     """Request event model"""
     adapter_type: str
     request_id: str
     internal_request_id: Optional[str] = None
-    data: Optional[Union[SentMessageData, HistoryData, FetchedAttachmentData]] = None
+    data: Optional[
+        Union[
+            SentMessageData,
+            HistoryData,
+            FetchedAttachmentData,
+            ReadFileData,
+            ViewDirectoryData
+        ]
+    ] = None

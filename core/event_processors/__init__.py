@@ -49,6 +49,8 @@ from core.event_processors.request_events import (
     FetchedMessageData,
     HistoryData,
     SentMessageData,
+    ReadFileData,
+    ViewDirectoryData,
     RequestEvent
 )
 
@@ -94,9 +96,12 @@ __all__ = [
     "PinMessageEvent",
     "UnpinMessageEvent",
     "RequestEventBuilder",
+    "FetchedAttachmentData",
     "FetchAttachmentEvent",
     "FetchedMessageData",
     "HistoryData",
     "SentMessageData",
+    "ReadFileData",
+    "ViewDirectoryData",
     "RequestEvent"
 ]

@@ -141,7 +141,7 @@ class Processor():
                 else:
                     content = file.read()
 
-            return {"request_completed": True, "content": content}
+            return {"request_completed": True, "file_content": content}
         except Exception as e:
             logging.error(f"Error reading file: {e}", exc_info=True)
             return {"request_completed": False}

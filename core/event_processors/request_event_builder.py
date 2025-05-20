@@ -6,7 +6,9 @@ from core.event_processors.request_events import (
     FetchedAttachmentData,
     FetchedMessageData,
     HistoryData,
-    SentMessageData
+    SentMessageData,
+    ReadFileData,
+    ViewDirectoryData
 )
 
 class RequestEventBuilder:
@@ -54,6 +56,10 @@ class RequestEventBuilder:
                     )
                 )
             validated_data = HistoryData(history=history)
+        elif "file_content" in data:
+            validated_data = ReadFileData(file_content=data["file_content"])
+        elif "directories" in data:
+            validated_data = ViewDirectoryData(directories=data["directories"], files=data["files"])
 
         return RequestEvent(
             adapter_type=self.adapter_type,

@@ -132,7 +132,7 @@ class TestProcessor:
                 })
 
                 assert result["request_completed"] is True
-                assert result["content"] == "Test content"
+                assert result["file_content"] == "Test content"
 
         @pytest.mark.asyncio
         async def test_read_file_validation_failure(self, processor, test_file_paths):

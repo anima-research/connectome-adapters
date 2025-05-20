@@ -7,7 +7,9 @@ from core.event_processors.request_events import (
     FetchedAttachmentData,
     FetchedMessageData,
     HistoryData,
-    SentMessageData
+    SentMessageData,
+    ReadFileData,
+    ViewDirectoryData
 )
 from core.event_processors.request_event_builder import RequestEventBuilder
 
@@ -179,6 +181,52 @@ class TestRequestEventBuilder:
         # Verify default sender
         assert history_item.sender.user_id == "Unknown"
         assert history_item.sender.display_name == "Unknown User"
+
+    def test_build_read_file_data(self, request_event_builder):
+        """Test building an event with ReadFileData."""
+        file_content = "This is the content of the file\nWith multiple lines.\n"
+        event = request_event_builder.build("req_123", "internal_req_123", {"file_content": file_content})
+
+        assert isinstance(event.data, ReadFileData)
+        assert event.data.file_content == file_content
+        assert event.request_id == "req_123"
+        assert event.internal_request_id == "internal_req_123"
+        assert event.adapter_type == "test_adapter"
+
+    def test_build_read_file_data_empty(self, request_event_builder):
+        """Test building an event with empty ReadFileData."""
+        event = request_event_builder.build("req_123", "internal_req_123", {"file_content": ""})
+
+        assert isinstance(event.data, ReadFileData)
+        assert event.data.file_content == ""
+        assert event.request_id == "req_123"
+        assert event.internal_request_id == "internal_req_123"
+
+    def test_build_view_directory_data(self, request_event_builder):
+        """Test building an event with ViewDirectoryData."""
+        directories = ["dir1", "dir2", "dir3"]
+        files = ["file1.txt", "file2.py", "file3.md"]
+
+        event = request_event_builder.build(
+            "req_456", "internal_req_456", {"directories": directories, "files": files}
+        )
+
+        assert isinstance(event.data, ViewDirectoryData)
+        assert event.data.directories == directories
+        assert event.data.files == files
+        assert event.request_id == "req_456"
+        assert event.internal_request_id == "internal_req_456"
+        assert event.adapter_type == "test_adapter"
+
+    def test_build_view_directory_data_empty(self, request_event_builder):
+        """Test building an event with empty ViewDirectoryData."""
+        event = request_event_builder.build(
+            "req_456", "internal_req_456", {"directories": [], "files": []}
+        )
+
+        assert isinstance(event.data, ViewDirectoryData)
+        assert len(event.data.directories) == 0
+        assert len(event.data.files) == 0
 
     def test_build_with_empty_data(self, request_event_builder):
         """Test building an event with empty data."""

@@ -195,12 +195,17 @@ class SocketIOServer:
                 status = "request_success" if result["request_completed"] else "request_failed"
                 data = {}
 
-                if result["request_completed"] and "message_ids" in result:
+                if "message_ids" in result:
                     data["message_ids"] = result["message_ids"]
-                elif result["request_completed"] and "history" in result:
+                elif "history" in result:
                     data["history"] = result["history"]
-                elif result["request_completed"] and "content" in result:
+                elif "content" in result:
                     data["content"] = result["content"]
+                elif "file_content" in result:
+                    data["file_content"] = result["file_content"]
+                elif "directories" in result and "files" in result:
+                    data["directories"] = result["directories"]
+                    data["files"] = result["files"]
 
                 await self.sio.emit(
                     status,
