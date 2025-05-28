@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import MagicMock
 from datetime import datetime, timezone
 
+from adapters.discord_adapter.adapter.conversation.data_classes import ConversationInfo
 from adapters.discord_adapter.adapter.conversation.message_builder import MessageBuilder
 from core.conversation.base_data_classes import UserInfo, ThreadInfo
 
@@ -17,7 +18,7 @@ class TestMessageBuilder:
     def mock_discord_message(self):
         """Create a mock Discord message"""
         message = MagicMock()
-        message.id = 123456789
+        message.id = 123
         message.content = "Test message content"
         message.created_at = datetime(2021, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
         return message
@@ -35,10 +36,18 @@ class TestMessageBuilder:
     def mock_thread_info(self):
         """Create a mock thread info"""
         return ThreadInfo(
-            thread_id="456789123",
-            root_message_id="456789123",
-            messages=set(["123456789"]),
+            thread_id="456",
+            root_message_id="456",
+            messages=set(["123"]),
             last_activity=datetime.now()
+        )
+
+    @pytest.fixture
+    def mock_conversation_info(self):
+        """Create a mock conversation info"""
+        return ConversationInfo(
+            conversation_id="123456789",
+            conversation_type="dm"
         )
 
     def test_initialization(self, builder):
@@ -54,14 +63,14 @@ class TestMessageBuilder:
         assert len(builder.message_data) == 0
         assert builder.reset() is builder  # Should return self for chaining
 
-    def test_with_basic_info(self, builder, mock_discord_message):
+    def test_with_basic_info(self, builder, mock_discord_message, mock_conversation_info):
         """Test adding basic info from a Discord message"""
-        conversation_id = "123456789"
-        result = builder.with_basic_info(mock_discord_message, conversation_id)
+        result = builder.with_basic_info(mock_discord_message, mock_conversation_info)
 
-        assert builder.message_data["message_id"] == "123456789"
-        assert builder.message_data["conversation_id"] == conversation_id
+        assert builder.message_data["message_id"] == "123"
+        assert builder.message_data["conversation_id"] == "123456789"
         assert builder.message_data["timestamp"] == 1609502400000  # 2021-01-01 12:00:00 UTC in milliseconds
+        assert builder.message_data["is_direct_message"] is True
         assert result is builder
 
     def test_with_sender_info(self, builder, mock_sender):
@@ -94,8 +103,8 @@ class TestMessageBuilder:
         """Test adding thread information"""
         result = builder.with_thread_info(mock_thread_info)
 
-        assert builder.message_data["thread_id"] == "456789123"
-        assert builder.message_data["reply_to_message_id"] == "456789123"
+        assert builder.message_data["thread_id"] == "456"
+        assert builder.message_data["reply_to_message_id"] == "456"
         assert result is builder
 
     def test_with_thread_info_none(self, builder):
@@ -126,23 +135,22 @@ class TestMessageBuilder:
                               builder,
                               mock_discord_message,
                               mock_sender,
-                              mock_thread_info):
+                              mock_thread_info,
+                              mock_conversation_info):
         """Test a complete builder chain"""
-        conversation_id = "channel123"
-
         result = builder.reset() \
-            .with_basic_info(mock_discord_message, conversation_id) \
+            .with_basic_info(mock_discord_message, mock_conversation_info) \
             .with_sender_info(mock_sender) \
             .with_content(mock_discord_message) \
             .with_thread_info(mock_thread_info) \
             .build()
 
-        assert result["message_id"] == "123456789"
-        assert result["conversation_id"] == conversation_id
+        assert result["message_id"] == "123"
+        assert result["conversation_id"] == "123456789"
         assert result["timestamp"] == 1609502400000
         assert result["sender_id"] == "789123456"
         assert result["sender_name"] == "Discord User"
         assert result["is_from_bot"] is False
         assert result["text"] == "Test message content"
-        assert result["thread_id"] == "456789123"
-        assert result["reply_to_message_id"] == "456789123"
+        assert result["thread_id"] == "456"
+        assert result["reply_to_message_id"] == "456"

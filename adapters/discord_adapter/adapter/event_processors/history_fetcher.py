@@ -247,7 +247,8 @@ class HistoryFetcher(BaseHistoryFetcher):
             "text": message.content,
             "thread_id": thread_id,
             "timestamp": int(message.created_at.timestamp() * 1e3),
-            "attachments": attachments
+            "attachments": attachments,
+            "is_direct_message": self.conversation.conversation_type == "dm"
         }
 
         for attachment in formatted_message["attachments"]:

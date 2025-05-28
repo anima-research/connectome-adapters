@@ -168,6 +168,7 @@ class TestDiscordWebhookClient:
         """Tests for webhook management"""
 
         @pytest.mark.asyncio
+        @pytest.mark.filterwarnings("ignore::RuntimeWarning")
         async def test_load_webhooks(self, discord_webhook_client, bot_mock):
             """Test loading webhooks from Discord and config"""
             discord_webhook_client.bots = {

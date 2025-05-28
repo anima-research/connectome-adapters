@@ -310,7 +310,7 @@ class BaseManager(ABC):
             Cached message object
         """
         message_data = self.message_builder.reset() \
-            .with_basic_info(message, conversation_info.conversation_id) \
+            .with_basic_info(message, conversation_info) \
             .with_sender_info(user_info) \
             .with_thread_info(thread_info) \
             .with_content(message) \

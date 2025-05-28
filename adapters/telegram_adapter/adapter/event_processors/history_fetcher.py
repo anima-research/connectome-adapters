@@ -253,7 +253,7 @@ class HistoryFetcher(BaseHistoryFetcher):
                     "thread_id": str(reply_to_msg_id) if reply_to_msg_id else None,
                     "timestamp": int(msg.date.timestamp() * 1e3) if hasattr(msg, "date") else int(datetime.now().timestamp() * 1e3),
                     "attachments": [attachment_info] if attachment_info else [],
-                    "is_direct_message": True
+                    "is_direct_message": self.conversation.conversation_type == "private"
                 })
 
         return result

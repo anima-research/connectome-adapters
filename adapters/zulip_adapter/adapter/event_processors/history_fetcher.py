@@ -199,7 +199,7 @@ class HistoryFetcher(BaseHistoryFetcher):
                     "thread_id": self._extract_reply_to_id(msg.get("content", "")),
                     "timestamp": msg.get("timestamp", None),
                     "attachments": attachments.get(i, []),
-                    "is_direct_message": msg.get("sender_realm_str", "") != "zulipinternal"
+                    "is_direct_message": self.conversation.conversation_type == "private"
                 })
 
         return formatted_history

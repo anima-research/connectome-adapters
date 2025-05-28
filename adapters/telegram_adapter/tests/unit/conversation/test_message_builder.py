@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import MagicMock
 from datetime import datetime
 
+from adapters.telegram_adapter.adapter.conversation.data_classes import ConversationInfo
 from adapters.telegram_adapter.adapter.conversation.message_builder import MessageBuilder
 from core.conversation.base_data_classes import UserInfo, ThreadInfo
 
@@ -45,6 +46,14 @@ class TestMessageBuilder:
             last_activity=datetime(2023, 1, 1, 12, 0, 0)
         )
 
+    @pytest.fixture
+    def mock_conversation_info(self):
+        """Create a mock conversation info"""
+        return ConversationInfo(
+            conversation_id="conversation123",
+            conversation_type="private"
+        )
+
     def test_initialization(self, builder):
         """Test that the builder initializes with empty message data"""
         assert isinstance(builder.message_data, dict)
@@ -58,13 +67,14 @@ class TestMessageBuilder:
         assert len(builder.message_data) == 0
         assert builder.reset() is builder
 
-    def test_with_basic_info(self, builder, mock_message):
+    def test_with_basic_info(self, builder, mock_message, mock_conversation_info):
         """Test adding basic message info"""
-        result = builder.with_basic_info(mock_message, "conversation123")
+        result = builder.with_basic_info(mock_message, mock_conversation_info)
 
         assert builder.message_data["message_id"] == "123"
         assert builder.message_data["conversation_id"] == "conversation123"
         assert builder.message_data["timestamp"] == int(mock_message.date.timestamp() * 1e3)
+        assert builder.message_data["is_direct_message"] is True
         assert result is builder
 
     def test_with_sender_info(self, builder, mock_user_info):
@@ -131,10 +141,15 @@ class TestMessageBuilder:
         assert result["conversation_id"] == "conversation123"
         assert result["text"] == "Test message"
 
-    def test_full_build_chain(self, builder, mock_message, mock_user_info, mock_thread_info):
+    def test_full_build_chain(self,
+                              builder,
+                              mock_message,
+                              mock_user_info,
+                              mock_thread_info,
+                              mock_conversation_info):
         """Test a complete builder chain"""
         result = builder.reset() \
-            .with_basic_info(mock_message, "conversation123") \
+            .with_basic_info(mock_message, mock_conversation_info) \
             .with_sender_info(mock_user_info) \
             .with_thread_info(mock_thread_info) \
             .with_content(mock_message) \
@@ -149,6 +164,7 @@ class TestMessageBuilder:
         assert result["thread_id"] == "122"
         assert result["reply_to_message_id"] == "122"
         assert result["text"] == "Test message content"
+        assert result["is_direct_message"] is True
 
     def test_build_independence(self, builder):
         """Test that subsequent builds don't affect each other"""

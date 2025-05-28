@@ -297,7 +297,7 @@ The adapter emits `conversation_started` event when a new conversation is detect
           "display_name": "Alice"
         },
         "thread_id": "root_message_id_101",
-        "is_direct_message": True,
+        "is_direct_message": False,
         "attachments": [
           {
             "attachment_id": "unique_attachment_id",
@@ -330,7 +330,7 @@ After that, the adapter emits `message_received` event for a new message that st
       "display_name": "Bob"
     },
     "thread_id": "message_id_989",
-    "is_direct_message": True,
+    "is_direct_message": False,
     "attachments": [
       {
         "attachment_id": "unique_attachment_id",

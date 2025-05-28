@@ -1,5 +1,6 @@
 import pytest
 
+from adapters.zulip_adapter.adapter.conversation.data_classes import ConversationInfo
 from adapters.zulip_adapter.adapter.conversation.message_builder import MessageBuilder
 from core.conversation.base_data_classes import UserInfo
 
@@ -44,6 +45,22 @@ class TestMessageBuilder:
             is_bot=False
         )
 
+    @pytest.fixture
+    def mock_private_conversation(self):
+        """Create a mock private conversation info"""
+        return ConversationInfo(
+            conversation_id="123_456",
+            conversation_type="private"
+        )
+
+    @pytest.fixture
+    def mock_stream_conversation(self):
+        """Create a mock stream conversation info"""
+        return ConversationInfo(
+            conversation_id="789/Test Topic",
+            conversation_type="stream"
+        )
+
     def test_initialization(self, builder):
         """Test that the builder initializes with empty message data"""
         assert isinstance(builder.message_data, dict)
@@ -57,18 +74,24 @@ class TestMessageBuilder:
         assert len(builder.message_data) == 0
         assert builder.reset() is builder
 
-    def test_with_basic_info_private_message(self, builder, mock_zulip_message):
+    def test_with_basic_info_private_message(self,
+                                             builder,
+                                             mock_zulip_message,
+                                             mock_private_conversation):
         """Test adding basic info from a private message"""
-        result = builder.with_basic_info(mock_zulip_message, "123_456")
+        result = builder.with_basic_info(mock_zulip_message, mock_private_conversation)
 
         assert builder.message_data["message_id"] == "123"
         assert builder.message_data["conversation_id"] == "123_456"
         assert builder.message_data["timestamp"] == 1609502400
         assert result is builder
 
-    def test_with_basic_info_stream_message(self, builder, mock_zulip_stream_message):
+    def test_with_basic_info_stream_message(self,
+                                            builder,
+                                            mock_zulip_stream_message,
+                                            mock_stream_conversation):
         """Test adding basic info from a stream message"""
-        result = builder.with_basic_info(mock_zulip_stream_message, "789/Test Topic")
+        result = builder.with_basic_info(mock_zulip_stream_message, mock_stream_conversation)
 
         assert builder.message_data["message_id"] == "456"
         assert builder.message_data["conversation_id"] == "789/Test Topic"
@@ -114,10 +137,14 @@ class TestMessageBuilder:
         assert result["conversation_id"] == "123_456"
         assert result["text"] == "Test message"
 
-    def test_full_build_chain_private(self, builder, mock_zulip_message, mock_sender):
+    def test_full_build_chain_private(self,
+                                      builder,
+                                      mock_zulip_message,
+                                      mock_sender,
+                                      mock_private_conversation):
         """Test a complete builder chain for a private message"""
         result = builder.reset() \
-            .with_basic_info(mock_zulip_message, "123_456") \
+            .with_basic_info(mock_zulip_message, mock_private_conversation) \
             .with_sender_info(mock_sender) \
             .with_content(mock_zulip_message) \
             .build()
@@ -130,10 +157,14 @@ class TestMessageBuilder:
         assert result["is_from_bot"] is False
         assert result["text"] == "Test message content"
 
-    def test_full_build_chain_stream(self, builder, mock_zulip_stream_message, mock_sender):
+    def test_full_build_chain_stream(self,
+                                      builder,
+                                      mock_zulip_stream_message,
+                                      mock_sender,
+                                      mock_stream_conversation):
         """Test a complete builder chain for a stream message"""
         result = builder.reset() \
-            .with_basic_info(mock_zulip_stream_message, "789/Test Topic") \
+            .with_basic_info(mock_zulip_stream_message, mock_stream_conversation) \
             .with_sender_info(mock_sender) \
             .with_content(mock_zulip_stream_message) \
             .build()

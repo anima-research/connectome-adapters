@@ -2,6 +2,7 @@ import pytest
 from datetime import datetime
 from unittest.mock import MagicMock
 
+from adapters.slack_adapter.adapter.conversation.data_classes import ConversationInfo
 from adapters.slack_adapter.adapter.conversation.message_builder import MessageBuilder
 from core.conversation.base_data_classes import UserInfo, ThreadInfo
 
@@ -23,6 +24,7 @@ class TestMessageBuilder:
             "team": "T87654321",
             "channel": "C11223344",
             "type": "message",
+            "channel_type": "im",
             "blocks": [
                 {
                     "type": "rich_text",
@@ -75,6 +77,14 @@ class TestMessageBuilder:
             last_activity=datetime.now()
         )
 
+    @pytest.fixture
+    def mock_conversation_info(self):
+        """Create a mock conversation info"""
+        return ConversationInfo(
+            conversation_id="T87654321/C11223344",
+            conversation_type="im"
+        )
+
     def test_initialization(self, builder):
         """Test that the builder initializes with empty message data"""
         assert isinstance(builder.message_data, dict)
@@ -88,14 +98,14 @@ class TestMessageBuilder:
         assert len(builder.message_data) == 0
         assert builder.reset() is builder  # Should return self for chaining
 
-    def test_with_basic_info(self, builder, mock_slack_message):
+    def test_with_basic_info(self, builder, mock_slack_message, mock_conversation_info):
         """Test adding basic info from a Slack message"""
-        conversation_id = "T87654321/C11223344"
-        result = builder.with_basic_info(mock_slack_message, conversation_id)
+        result = builder.with_basic_info(mock_slack_message, mock_conversation_info)
 
         assert builder.message_data["message_id"] == "1609502400.123456"
-        assert builder.message_data["conversation_id"] == conversation_id
+        assert builder.message_data["conversation_id"] == "T87654321/C11223344"
         assert builder.message_data["timestamp"] == 1609502400123  # Converted to milliseconds
+        assert builder.message_data["is_direct_message"] is True
         assert result is builder
 
     def test_with_sender_info(self, builder, mock_sender):
@@ -154,14 +164,14 @@ class TestMessageBuilder:
         assert result["conversation_id"] == "T87654321/C11223344"
         assert result["text"] == "Test Slack message"
 
-    def test_slack_timestamp_conversion(self, builder):
+    def test_slack_timestamp_conversion(self, builder, mock_conversation_info):
         """Test that Slack timestamps are properly converted to milliseconds"""
         message = {
             "ts": "1609502400.123456",  # Slack format: seconds.microseconds
             "text": "Test message"
         }
 
-        builder.with_basic_info(message, "T12345/C12345")
+        builder.with_basic_info(message, mock_conversation_info)
 
         # Should be converted to milliseconds (seconds * 1000 + microseconds / 1000)
         expected_ms = int(float("1609502400.123456") * 1000)
@@ -171,19 +181,18 @@ class TestMessageBuilder:
                               builder,
                               mock_slack_message,
                               mock_sender,
-                              mock_thread_info):
+                              mock_thread_info,
+                              mock_conversation_info):
         """Test a complete builder chain"""
-        conversation_id = "T87654321/C11223344"
-
         result = builder.reset() \
-            .with_basic_info(mock_slack_message, conversation_id) \
+            .with_basic_info(mock_slack_message, mock_conversation_info) \
             .with_sender_info(mock_sender) \
             .with_content(mock_slack_message) \
             .with_thread_info(mock_thread_info) \
             .build()
 
         assert result["message_id"] == "1609502400.123456"
-        assert result["conversation_id"] == conversation_id
+        assert result["conversation_id"] == "T87654321/C11223344"
         assert result["timestamp"] == 1609502400123
         assert result["sender_id"] == "U12345678"
         assert result["sender_name"] == "Slack User"
@@ -191,3 +200,4 @@ class TestMessageBuilder:
         assert result["text"] == "Test message content"
         assert result["thread_id"] == "1609502400.123456"
         assert result["reply_to_message_id"] == "1609502400.123456"
+        assert result["is_direct_message"] is True
