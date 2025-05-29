@@ -1,80 +1,69 @@
-import pytest
 import asyncio
-import os
-import tempfile
-import shutil
-from unittest.mock import AsyncMock, MagicMock, patch
+import pytest
+from unittest.mock import AsyncMock, MagicMock, patch, call
 
-from adapters.text_file_adapter.adapter.adapter import Adapter
-from adapters.text_file_adapter.adapter.event_processor.processor import Processor
-from adapters.text_file_adapter.adapter.event_processor.file_event_cache import FileEventCache
+from adapters.shell_adapter.adapter.adapter import Adapter
+from adapters.shell_adapter.adapter.event_processor.processor import Processor
+from adapters.shell_adapter.adapter.session.manager import Manager
 
-class TestFileAdapter:
-    """Tests for the Text File Adapter class"""
+class TestShellAdapter:
+    """Tests for the Shell Adapter class"""
 
     @pytest.fixture
-    def socketio_server_mock(self):
-        """Create a mocked Socket.IO server"""
+    def mock_config(self):
+        """Create a mock config for testing"""
+        config = MagicMock()
+        config.get_setting.side_effect = lambda section, key: {
+            ("adapter", "adapter_type"): "shell",
+            ("adapter", "connection_check_interval"): 5,
+            ("adapter", "workspace_directory"): "/home/user/workspace",
+            ("adapter", "command_max_lifetime"): 60,
+            ("adapter", "session_max_lifetime"): 120,
+            ("adapter", "cpu_percent_limit"): 80,
+            ("adapter", "memory_mb_limit"): 500
+        }.get((section, key))
+        return config
+
+    @pytest.fixture
+    def mock_socketio_server(self):
+        """Create a mock Socket.IO server"""
         server = AsyncMock()
         server.emit_event = AsyncMock()
         return server
 
     @pytest.fixture
-    def file_event_cache_mock(self):
-        """Create a mocked FileEventCache"""
-        cache = AsyncMock(spec=FileEventCache)
-        cache.start = AsyncMock()
-        cache.stop = AsyncMock()
-        return cache
+    def mock_session_manager(self):
+        """Create a mock session manager"""
+        manager = AsyncMock(spec=Manager)
+        manager.start = AsyncMock()
+        manager.stop = AsyncMock()
+        return manager
 
     @pytest.fixture
-    def processor_mock(self):
-        """Create a mocked Processor"""
+    def mock_processor(self):
+        """Create a mock event processor"""
         processor = AsyncMock(spec=Processor)
-        processor.process_event = AsyncMock(
-            return_value={"request_completed": True}
-        )
+        processor.process_event = AsyncMock(return_value={"request_completed": True})
         return processor
 
     @pytest.fixture
-    def test_directory(self):
-        """Create a temporary test directory"""
-        test_dir = tempfile.mkdtemp()
-        yield test_dir
-        shutil.rmtree(test_dir)
-
-    @pytest.fixture
-    def patch_config(self, test_directory):
-        """Create a mock config"""
-        config = MagicMock()
-        config.get_setting.side_effect = lambda section, key: {
-            ("adapter", "max_file_size"): 1,
-            ("adapter", "adapter_type"): "file",
-            ("adapter", "connection_check_interval"): 1,
-            ("adapter", "backup_directory"): os.path.join(test_directory, "backups"),
-            ("adapter", "event_ttl_hours"): 24,
-            ("adapter", "cleanup_interval_hours"): 1,
-            ("adapter", "max_events_per_file"): 5
-        }.get((section, key))
-        return config
-
-    @pytest.fixture
-    def adapter(self, socketio_server_mock, file_event_cache_mock, processor_mock, patch_config):
-        """Create a Text File Adapter with mocked dependencies"""
-        adapter = Adapter(patch_config, socketio_server_mock)
-        adapter.file_event_cache = file_event_cache_mock
-        adapter.outgoing_events_processor = processor_mock
+    def adapter(self, mock_config, mock_socketio_server, mock_session_manager, mock_processor):
+        """Create an adapter with mocked config and server"""
+        adapter = Adapter(mock_config, mock_socketio_server)
+        adapter.session_manager = mock_session_manager
+        adapter.outgoing_events_processor = mock_processor
         return adapter
 
     @pytest.mark.asyncio
     @pytest.mark.filterwarnings("ignore::RuntimeWarning")
     async def test_start(self, adapter):
         """Test starting the adapter"""
-        with patch('asyncio.create_task', return_value=MagicMock()):
+        with patch("asyncio.create_task", return_value=MagicMock()):
             await adapter.start()
 
             assert adapter.running is True
             assert adapter.monitoring_task is not None
+            assert adapter.session_manager is not None
             assert adapter.outgoing_events_processor is not None
 
             adapter.socketio_server.emit_event.assert_awaited_once_with(
@@ -87,11 +76,13 @@ class TestFileAdapter:
         """Test stopping the adapter when it's running"""
         adapter.running = True
         adapter.monitoring_task = asyncio.create_task(asyncio.sleep(10))
-        adapter.file_event_cache = AsyncMock()
+        adapter.monitoring_task.cancel = MagicMock()
 
         await adapter.stop()
 
         assert adapter.running is False
+        adapter.session_manager.stop.assert_awaited_once()
+        adapter.monitoring_task.cancel.assert_called_once()
         adapter.socketio_server.emit_event.assert_awaited_once_with(
             "disconnect", {"adapter_type": adapter.adapter_type}
         )
@@ -112,12 +103,20 @@ class TestFileAdapter:
                 mock_emit.assert_called_once_with("connect")
 
     @pytest.mark.asyncio
+    async def test_emit_event(self, adapter):
+        """Test emitting an event"""
+        event_type = "test_event"
+
+        await adapter._emit_event(event_type)
+
+        adapter.socketio_server.emit_event.assert_awaited_once_with(
+            event_type, {"adapter_type": adapter.adapter_type}
+        )
+
+    @pytest.mark.asyncio
     async def test_process_outgoing_event_success(self, adapter):
         """Test successful processing of outgoing events"""
-        test_data = {
-            "event_type": "create",
-            "data": {"path": "/path/to/file.txt", "content": "Test content"}
-        }
+        test_data = {"event_type": "execute_command", "data": {"command": "ls -la"}}
         result = await adapter.process_outgoing_event(test_data)
 
         assert result["request_completed"] is True

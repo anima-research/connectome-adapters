@@ -10,69 +10,44 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, Tuple
 
-from adapters.shell_adapter.adapter.session.event_emitter import EventEmitter
-from adapters.shell_adapter.adapter.session.resources_monitor import ResourceMonitor
 from adapters.shell_adapter.adapter.session.session import Session
 from core.utils.config import Config
 
 class CommandExecutor:
     """Executes commands in shell sessions and processes their output"""
 
-    def __init__(self,
-                 config: Config,
-                 event_bus: EventEmitter,
-                 resource_monitor: ResourceMonitor,
-                 maintenance_required: bool = False):
+    def __init__(self, config: Config):
         """Initialize the command executor
 
         Args:
             config: Config instance
-            event_bus: EventEmitter instance
             resource_monitor: ResourceMonitor instance
-            maintenance_required: Whether maintenance is required
         """
         self.config = config
-        self.event_bus = event_bus
-        self.resource_monitor = resource_monitor
-        self.maintenance_required = maintenance_required
-        self.running = False
         self.command_tasks = {}  # Track running commands: {command_id: {task, start_time, session}}
-        self.monitoring_task = None
         self.workspace_directory = self.config.get_setting("adapter", "workspace_directory")
-        self.max_output_size = self.config.get_setting("output", "max_output_size")
-        self.begin_output_size = self.config.get_setting("output", "begin_output_size")
-        self.end_output_size = self.config.get_setting("output", "end_output_size")
+        self.max_output_size = self.config.get_setting("adapter", "max_output_size")
+        self.begin_output_size = self.config.get_setting("adapter", "begin_output_size")
+        self.end_output_size = self.config.get_setting("adapter", "end_output_size")
         self.command_max_lifetime = self.config.get_setting("adapter", "command_max_lifetime")
+        self.cpu_limit = self.config.get_setting("adapter", "cpu_percent_limit")
+        self.memory_limit_mb = self.config.get_setting("adapter", "memory_mb_limit")
+        self.disk_limit_mb = self.config.get_setting("adapter", "disk_mb_limit")
 
-        self.event_bus.on("command_terminated", self._cancel_command)
-
-    async def start(self):
-        """Start the command executor and monitoring task"""
-        self.running = True
-
-        if self.maintenance_required:
-            self.monitoring_task = asyncio.create_task(self._monitor_commands())
-
-        logging.info("Command executor started")
-
-    async def stop(self):
+    def __del__(self):
         """Stop the command executor and cancel all running commands"""
-        self.running = False
-
-        if self.monitoring_task:
-            self.monitoring_task.cancel()
-
         command_ids = list(self.command_tasks.keys())
+
         for command_id in command_ids:
             try:
-                await self._cancel_command(command_id)
+                self.command_tasks[command_id]["task"].cancel()
+            except asyncio.CancelledError:
+                pass
             except Exception as e:
-                logging.error(f"Error canceling command {command_id}: {e}")
-
-        logging.info("Command executor stopped")
+                logging.error(f"Error canceling command {command_id} during cleanup: {e}")
 
     async def execute(self, command: str, session: Session) -> Dict[str, Any]:
-        """Execute a command either in a session or independently
+        """Execute a command with non-blocking resource monitoring
 
         Args:
             command: The command to execute
@@ -82,39 +57,89 @@ class CommandExecutor:
             Dict containing stdout, stderr, and exit code
         """
         command_id = str(uuid.uuid4())
+        execution_task = asyncio.create_task(session.execute_command(command))
+        monitoring_task = asyncio.create_task(self._monitor_command_resources(command_id, execution_task, session))
+
         self.command_tasks[command_id] = {
             "command": command,
             "session": session,
-            "task": asyncio.create_task(session.execute_command(command)),
-            "start_time": datetime.now()
+            "task": execution_task,
+            "monitoring_task": monitoring_task
         }
         result = {
             "stdout": "",
-            "stderr": "Command execution was cancelled (timeout or shutdown)",
-            "exit_code": -1
+            "stderr": "",
+            "exit_code": -1,
+            "unsuccessful": False,
+            "new_working_directory": None
         }
 
-        logging.debug(f"Executing command: {command}")
-        self.resource_monitor.register_session(command_id, session)
+        logging.info(f"Starting execution of command {command} with ID {command_id}")
 
         try:
-            result = await self.command_tasks[command_id]["task"]
+            result = await execution_task
+            logging.info(f"Command {command_id} completed successfully")
+        except asyncio.CancelledError:
+            result["unsuccessful"] = True
+            logging.info(f"Command {command_id} was cancelled")
         except Exception as e:
-            logging.error(f"Error executing command: {e}")
-
-        self.resource_monitor.unregister_session(command_id)
+            result["unsuccessful"] = True
+            logging.error(f"Error executing command {command_id}: {e}", exc_info=True)
+        finally:
+            if not monitoring_task.done():
+                monitoring_task.cancel()
+            if command_id in self.command_tasks:
+                del self.command_tasks[command_id]
 
         if session:
-            await self.event_bus.emit(
-                "directory_updated",
-                session_id=session.session_id,
-                working_dir=await session.update_working_directory()
-            )
-
-        if command_id in self.command_tasks:
-            del self.command_tasks[command_id]
+            result["new_working_directory"] = await session.update_working_directory()
 
         return self._format_output(result)
+
+    async def _monitor_command_resources(self,
+                                         command_id: str,
+                                         execution_task: asyncio.Task,
+                                         session: Session) -> None:
+        """Monitor command resources in a separate task
+
+        Args:
+            command_id: Unique ID for the command
+            execution_task: The task executing the command
+            session: The session running the command
+        """
+        start_time = datetime.now()
+
+        try:
+            while not execution_task.done():
+                current_time = datetime.now()
+                duration = (current_time - start_time).total_seconds()
+
+                if duration > self.command_max_lifetime:
+                    logging.warning(f"Command timeout exceeded; '{command_id}' will be stopped")
+                    execution_task.cancel()
+                    break
+
+                if session:
+                    resources = await session.get_resource_usage()
+                    termination_required = False
+
+                    if resources["cpu_percent"] > self.cpu_limit:
+                        logging.warning(f"Command {command_id} exceeded CPU limit")
+                        termination_required = True
+
+                    if resources["memory_mb"] > self.memory_limit_mb:
+                        logging.warning(f"Command {command_id} exceeded memory limit")
+                        termination_required = True
+
+                    if termination_required:
+                        execution_task.cancel()
+                        break
+
+                await asyncio.sleep(10)
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logging.error(f"Error in resource monitoring for command {command_id}: {e}", exc_info=True)
 
     def _format_output(self, cmd_result: Dict[str, Any]) -> Dict[str, Any]:
         """Format command output and apply truncation if needed
@@ -125,16 +150,20 @@ class CommandExecutor:
         Returns:
             Dict containing formatted output
         """
-        stdout, stdout_size = self._truncate_text(cmd_result["stdout"])
-        stderr, stderr_size = self._truncate_text(cmd_result["stderr"])
+        stdout, stdout_size = self._truncate_text(cmd_result.get("stdout", ""))
+        stderr, stderr_size = self._truncate_text(cmd_result.get("stderr", ""))
 
-        return {
+        result = {
             "stdout": stdout,
             "stderr": stderr,
             "exit_code": cmd_result["exit_code"],
             "original_stdout_size": stdout_size,
-            "original_stderr_size": stderr_size
+            "original_stderr_size": stderr_size,
+            "new_working_directory": cmd_result.get("new_working_directory", None),
+            "unsuccessful": cmd_result.get("unsuccessful", False)
         }
+
+        return result
 
     def _truncate_text(self, text: str) -> Tuple[str, int]:
         """Truncate text to a maximum size
@@ -155,50 +184,3 @@ class CommandExecutor:
             text = text[:self.begin_output_size] + middle_text + text[-self.end_output_size:]
 
         return text, original_size if need_truncation else None
-
-    async def _monitor_commands(self) -> None:
-        """Periodically check for long-running commands and cancel them if they exceed the timeout"""
-        check_interval = 30  # Check every 30 seconds
-
-        while self.running:
-            try:
-                await asyncio.sleep(check_interval)
-
-                now = datetime.now()
-                command_ids = list(self.command_tasks.keys())
-
-                for command_id in command_ids:
-                    if command_id not in self.command_tasks:
-                        continue  # Command might have completed during iteration
-
-                    command_info = self.command_tasks[command_id]
-                    duration = now - command_info["start_time"]
-
-                    if duration.total_seconds() > self.command_max_lifetime:
-                        command = command_info["command"]
-                        logging.warning(f"Command timeout exceeded: '{command}' and will be stopped")
-                        await self._cancel_command(command_id)
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                logging.error(f"Error in command monitoring: {e}", exc_info=True)
-
-    async def _cancel_command(self, command_id: str) -> None:
-        """Cancel a running command
-
-        Args:
-            command_id: ID of the command to cancel
-        """
-        if command_id not in self.command_tasks:
-            return
-
-        command_info = self.command_tasks[command_id]
-        command_info["task"].cancel()
-
-        if command_info["session"]:
-            await self.event_bus.emit(
-                "session_terminated",
-                session_id=command_info["session"].session_id
-            )
-
-        del self.command_tasks[command_id]

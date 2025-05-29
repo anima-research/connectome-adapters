@@ -36,8 +36,8 @@ class Session:
         self.full_command = None
         self.last_state = {
             "stdout": "",
-            "stderr": "",
-            "exit_code": None
+            "stderr": "Error executing command",
+            "exit_code": -1
         }
 
     async def open(self) -> Any:
@@ -81,7 +81,7 @@ class Session:
             return
 
         process_id = self.process.pid
-        logging.info(f"Forcibly terminating session {self.session_id}")
+        logging.info(f"Terminating session {self.session_id}")
 
         try:
             try:
@@ -112,7 +112,7 @@ class Session:
                     if self.process.returncode is None:  # Still running
                         self.process.kill()
         except Exception as e:
-            logging.error(f"Error forcibly terminating session {self.session_id}: {e}")
+            logging.error(f"Error terminating session {self.session_id}: {e}")
 
             try:
                 self.process.kill()
@@ -130,11 +130,14 @@ class Session:
         Returns:
             Dict with stdout, stderr, exit_code
         """
-        self._setup_markers_and_command(command)
-        self.process.stdin.write(self.full_command.encode())
-        await self.process.stdin.drain()
-        await self._setup_stdout_output_and_exit_code()
-        await self._setup_stderr_output()
+        try:
+            self._setup_markers_and_command(command)
+            self.process.stdin.write(self.full_command.encode())
+            await self.process.stdin.drain()
+            await self._setup_stdout_output_and_exit_code()
+            await self._setup_stderr_output()
+        except Exception as e:
+            logging.error(f"Error executing command: {e}")
 
         return self.last_state
 
@@ -291,7 +294,7 @@ class Session:
                 try:
                     exit_code = int(line_str[len(self.exit_code_marker):])
                 except ValueError:
-                    logging.error(f"Failed to parse exit code")
+                    pass
                 continue
 
             stdout_data.append(line_str)

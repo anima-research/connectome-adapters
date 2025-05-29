@@ -30,6 +30,8 @@ async def main():
     except (ValueError, FileNotFoundError) as e:
         print(f"Configuration error: {e}")
         print("Please ensure shell_config.yaml exists with required settings")
+    except KeyboardInterrupt:
+        print("Keyboard interrupt received, shutting down gracefully")
     except Exception as e:
         print(f"Unexpected error: {e}")
     finally:

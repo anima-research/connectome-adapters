@@ -4,7 +4,7 @@ import logging
 from typing import Any, Dict
 
 from adapters.shell_adapter.adapter.event_processor.processor import Processor
-from adapters.shell_adapter.adapter.shell.session_manager import SessionManager
+from adapters.shell_adapter.adapter.session.manager import Manager
 from core.utils.config import Config
 
 class Adapter():
@@ -33,7 +33,7 @@ class Adapter():
         self.running = True
         self.monitoring_task = asyncio.create_task(self._monitor_connection())
 
-        self.session_manager = SessionManager(self.config, True)
+        self.session_manager = Manager(self.config, True)
         await self.session_manager.start()
 
         self.outgoing_events_processor = Processor(self.config, self.session_manager)

@@ -1,11 +1,8 @@
 """
 Unit tests for the shell related functionality.
 
-This package contains unit tests for the core adapter components including:
-- CommandExecutor: For executing commands in shell sessions
+This package contains unit tests for the shell adapter components including:
 - MetadataFetcher: For fetching metadata about the shell environment
-- Process: For representing a shell process
-- SessionManager: For managing shell sessions
 """
 
 __author__ = "Your Name"
