@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 from adapters.slack_adapter.adapter.attachment_loaders.downloader import Downloader
 from adapters.slack_adapter.adapter.conversation.manager import Manager
 
-from core.event_processors.base_history_fetcher import BaseHistoryFetcher
+from core.events.history_fetcher.base_history_fetcher import BaseHistoryFetcher
 from core.utils.config import Config
 
 class HistoryFetcher(BaseHistoryFetcher):
@@ -146,7 +146,7 @@ class HistoryFetcher(BaseHistoryFetcher):
                         "message": msg,
                         "user": await self._get_user_info(msg),
                         "attachments": attachments.get(i, []),
-                        "display_bot_messages": True
+                        "history_fetching_in_progress": True
                     }
                 )
 

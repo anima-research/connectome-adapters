@@ -1,13 +1,10 @@
-"""Event processors implementation."""
+"""Event models implementation."""
 
-from core.event_processors.base_history_fetcher import BaseHistoryFetcher
-from core.event_processors.base_incoming_event_processor import BaseIncomingEventProcessor
-from core.event_processors.base_outgoing_event_processor import OutgoingEventType, BaseOutgoingEventProcessor
-from core.event_processors.connection_events import ConnectionEvent
-from core.event_processors.incoming_event_builder import IncomingEventBuilder
-from core.event_processors.incoming_events import (
+from core.events.models.connection_events import ConnectionEvent
+from core.events.models.incoming_events import (
     IncomingAttachmentInfo,
     SenderInfo,
+    BaseIncomingData,
     ConversationStartedData,
     MessageReceivedData,
     MessageUpdatedData,
@@ -24,8 +21,7 @@ from core.event_processors.incoming_events import (
     MessagePinnedEvent,
     MessageUnpinnedEvent
 )
-from core.event_processors.outgoing_event_builder import OutgoingEventBuilder
-from core.event_processors.outgoing_events import (
+from core.events.models.outgoing_events import (
     OutgoingAttachmentInfo,
     SendMessageData,
     EditMessageData,
@@ -43,8 +39,7 @@ from core.event_processors.outgoing_events import (
     PinMessageEvent,
     UnpinMessageEvent
 )
-from core.event_processors.request_event_builder import RequestEventBuilder
-from core.event_processors.request_events import (
+from core.events.models.request_events import (
     FetchedAttachmentData,
     FetchedMessageData,
     HistoryData,
@@ -55,15 +50,10 @@ from core.event_processors.request_events import (
 )
 
 __all__ = [
-    "BaseHistoryFetcher",
-    "BaseIncomingEventProcessor",
-    "BaseOutgoingEventProcessor",
-    "IncomingEventBuilder",
-    "OutgoingEventBuilder",
-    "OutgoingEventType",
     "ConnectionEvent",
     "IncomingAttachmentInfo",
     "SenderInfo",
+    "BaseIncomingData",
     "ConversationStartedData",
     "MessageReceivedData",
     "MessageUpdatedData",
@@ -95,7 +85,6 @@ __all__ = [
     "FetchHistoryEvent",
     "PinMessageEvent",
     "UnpinMessageEvent",
-    "RequestEventBuilder",
     "FetchedAttachmentData",
     "FetchAttachmentEvent",
     "FetchedMessageData",

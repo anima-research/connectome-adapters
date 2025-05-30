@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch, mock_open
 
 import core.utils.attachment_loading
 from adapters.telegram_adapter.adapter.attachment_loaders.uploader import Uploader
-from core.event_processors.outgoing_events import OutgoingAttachmentInfo
+from core.events.models.outgoing_events import OutgoingAttachmentInfo
 
 class TestUploader:
     """Tests for the Uploader class"""

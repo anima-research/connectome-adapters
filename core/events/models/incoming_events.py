@@ -17,9 +17,13 @@ class IncomingAttachmentInfo(BaseModel):
     content: Optional[str] = None
 
 # Data models for incoming events
-class MessageReceivedData(BaseModel):
-    """Message received event data model"""
+class BaseIncomingData(BaseModel):
+    """Base data model for incoming events"""
     adapter_name: str
+    adapter_id: str
+
+class MessageReceivedData(BaseIncomingData):
+    """Message received event data model"""
     message_id: str
     conversation_id: str
     sender: SenderInfo
@@ -27,34 +31,35 @@ class MessageReceivedData(BaseModel):
     text: Optional[str] = ""
     thread_id: Optional[str] = None
     attachments: Optional[List[IncomingAttachmentInfo]] = Field(default_factory=list)
+    mentions: Optional[List[str]] = Field(default_factory=list)
     timestamp: int
 
-class MessageUpdatedData(BaseModel):
+class MessageUpdatedData(BaseIncomingData):
     """Message updated event data model"""
-    adapter_name: str
     message_id: str
     conversation_id: str
     new_text: str = ""
     timestamp: int
     attachments: List[IncomingAttachmentInfo] = Field(default_factory=list)
+    mentions: Optional[List[str]] = Field(default_factory=list)
 
-class MessageDeletedData(BaseModel):
+class MessageDeletedData(BaseIncomingData):
     """Message deleted event data model"""
     message_id: str
     conversation_id: str
 
-class ReactionUpdateData(BaseModel):
+class ReactionUpdateData(BaseIncomingData):
     """Reaction update event data model"""
     message_id: str
     conversation_id: str
     emoji: str
 
-class PinStatusUpdateData(BaseModel):
+class PinStatusUpdateData(BaseIncomingData):
     """Pin status update event data model"""
     message_id: str
     conversation_id: str
 
-class ConversationStartedData(BaseModel):
+class ConversationStartedData(BaseIncomingData):
     """Conversation started event data model"""
     conversation_id: str
     history: List[MessageReceivedData] = Field(default_factory=list)

@@ -4,8 +4,8 @@ from datetime import datetime
 from pydantic import BaseModel
 from unittest.mock import patch
 
-from core.event_processors.incoming_events import MessageReceivedData, MessageReceivedEvent
-from core.event_processors.incoming_event_builder import IncomingEventBuilder
+from core.events.models.incoming_events import MessageReceivedData, MessageReceivedEvent
+from core.events.builders.incoming_event_builder import IncomingEventBuilder
 
 class TestIncomingEventBuilder:
     """Tests for the IncomingEventBuilder"""
@@ -13,7 +13,11 @@ class TestIncomingEventBuilder:
     @pytest.fixture
     def event_builder(self):
         """Fixture for creating a test event builder."""
-        return IncomingEventBuilder(adapter_type="test_adapter", adapter_name="test_instance")
+        return IncomingEventBuilder(
+            adapter_type="test_adapter",
+            adapter_name="test_instance",
+            adapter_id="test_id"
+        )
 
     @pytest.fixture
     def sample_attachment(self):
@@ -41,7 +45,8 @@ class TestIncomingEventBuilder:
             "thread_id": "thread_101",
             "is_direct_message": True,
             "attachments": [sample_attachment],
-            "timestamp": int(datetime.now().timestamp() * 1000)
+            "timestamp": int(datetime.now().timestamp() * 1000),
+            "mentions": ["user_101", "user_102"]
         }
 
     @pytest.fixture
@@ -51,9 +56,15 @@ class TestIncomingEventBuilder:
 
     def test_initialization(self):
         """Test the correct initialization of the event builder."""
-        builder = IncomingEventBuilder(adapter_type="telegram", adapter_name="telegram_bot")
+        builder = IncomingEventBuilder(
+            adapter_type="telegram",
+            adapter_name="telegram_bot",
+            adapter_id="telegram_bot_id"
+        )
+
         assert builder.adapter_type == "telegram"
         assert builder.adapter_name == "telegram_bot"
+        assert builder.adapter_id == "telegram_bot_id"
 
     def test_conversation_started(self, event_builder, sample_message_delta, sample_history):
         """Test conversation_started event creation."""
@@ -64,6 +75,8 @@ class TestIncomingEventBuilder:
         assert event["adapter_type"] == event_builder.adapter_type
         assert event["event_type"] == "conversation_started"
         assert event["data"]["conversation_id"] == delta["conversation_id"]
+        assert event["data"]["adapter_name"] == event_builder.adapter_name
+        assert event["data"]["adapter_id"] == event_builder.adapter_id
         assert len(event["data"]["history"]) == 1
 
         history_item = event["data"]["history"][0]
@@ -77,11 +90,14 @@ class TestIncomingEventBuilder:
 
         assert event["adapter_type"] == event_builder.adapter_type
         assert event["event_type"] == "message_received"
+        assert event["data"]["adapter_name"] == event_builder.adapter_name
+        assert event["data"]["adapter_id"] == event_builder.adapter_id
         assert event["data"]["message_id"] == sample_message_delta["message_id"]
         assert event["data"]["conversation_id"] == sample_message_delta["conversation_id"]
         assert event["data"]["text"] == sample_message_delta["text"]
         assert event["data"]["thread_id"] == sample_message_delta["thread_id"]
         assert event["data"]["is_direct_message"] == sample_message_delta["is_direct_message"]
+        assert event["data"]["mentions"] == sample_message_delta["mentions"]
         assert len(event["data"]["attachments"]) == 1
 
     def test_message_updated(self, event_builder, sample_message_delta, sample_attachment):
@@ -90,10 +106,13 @@ class TestIncomingEventBuilder:
 
         assert event["adapter_type"] == event_builder.adapter_type
         assert event["event_type"] == "message_updated"
+        assert event["data"]["adapter_name"] == event_builder.adapter_name
+        assert event["data"]["adapter_id"] == event_builder.adapter_id
         assert event["data"]["message_id"] == sample_message_delta["message_id"]
         assert event["data"]["conversation_id"] == sample_message_delta["conversation_id"]
         assert event["data"]["new_text"] == sample_message_delta["text"]
         assert event["data"]["timestamp"] == sample_message_delta["timestamp"]
+        assert event["data"]["mentions"] == sample_message_delta["mentions"]
         assert len(event["data"]["attachments"]) == 1
 
         attachment = event["data"]["attachments"][0]
@@ -109,6 +128,8 @@ class TestIncomingEventBuilder:
 
         assert event["adapter_type"] == event_builder.adapter_type
         assert event["event_type"] == "message_deleted"
+        assert event["data"]["adapter_name"] == event_builder.adapter_name
+        assert event["data"]["adapter_id"] == event_builder.adapter_id
         assert event["data"]["message_id"] == message_id
         assert event["data"]["conversation_id"] == conversation_id
 
@@ -119,6 +140,8 @@ class TestIncomingEventBuilder:
 
         event = event_builder.message_deleted(message_id, conversation_id)
 
+        assert event["data"]["adapter_name"] == event_builder.adapter_name
+        assert event["data"]["adapter_id"] == event_builder.adapter_id
         assert event["data"]["message_id"] == str(message_id)
         assert event["data"]["conversation_id"] == str(conversation_id)
 
@@ -132,6 +155,8 @@ class TestIncomingEventBuilder:
 
         event = event_builder.reaction_update("reaction_added", delta, reaction)
 
+        assert event["data"]["adapter_name"] == event_builder.adapter_name
+        assert event["data"]["adapter_id"] == event_builder.adapter_id
         assert event["adapter_type"] == event_builder.adapter_type
         assert event["event_type"] == "reaction_added"
         assert event["data"]["message_id"] == delta["message_id"]
@@ -148,6 +173,8 @@ class TestIncomingEventBuilder:
 
         event = event_builder.reaction_update("reaction_removed", delta, reaction)
 
+        assert event["data"]["adapter_name"] == event_builder.adapter_name
+        assert event["data"]["adapter_id"] == event_builder.adapter_id
         assert event["adapter_type"] == event_builder.adapter_type
         assert event["event_type"] == "reaction_removed"
         assert event["data"]["message_id"] == delta["message_id"]
@@ -176,6 +203,8 @@ class TestIncomingEventBuilder:
 
         assert event["adapter_type"] == event_builder.adapter_type
         assert event["event_type"] == "message_pinned"
+        assert event["data"]["adapter_name"] == event_builder.adapter_name
+        assert event["data"]["adapter_id"] == event_builder.adapter_id
         assert event["data"]["message_id"] == delta["message_id"]
         assert event["data"]["conversation_id"] == delta["conversation_id"]
 
@@ -190,6 +219,8 @@ class TestIncomingEventBuilder:
 
         assert event["adapter_type"] == event_builder.adapter_type
         assert event["event_type"] == "message_unpinned"
+        assert event["data"]["adapter_name"] == event_builder.adapter_name
+        assert event["data"]["adapter_id"] == event_builder.adapter_id
         assert event["data"]["message_id"] == delta["message_id"]
         assert event["data"]["conversation_id"] == delta["conversation_id"]
 
@@ -266,7 +297,8 @@ class TestIncomingEventBuilder:
             },
             "is_direct_message": True,
             "attachments": [minimal_attachment],
-            "timestamp": int(datetime.now().timestamp() * 1000)
+            "timestamp": int(datetime.now().timestamp() * 1000),
+            "mentions": ["user_101", "user_102"]
         }
 
         # Should not raise error even with minimal attachment

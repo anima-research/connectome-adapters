@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 from core.conversation.base_data_classes import BaseConversationInfo, ConversationDelta
 
 from core.cache.message_cache import MessageCache, CachedMessage
-from core.cache.attachment_cache import AttachmentCache, CachedAttachment
+from core.cache.attachment_cache import AttachmentCache
 from core.conversation.base_data_classes import BaseConversationInfo, UserInfo, ThreadInfo
 from core.utils.config import Config
 
@@ -57,6 +57,7 @@ class BaseManager(ABC):
 
             msg_dict = msg.cache_to_dict().copy()
             msg_dict["attachments"] = []
+            msg_dict["mentions"] = []
 
             for attachment_id in msg.attachments:
                 cached_attachment = self.attachment_cache.get_attachment(attachment_id)
@@ -127,13 +128,15 @@ class BaseManager(ABC):
 
             delta = self._create_conversation_delta(event, conversation_info)
             delta.message_id = cached_msg.message_id
+            mentions = self._get_mentions(delta, cached_msg)
 
             await self._update_delta_list(
                 conversation_id=conversation_info.conversation_id,
                 delta=delta,
                 list_to_update="added_messages",
                 cached_msg=cached_msg,
-                attachments=attachments
+                attachments=attachments,
+                mentions=mentions
             )
 
             return delta.to_dict()
@@ -268,6 +271,20 @@ class BaseManager(ABC):
 
         return self.conversations[conversation_id]
 
+    def _get_mentions(self, delta: ConversationDelta, cached_msg: CachedMessage) -> List[str]:
+        """Get the mentions for a given cached message
+
+        Args:
+            delta: Conversation delta object
+            cached_msg: Cached message object
+
+        Returns:
+            List of mentions
+        """
+        if delta.history_fetching_in_progress:
+            return []
+        return self._get_bot_mentions(cached_msg)
+
     def _create_conversation_delta(self,
                                    event: Dict[str, Any],
                                    conversation_info: BaseConversationInfo) -> ConversationDelta:
@@ -287,7 +304,7 @@ class BaseManager(ABC):
             conversation_info.just_started = False
 
         try:
-            delta.display_bot_messages = event.get("display_bot_messages", False)
+            delta.history_fetching_in_progress = event.get("history_fetching_in_progress", False)
         except Exception as e:
             pass
 
@@ -323,20 +340,22 @@ class BaseManager(ABC):
                                  conversation_id: str,
                                  delta: ConversationDelta,
                                  list_to_update: str,
-                                 attachments: Optional[List[Dict[str, Any]]] = [],
                                  message_id: Optional[str] = None,
-                                 cached_msg: Optional[CachedMessage] = None) -> None:
+                                 cached_msg: Optional[CachedMessage] = None,
+                                 attachments: Optional[List[Dict[str, Any]]] = [],
+                                 mentions: Optional[List[str]] = []) -> None:
         """Add a migrated message to the delta
 
         Args:
             conversation_id: Conversation ID
             delta: Delta object to update
             list_to_update: List to update
-            attachments: List of attachment dictionaries
             message_id: Message ID
             cached_msg: Cached message object
+            attachments: List of attachment dictionaries
+            mentions: List of mentions
         """
-        if not delta.display_bot_messages and cached_msg and cached_msg.is_from_bot:
+        if not delta.history_fetching_in_progress and cached_msg and cached_msg.is_from_bot:
             return
 
         if not cached_msg:
@@ -354,7 +373,8 @@ class BaseManager(ABC):
                 "timestamp": cached_msg.timestamp,
                 "thread_id": cached_msg.thread_id,
                 "is_direct_message": cached_msg.is_direct_message,
-                "attachments": attachments
+                "attachments": attachments,
+                "mentions": mentions
             })
 
     @abstractmethod
@@ -389,6 +409,11 @@ class BaseManager(ABC):
     async def _get_user_info(self, event: Dict[str, Any], conversation_info: BaseConversationInfo) -> UserInfo:
         """Get the user info for a given event and conversation info"""
         raise NotImplementedError("Child classes must implement _get_user_info")
+
+    @abstractmethod
+    def _get_bot_mentions(self, cached_msg: CachedMessage) -> List[str]:
+        """Get the bot mentions for a given conversation info and cached message"""
+        raise NotImplementedError("Child classes must implement _get_bot_mentions")
 
     @abstractmethod
     async def _get_deleted_message_ids(self, event: Any) -> List[str]:

@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch, call
 from adapters.slack_adapter.adapter.attachment_loaders.uploader import Uploader
 from adapters.slack_adapter.adapter.event_processors.outgoing_event_processor import OutgoingEventProcessor
 from adapters.slack_adapter.adapter.event_processors.history_fetcher import HistoryFetcher
-from core.event_processors.base_outgoing_event_processor import OutgoingEventType
+from core.events.processors.base_outgoing_event_processor import OutgoingEventType
 from core.utils.emoji_converter import EmojiConverter
 
 class TestOutgoingEventProcessor:

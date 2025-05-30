@@ -7,7 +7,7 @@ from aiohttp import web
 from dataclasses import dataclass
 from typing import Dict, Any, Optional
 
-from core.event_processors.request_event_builder import RequestEventBuilder
+from core.events.builders.request_event_builder import RequestEventBuilder
 from core.utils.config import Config
 
 @dataclass
@@ -133,15 +133,20 @@ class SocketIOServer:
         request_id = data.get("request_id", f"req_{sid}_{int(time.time() * 1e3)}")
         event = SocketIOQueuedEvent(data, sid, time.time(), request_id)
         self.request_map[request_id] = event
+
         await self.event_queue.put(event)
+        logging.info(f"Queued event with request_id {request_id}.")
+
+        internal_request_id = data.get("internal_request_id", None)
         await self.sio.emit(
             "request_queued",
-            self.request_event_builder.build(
-                request_id, data.get("internal_request_id", None)
-            ).model_dump(),
+            self.request_event_builder.build(request_id, internal_request_id).model_dump(),
             room=sid
         )
-        logging.debug(f"Queued event with request_id {request_id}")
+        logging.info(
+            f"Emitted request_queued event with request_id {request_id} and "\
+            f"internal_request_id {internal_request_id}."
+        )
 
     async def _cancel_request(self, sid: str, data: Dict[str, Any]) -> None:
         """Cancel a queued request if it hasn't been processed yet
@@ -156,6 +161,7 @@ class SocketIOServer:
             return
 
         if request_id not in self.request_map:
+            logging.warning(f"Request {request_id} not found in request map and cannot be cancelled.")
             await self.sio.emit(
                 "request_failed",
                 self.request_event_builder.build(
@@ -163,9 +169,12 @@ class SocketIOServer:
                 ).model_dump(),
                 room=sid
             )
+            logging.info(f"Emitted request_failed event with request_id {request_id}.")
             return
 
         del self.request_map[request_id]
+        logging.info(f"Request with request_id {request_id} cancelled successfully.")
+
         await self.sio.emit(
             "request_success",
             self.request_event_builder.build(
@@ -173,6 +182,7 @@ class SocketIOServer:
             ).model_dump(),
             room=sid
         )
+        logging.info(f"Emitted request_success event with request_id {request_id}.")
 
     async def _process_event_queue(self) -> None:
         """Process events from the queue with rate limiting"""
@@ -213,6 +223,10 @@ class SocketIOServer:
                         event.request_id, internal_request_id, data
                     ).model_dump(),
                     room=event.sid
+                )
+                logging.info(
+                    f"Emitted {status} event with request_id {event.request_id} and "\
+                    f"internal_request_id {internal_request_id}."
                 )
 
                 if event.request_id in self.request_map:

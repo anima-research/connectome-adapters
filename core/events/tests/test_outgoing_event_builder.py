@@ -1,7 +1,7 @@
 import base64
 import pytest
 
-from core.event_processors.outgoing_events import (
+from core.events.models.outgoing_events import (
     OutgoingAttachmentInfo,
     SendMessageData,
     EditMessageData,
@@ -20,7 +20,7 @@ from core.event_processors.outgoing_events import (
     PinMessageEvent,
     UnpinMessageEvent
 )
-from core.event_processors.outgoing_event_builder import OutgoingEventBuilder
+from core.events.builders.outgoing_event_builder import OutgoingEventBuilder
 
 class TestOutgoingEventBuilder:
     """Tests for the OutgoingEventBuilder class."""

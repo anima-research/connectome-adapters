@@ -5,7 +5,7 @@ import shutil
 
 from unittest.mock import patch, MagicMock, AsyncMock
 from adapters.slack_adapter.adapter.attachment_loaders.uploader import Uploader
-from core.event_processors.outgoing_events import OutgoingAttachmentInfo, SendMessageData
+from core.events.models.outgoing_events import OutgoingAttachmentInfo, SendMessageData
 
 class TestUploader:
     """Tests for the Slack Uploader class"""

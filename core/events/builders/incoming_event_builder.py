@@ -1,5 +1,5 @@
 from typing import Any, Dict, List, Union
-from core.event_processors.incoming_events import (
+from core.events.models.incoming_events import (
     SenderInfo,
     IncomingAttachmentInfo,
     ConversationStartedData,
@@ -25,16 +25,18 @@ class IncomingEventBuilder:
     with Pydantic validation.
     """
 
-    def __init__(self, adapter_type: str, adapter_name: str):
+    def __init__(self, adapter_type: str, adapter_name: str, adapter_id: str):
         """
         Initialize the EventBuilder with the adapter type.
 
         Args:
             adapter_type: The adapter type (telegram, discord, etc.)
             adapter_name: Name of the adapter instance
+            adapter_id: ID of the adapter instance
         """
         self.adapter_type = adapter_type
         self.adapter_name = adapter_name
+        self.adapter_id = adapter_id
 
     def conversation_started(self,
                              delta: Dict[str, Any],
@@ -52,6 +54,8 @@ class IncomingEventBuilder:
         event = ConversationStartedEvent(
             adapter_type=self.adapter_type,
             data=ConversationStartedData(
+                adapter_name=self.adapter_name,
+                adapter_id=self.adapter_id,
                 conversation_id=delta["conversation_id"],
                 history=[self._process_message(message) for message in history]
             )
@@ -88,11 +92,13 @@ class IncomingEventBuilder:
             adapter_type=self.adapter_type,
             data=MessageUpdatedData(
                 adapter_name=self.adapter_name,
+                adapter_id=self.adapter_id,
                 message_id=delta["message_id"],
                 conversation_id=delta["conversation_id"],
                 new_text=delta.get("text", ""),
                 timestamp=delta["timestamp"],
-                attachments=[IncomingAttachmentInfo(**attachment) for attachment in delta.get("attachments", [])]
+                attachments=[IncomingAttachmentInfo(**attachment) for attachment in delta.get("attachments", [])],
+                mentions=delta.get("mentions", [])
             )
         )
         return event.model_dump()
@@ -113,6 +119,8 @@ class IncomingEventBuilder:
         event = MessageDeletedEvent(
             adapter_type=self.adapter_type,
             data=MessageDeletedData(
+                adapter_name=self.adapter_name,
+                adapter_id=self.adapter_id,
                 message_id=str(message_id),
                 conversation_id=str(conversation_id)
             )
@@ -135,6 +143,8 @@ class IncomingEventBuilder:
             Dictionary containing the validated event
         """
         data = ReactionUpdateData(
+            adapter_name=self.adapter_name,
+            adapter_id=self.adapter_id,
             message_id=delta["message_id"],
             conversation_id=delta["conversation_id"],
             emoji=reaction
@@ -167,6 +177,8 @@ class IncomingEventBuilder:
             Dictionary containing the validated event
         """
         data = PinStatusUpdateData(
+            adapter_name=self.adapter_name,
+            adapter_id=self.adapter_id,
             message_id=delta["message_id"],
             conversation_id=delta["conversation_id"]
         )
@@ -202,6 +214,7 @@ class IncomingEventBuilder:
 
         return MessageReceivedData(
             adapter_name=self.adapter_name,
+            adapter_id=self.adapter_id,
             message_id=delta["message_id"],
             conversation_id=delta["conversation_id"],
             sender=SenderInfo(
@@ -212,5 +225,6 @@ class IncomingEventBuilder:
             thread_id=delta.get("thread_id"),
             is_direct_message=delta.get("is_direct_message", True),
             attachments=[IncomingAttachmentInfo(**attachment) for attachment in delta.get("attachments", [])],
-            timestamp=delta["timestamp"]
+            timestamp=delta["timestamp"],
+            mentions=delta.get("mentions", [])
         )

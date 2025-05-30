@@ -89,7 +89,7 @@ class ConversationDelta:
     conversation_id: str
     message_id: Optional[str] = None
     fetch_history: bool = False
-    display_bot_messages: bool = False
+    history_fetching_in_progress: bool = False
     added_reactions: List[str] = field(default_factory=list)
     removed_reactions: List[str] = field(default_factory=list)
     deleted_message_ids: List[str] = field(default_factory=list)

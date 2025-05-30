@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional, Union
-from core.event_processors.incoming_events import IncomingAttachmentInfo, SenderInfo
+from core.events.models.incoming_events import IncomingAttachmentInfo, SenderInfo
 
 class SentMessageData(BaseModel):
     """Sent message data model"""

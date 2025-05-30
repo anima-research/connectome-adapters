@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 from adapters.telegram_adapter.adapter.attachment_loaders.downloader import Downloader
 from adapters.telegram_adapter.adapter.conversation.manager import Manager
 
-from core.event_processors.base_history_fetcher import BaseHistoryFetcher
+from core.events.history_fetcher.base_history_fetcher import BaseHistoryFetcher
 from core.rate_limiter.rate_limiter import RateLimiter
 from core.utils.config import Config
 
@@ -171,7 +171,7 @@ class HistoryFetcher(BaseHistoryFetcher):
         attachments = {}
 
         for i, msg in enumerate(messages):
-            if hasattr(msg, 'media') or msg.media:
+            if hasattr(msg, "media") and msg.media:
                 task = self.downloader.download_attachment(msg)
                 download_tasks.append(task)
                 message_map[task] = i
@@ -207,7 +207,7 @@ class HistoryFetcher(BaseHistoryFetcher):
                 "message": msg,
                 "user": self.users.get(self._get_sender_id(msg), None),
                 "attachments": [attachment_info] if attachment_info else [],
-                "display_bot_messages": True
+                "history_fetching_in_progress": True
             })
 
             for message in delta.get("added_messages", []):
@@ -253,7 +253,8 @@ class HistoryFetcher(BaseHistoryFetcher):
                     "thread_id": str(reply_to_msg_id) if reply_to_msg_id else None,
                     "timestamp": int(msg.date.timestamp() * 1e3) if hasattr(msg, "date") else int(datetime.now().timestamp() * 1e3),
                     "attachments": [attachment_info] if attachment_info else [],
-                    "is_direct_message": self.conversation.conversation_type == "private"
+                    "is_direct_message": self.conversation.conversation_type == "private",
+                    "mentions": []
                 })
 
         return result

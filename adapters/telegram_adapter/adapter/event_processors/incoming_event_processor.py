@@ -12,7 +12,7 @@ from adapters.telegram_adapter.adapter.attachment_loaders.downloader import Down
 from adapters.telegram_adapter.adapter.conversation.manager import Manager
 from adapters.telegram_adapter.adapter.event_processors.history_fetcher import HistoryFetcher
 
-from core.event_processors.base_incoming_event_processor import BaseIncomingEventProcessor
+from core.events.processors.base_incoming_event_processor import BaseIncomingEventProcessor
 from core.utils.config import Config
 
 class TelegramIncomingEventType(str, Enum):

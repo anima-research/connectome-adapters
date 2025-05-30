@@ -11,7 +11,7 @@ from adapters.discord_adapter.adapter.event_processors.discord_utils import (
     get_discord_channel, is_discord_service_message
 )
 
-from core.event_processors.base_history_fetcher import BaseHistoryFetcher
+from core.events.history_fetcher.base_history_fetcher import BaseHistoryFetcher
 from core.rate_limiter.rate_limiter import RateLimiter
 from core.utils.config import Config
 
@@ -178,7 +178,7 @@ class HistoryFetcher(BaseHistoryFetcher):
                     {
                         "message": msg,
                         "attachments": attachments.get(i, []),
-                        "display_bot_messages": True
+                        "history_fetching_in_progress": True
                     }
                 )
                 for cached_msg in delta.get("added_messages", []):

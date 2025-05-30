@@ -1,5 +1,5 @@
 from typing import Any, Dict
-from core.event_processors.outgoing_events import (
+from core.events.models.outgoing_events import (
     OutgoingAttachmentInfo,
     SendMessageData,
     EditMessageData,

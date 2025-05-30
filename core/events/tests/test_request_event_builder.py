@@ -1,8 +1,8 @@
 import pytest
 from datetime import datetime
 
-from core.event_processors.incoming_events import IncomingAttachmentInfo, SenderInfo
-from core.event_processors.request_events import (
+from core.events.models.incoming_events import IncomingAttachmentInfo, SenderInfo
+from core.events.models.request_events import (
     RequestEvent,
     FetchedAttachmentData,
     FetchedMessageData,
@@ -11,7 +11,7 @@ from core.event_processors.request_events import (
     ReadFileData,
     ViewDirectoryData
 )
-from core.event_processors.request_event_builder import RequestEventBuilder
+from core.events.builders.request_event_builder import RequestEventBuilder
 
 class TestRequestEventBuilder:
     """Tests for the RequestEventBuilder class."""

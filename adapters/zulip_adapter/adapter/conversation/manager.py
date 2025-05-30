@@ -1,4 +1,5 @@
 import asyncio
+import re
 
 from datetime import datetime
 from enum import Enum
@@ -249,13 +250,15 @@ class Manager(BaseManager):
             cached_msg = await self._update_message(message, conversation_info, thread_changed, thread_info)
             attachments = await self._update_attachment(conversation_info, event.get("attachments", []))
             cached_msg.attachments = {attachment["attachment_id"] for attachment in attachments}
+            cached_msg.mentions = self._get_bot_mentions(cached_msg)
 
             await self._update_delta_list(
                 conversation_id=conversation_info.conversation_id,
                 delta=delta,
                 list_to_update="updated_messages",
                 cached_msg=cached_msg,
-                attachments=attachments
+                attachments=attachments,
+                mentions=cached_msg.mentions
             )
             return
 
@@ -337,6 +340,41 @@ class Manager(BaseManager):
         if cached_msg:
             delta.message_id = cached_msg.message_id
             ReactionHandler.update_message_reactions(message, cached_msg, delta)
+
+    def _get_bot_mentions(self, cached_msg: CachedMessage) -> List[str]:
+        """Get bot mentions from a cached message.
+        Extracts mentions of the bot or @all from the message text.
+
+        Args:
+            cached_msg: The cached message to extract mentions from
+
+        Returns:
+            List of mentions (bot name or "all")
+        """
+        if not cached_msg.text:
+            return []
+
+        mentions = set()
+        adapter_name = self.config.get_setting("adapter", "adapter_name")
+        adapter_id = self.config.get_setting("adapter", "adapter_id")
+
+        # Simple pattern for bot and all mentions: @**Name**
+        simple_mention_pattern = r"@\*\*(.*?)\*\*"
+        simple_mentions = re.findall(simple_mention_pattern, cached_msg.text)
+        for mention in simple_mentions:
+            if mention.lower() == "all":
+                mentions.add("all")
+            elif adapter_name and mention == adapter_name:
+                mentions.add(adapter_id)
+
+        # User ID pattern for mentions: @_**Name|ID**
+        user_id_mention_pattern = r"@_\*\*(.*?)\|(.*?)\*\*"
+        user_id_mentions = re.findall(user_id_mention_pattern, cached_msg.text)
+        for _, user_id in user_id_mentions:
+            if adapter_id and user_id == adapter_id:
+                mentions.add(adapter_id)
+
+        return list(mentions)
 
     async def _get_deleted_message_ids(self, event: Dict[str, Any]) -> List[str]:
         """Get the deleted message IDs from an event

@@ -5,7 +5,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, List
 
-from core.event_processors.incoming_event_builder import IncomingEventBuilder
+from core.events.builders.incoming_event_builder import IncomingEventBuilder
 from core.rate_limiter.rate_limiter import RateLimiter
 from core.utils.config import Config
 
@@ -24,7 +24,8 @@ class BaseIncomingEventProcessor(ABC):
         self.rate_limiter = RateLimiter.get_instance(self.config)
         self.incoming_event_builder = IncomingEventBuilder(
             self.config.get_setting("adapter", "adapter_type"),
-            self.config.get_setting("adapter", "adapter_name")
+            self.config.get_setting("adapter", "adapter_name"),
+            self.config.get_setting("adapter", "adapter_id")
         )
 
     async def process_event(self, event: Any) -> List[Dict[str, Any]]:

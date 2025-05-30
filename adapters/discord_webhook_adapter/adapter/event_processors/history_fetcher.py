@@ -6,7 +6,7 @@ import os
 from typing import Any, Dict, List, Optional
 
 from adapters.discord_webhook_adapter.adapter.conversation.manager import Manager
-from core.event_processors.base_history_fetcher import BaseHistoryFetcher
+from core.events.history_fetcher.base_history_fetcher import BaseHistoryFetcher
 from core.rate_limiter.rate_limiter import RateLimiter
 from core.utils.config import Config
 

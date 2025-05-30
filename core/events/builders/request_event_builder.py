@@ -1,7 +1,7 @@
 from typing import Any, Dict, Optional
 
-from core.event_processors.incoming_events import IncomingAttachmentInfo, SenderInfo
-from core.event_processors.request_events import (
+from core.events.models.incoming_events import IncomingAttachmentInfo, SenderInfo
+from core.events.models.request_events import (
     RequestEvent,
     FetchedAttachmentData,
     FetchedMessageData,

@@ -7,7 +7,7 @@ from telethon.tl.types import ReactionEmoji
 from adapters.telegram_adapter.adapter.attachment_loaders.uploader import Uploader
 from adapters.telegram_adapter.adapter.conversation.manager import Manager
 from adapters.telegram_adapter.adapter.event_processors.outgoing_event_processor import OutgoingEventProcessor
-from core.event_processors.base_outgoing_event_processor import OutgoingEventType
+from core.events.processors.base_outgoing_event_processor import OutgoingEventType
 
 class TestOutgoingEventProcessor:
     """Tests for the OutgoingEventProcessor class"""

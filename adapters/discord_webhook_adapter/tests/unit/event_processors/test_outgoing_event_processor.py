@@ -7,7 +7,7 @@ import shutil
 from unittest.mock import AsyncMock, MagicMock, patch, call
 
 from adapters.discord_webhook_adapter.adapter.event_processors.outgoing_event_processor import OutgoingEventProcessor
-from core.event_processors.base_outgoing_event_processor import OutgoingEventType
+from core.events.processors.base_outgoing_event_processor import OutgoingEventType
 
 class TestOutgoingEventProcessor:
     """Tests for the Discord Webhook OutgoingEventProcessor class"""

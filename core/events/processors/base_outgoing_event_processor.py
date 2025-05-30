@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from typing import Any, Dict, List
 
 from core.conversation.base_data_classes import BaseConversationInfo, UserInfo
-from core.event_processors.outgoing_event_builder import OutgoingEventBuilder
+from core.events.builders.outgoing_event_builder import OutgoingEventBuilder
 from core.rate_limiter.rate_limiter import RateLimiter
 from core.utils.config import Config
 

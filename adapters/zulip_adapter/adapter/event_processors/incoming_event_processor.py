@@ -9,7 +9,7 @@ from adapters.zulip_adapter.adapter.conversation.manager import Manager
 from adapters.zulip_adapter.adapter.event_processors.history_fetcher import HistoryFetcher
 
 from core.utils.config import Config
-from core.event_processors.base_incoming_event_processor import BaseIncomingEventProcessor
+from core.events.processors.base_incoming_event_processor import BaseIncomingEventProcessor
 
 class ZulipIncomingEventType(str, Enum):
     """Event types supported by the ZulipIncomingEventProcessor"""

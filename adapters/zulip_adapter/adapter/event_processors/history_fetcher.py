@@ -8,8 +8,7 @@ from typing import Any, Dict, List, Optional
 from adapters.zulip_adapter.adapter.conversation.manager import Manager
 from adapters.zulip_adapter.adapter.attachment_loaders.downloader import Downloader
 
-from core.event_processors.base_history_fetcher import BaseHistoryFetcher
-from core.rate_limiter.rate_limiter import RateLimiter
+from core.events.history_fetcher.base_history_fetcher import BaseHistoryFetcher
 from core.utils.config import Config
 
 class HistoryFetcher(BaseHistoryFetcher):
@@ -181,7 +180,7 @@ class HistoryFetcher(BaseHistoryFetcher):
                     {
                         "message": msg,
                         "attachments": attachments.get(i, []),
-                        "display_bot_messages": True
+                        "history_fetching_in_progress": True
                     }
                 )
 
@@ -199,7 +198,8 @@ class HistoryFetcher(BaseHistoryFetcher):
                     "thread_id": self._extract_reply_to_id(msg.get("content", "")),
                     "timestamp": msg.get("timestamp", None),
                     "attachments": attachments.get(i, []),
-                    "is_direct_message": self.conversation.conversation_type == "private"
+                    "is_direct_message": self.conversation.conversation_type == "private",
+                    "mentions": []
                 })
 
         return formatted_history

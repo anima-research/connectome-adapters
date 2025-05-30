@@ -6,7 +6,7 @@ import emoji
 from adapters.zulip_adapter.adapter.attachment_loaders.uploader import Uploader
 from adapters.zulip_adapter.adapter.event_processors.history_fetcher import HistoryFetcher
 from adapters.zulip_adapter.adapter.event_processors.outgoing_event_processor import OutgoingEventProcessor
-from core.event_processors.base_outgoing_event_processor import OutgoingEventType
+from core.events.processors.base_outgoing_event_processor import OutgoingEventType
 from core.utils.emoji_converter import EmojiConverter
 
 class TestOutgoingEventProcessor:

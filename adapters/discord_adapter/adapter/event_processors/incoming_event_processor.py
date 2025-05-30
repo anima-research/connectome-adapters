@@ -11,7 +11,7 @@ from adapters.discord_adapter.adapter.event_processors.discord_utils import is_d
 from adapters.discord_adapter.adapter.event_processors.history_fetcher import HistoryFetcher
 
 from core.utils.config import Config
-from core.event_processors.base_incoming_event_processor import BaseIncomingEventProcessor
+from core.events.processors.base_incoming_event_processor import BaseIncomingEventProcessor
 
 class DiscordIncomingEventType(str, Enum):
     """Event types supported by the DiscordIncomingEventProcessor"""

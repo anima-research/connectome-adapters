@@ -4,7 +4,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
 
-from core.event_processors.connection_events import ConnectionEvent
+from core.events.models.connection_events import ConnectionEvent
 from core.rate_limiter.rate_limiter import RateLimiter
 from core.utils.config import Config
 

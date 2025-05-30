@@ -12,7 +12,7 @@ from adapters.slack_adapter.adapter.conversation.manager import Manager
 from adapters.slack_adapter.adapter.event_processors.history_fetcher import HistoryFetcher
 
 from core.conversation.base_data_classes import UserInfo
-from core.event_processors.base_outgoing_event_processor import BaseOutgoingEventProcessor
+from core.events.processors.base_outgoing_event_processor import BaseOutgoingEventProcessor
 from core.utils.config import Config
 from core.utils.emoji_converter import EmojiConverter
 
