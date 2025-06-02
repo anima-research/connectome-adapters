@@ -220,7 +220,8 @@ class HistoryFetcher(BaseHistoryFetcher):
             "thread_id": message.get("thread_ts", None),
             "timestamp": int(float(message.get("ts", "0")) * 1e3),
             "attachments": attachments,
-            "is_direct_message": message.get("channel_type", "") == "im"
+            "is_direct_message": message.get("channel_type", "") == "im",
+            "mentions": []
         }
 
     async def _get_user_info(self, message: Any) -> Optional[Dict[str, Any]]:

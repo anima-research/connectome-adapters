@@ -266,14 +266,14 @@ Supported platform event types.
 
 | Event Type           | Description                              | Included Data                                                          |
 |----------------------|------------------------------------------|------------------------------------------------------------------------|
-| conversation_started | New conversation initialized |{ <br>&nbsp;&nbsp;"adapter_type": str, <br>&nbsp;&nbsp;"event_type": "conversation_started", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"history": List[Dict] <br>&nbsp;&nbsp;} <br>}|
-| message_received | New message from the platform | { <br>&nbsp;&nbsp;"adapter_type": str, <br>&nbsp;&nbsp;"event_type": "message_received", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"adapter_name": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"message_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"sender": { "user_id": str, "display_name": str }, <br>&nbsp;&nbsp;&nbsp;&nbsp;"text": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"thread_id": Optional[str], <br>&nbsp;&nbsp;&nbsp;&nbsp;"attachments": List[Dict],  <br>&nbsp;&nbsp;&nbsp;&nbsp;"is_direct_message": bool, <br>&nbsp;&nbsp;&nbsp;&nbsp;"timestamp": int <br>&nbsp;&nbsp;} <br>} |
-| message_updated      | Message was edited                       |{ <br>&nbsp;&nbsp;"adapter_type": str, <br>&nbsp;&nbsp;"event_type": "message_updated", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"message_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"new_text": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str <br>&nbsp;&nbsp;} <br>}|
-| message_deleted      | Message was deleted                      |{ <br>&nbsp;&nbsp;"adapter_type": str, <br>&nbsp;&nbsp;"event_type": "message_deleted", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"message_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str <br>&nbsp;&nbsp;} <br>}|
-| reaction_added       | Reaction added to message                |{ <br>&nbsp;&nbsp;"adapter_type": str, <br>&nbsp;&nbsp;"event_type": "reaction_added", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"message_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"emoji": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str <br>&nbsp;&nbsp;} <br>}|
-| reaction_removed     | Reaction removed from message            |{ <br>&nbsp;&nbsp;"adapter_type": str, <br>&nbsp;&nbsp;"event_type": "reaction_removed", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"message_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"emoji": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str <br>&nbsp;&nbsp;} <br>}|
-| message_pinned       | Message pinned                           |{ <br>&nbsp;&nbsp;"adapter_type": str, <br>&nbsp;&nbsp;"event_type": "message_pinned", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"message_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str <br>&nbsp;&nbsp;} <br>}|
-| message_unpinned | Message unpinned |{ <br>&nbsp;&nbsp;"adapter_type": str, <br>&nbsp;&nbsp;"event_type": "message_unpinned", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"message_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str <br>&nbsp;&nbsp;} <br>}|
+| conversation_started | New conversation initialized |{ <br>&nbsp;&nbsp;"adapter_type": str, <br>&nbsp;&nbsp;"event_type": "conversation_started", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"adapter_name": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"adapter_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"history": List[Dict] <br>&nbsp;&nbsp;} <br>}|
+| message_received | New message from the platform | { <br>&nbsp;&nbsp;"adapter_type": str, <br>&nbsp;&nbsp;"event_type": "message_received", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"adapter_name": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"adapter_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"message_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"sender": { "user_id": str, "display_name": str }, <br>&nbsp;&nbsp;&nbsp;&nbsp;"text": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"thread_id": Optional[str], <br>&nbsp;&nbsp;&nbsp;&nbsp;"attachments": List[Dict],  <br>&nbsp;&nbsp;&nbsp;&nbsp;"mentions": List[str], <br>&nbsp;&nbsp;&nbsp;&nbsp;"is_direct_message": bool, <br>&nbsp;&nbsp;&nbsp;&nbsp;"timestamp": int <br>&nbsp;&nbsp;} <br>} |
+| message_updated      | Message was edited                       |{ <br>&nbsp;&nbsp;"adapter_type": str, <br>&nbsp;&nbsp;"event_type": "message_updated", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"adapter_name": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"adapter_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"message_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str <br>&nbsp;&nbsp;&nbsp;&nbsp;"new_text": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"mentions": List[str], <br>&nbsp;&nbsp;&nbsp;&nbsp;} <br>}|
+| message_deleted      | Message was deleted                      |{ <br>&nbsp;&nbsp;"adapter_type": str, <br>&nbsp;&nbsp;"event_type": "message_deleted", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"adapter_name": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"adapter_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"message_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str <br>&nbsp;&nbsp;} <br>}|
+| reaction_added       | Reaction added to message                |{ <br>&nbsp;&nbsp;"adapter_type": str, <br>&nbsp;&nbsp;"event_type": "reaction_added", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"adapter_name": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"adapter_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"message_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"emoji": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str <br>&nbsp;&nbsp;} <br>}|
+| reaction_removed     | Reaction removed from message            |{ <br>&nbsp;&nbsp;"adapter_type": str, <br>&nbsp;&nbsp;"event_type": "reaction_removed", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"adapter_name": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"adapter_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"message_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"emoji": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str <br>&nbsp;&nbsp;} <br>}|
+| message_pinned       | Message pinned                           |{ <br>&nbsp;&nbsp;"adapter_type": str, <br>&nbsp;&nbsp;"event_type": "message_pinned", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"adapter_name": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"adapter_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"message_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str <br>&nbsp;&nbsp;} <br>}|
+| message_unpinned | Message unpinned |{ <br>&nbsp;&nbsp;"adapter_type": str, <br>&nbsp;&nbsp;"event_type": "message_unpinned", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"adapter_name": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"adapter_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"message_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str <br>&nbsp;&nbsp;} <br>}|
 
 ##### Examples of incoming event flow
 
@@ -285,6 +285,8 @@ The adapter emits `conversation_started` event when a new conversation is detect
   "adapter_type": "slack",
   "event_type": "conversation_started",
   "data": {
+    "adapter_name": "slack_bot_arthur",
+    "adapter_id": "slack_bot_id_1010",
     "conversation_id": "C123",
     "history": [
       {
@@ -322,6 +324,7 @@ After that, the adapter emits `message_received` event for a new message that st
   "event_type": "message_received",
   "data": {
     "adapter_name": "slack_bot_arthur",
+    "adapter_id": "slack_bot_id_1010",
     "message_id": "message_id_990",
     "conversation_id": "guild_id_123/channel_id_456",
     "text": "Hello, hello!",

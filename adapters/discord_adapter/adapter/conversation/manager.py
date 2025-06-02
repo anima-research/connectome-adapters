@@ -1,5 +1,6 @@
 import asyncio
 import discord
+import re
 
 from datetime import datetime
 from enum import Enum
@@ -221,7 +222,8 @@ class Manager(BaseManager):
             delta=delta,
             list_to_update="updated_messages",
             cached_msg=cached_msg,
-            attachments=[]
+            attachments=[],
+            mentions=self._get_bot_mentions(cached_msg)
         )
 
     async def _update_pin_status(self,
@@ -280,6 +282,36 @@ class Manager(BaseManager):
                 reaction=reaction,
                 delta=delta
             )
+
+    def _get_bot_mentions(self, cached_msg: CachedMessage) -> List[str]:
+        """Get bot mentions from a cached message.
+        Extracts mentions of the bot or @all from the message text.
+
+        Args:
+            cached_msg: The cached message to extract mentions from
+
+        Returns:
+            List of mentions (bot name or "all")
+        """
+        if not cached_msg or not cached_msg.text:
+            return []
+
+        mentions = set()
+        adapter_id = self.config.get_setting("adapter", "adapter_id")
+
+        user_mention_pattern = r"<@(\d+)>"
+        found_user_mentions = re.findall(user_mention_pattern, cached_msg.text)
+
+        # Pattern for Discord user mentions: <@USER_ID>
+        for mention in found_user_mentions:
+            if adapter_id and mention == adapter_id:
+                mentions.add(adapter_id)
+
+        # Check for special mentions (@everyone and @here)
+        if "@everyone" in cached_msg.text or "@here" in cached_msg.text:
+            mentions.add("all")
+
+        return list(mentions)
 
     async def _get_deleted_message_ids(self, event: Dict[str, Any]) -> List[str]:
         """Get the deleted message IDs from an event

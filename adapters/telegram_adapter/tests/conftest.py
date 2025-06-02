@@ -17,6 +17,7 @@ def default_config_data():
         "adapter": {
             "adapter_type": "telegram",
             "adapter_name": "test_bot",
+            "adapter_id": "test_bot_id",
             "bot_token": "test_bot_token",
             "api_id": "12345",
             "api_hash": "test_hash",

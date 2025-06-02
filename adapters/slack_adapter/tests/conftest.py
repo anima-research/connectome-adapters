@@ -17,6 +17,7 @@ def default_config_data():
         "adapter": {
             "adapter_type": "slack",
             "adapter_name": "slack_bot",
+            "adapter_id": "slack_bot_id",
             "bot_token": "bot_token",
             "app_token": "app_token",
             "retry_delay": 5,

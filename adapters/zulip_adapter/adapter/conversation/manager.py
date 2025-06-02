@@ -248,9 +248,9 @@ class Manager(BaseManager):
         if event_type == ZulipEventType.UPDATE_MESSAGE:
             thread_changed, thread_info = await self.thread_handler.update_thread_info(message, conversation_info)
             cached_msg = await self._update_message(message, conversation_info, thread_changed, thread_info)
+            mentions = self._get_bot_mentions(cached_msg)
             attachments = await self._update_attachment(conversation_info, event.get("attachments", []))
             cached_msg.attachments = {attachment["attachment_id"] for attachment in attachments}
-            cached_msg.mentions = self._get_bot_mentions(cached_msg)
 
             await self._update_delta_list(
                 conversation_id=conversation_info.conversation_id,
@@ -258,7 +258,7 @@ class Manager(BaseManager):
                 list_to_update="updated_messages",
                 cached_msg=cached_msg,
                 attachments=attachments,
-                mentions=cached_msg.mentions
+                mentions=mentions
             )
             return
 
@@ -351,7 +351,7 @@ class Manager(BaseManager):
         Returns:
             List of mentions (bot name or "all")
         """
-        if not cached_msg.text:
+        if not cached_msg or not cached_msg.text:
             return []
 
         mentions = set()

@@ -49,8 +49,6 @@ class SocketIOServer:
         self.request_map = {}
         self.request_event_builder = RequestEventBuilder(self.adapter_type)
 
-        print(self.adapter_type)
-
         @self.sio.event
         async def connect(sid, environ):
             self.connected_clients.add(sid)

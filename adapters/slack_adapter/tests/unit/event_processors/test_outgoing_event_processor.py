@@ -240,6 +240,7 @@ class TestOutgoingEventProcessor:
         """Tests for the delete_message method"""
 
         @pytest.mark.asyncio
+        @pytest.mark.filterwarnings("ignore::RuntimeWarning")
         async def test_delete_message_success(self, processor, slack_client_mock):
             """Test successfully deleting a message"""
             slack_client_mock.chat_delete.return_value = {"ok": True}

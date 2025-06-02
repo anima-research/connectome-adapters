@@ -214,7 +214,8 @@ class HistoryFetcher(BaseHistoryFetcher):
             "thread_id": thread_id,
             "timestamp": int(message.created_at.timestamp() * 1e3),
             "attachments": [],
-            "is_direct_message": isinstance(getattr(message, "channel", None), discord.DMChannel)
+            "is_direct_message": isinstance(getattr(message, "channel", None), discord.DMChannel),
+            "mentions": []
         }
 
         return formatted_message

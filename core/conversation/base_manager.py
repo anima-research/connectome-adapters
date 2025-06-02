@@ -283,6 +283,7 @@ class BaseManager(ABC):
         """
         if delta.history_fetching_in_progress:
             return []
+
         return self._get_bot_mentions(cached_msg)
 
     def _create_conversation_delta(self,

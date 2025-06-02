@@ -77,8 +77,11 @@ class TestConversationManager:
     @pytest.fixture
     def mock_message_cache(self):
         """Create a mocked MessageCache"""
+        mock_cached_msg = MagicMock()
+        mock_cached_msg.text = ""  # Set as string, not a mock
+
         cache = MagicMock()
-        cache.add_message = AsyncMock()
+        cache.add_message = AsyncMock(return_value=mock_cached_msg)
         cache.get_message_by_id = AsyncMock(return_value=None)
         cache.delete_message = AsyncMock(return_value=True)
         cache.migrate_messages = AsyncMock()

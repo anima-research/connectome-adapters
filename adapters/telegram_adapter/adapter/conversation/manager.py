@@ -1,5 +1,6 @@
 import asyncio
 import os
+import re
 
 from datetime import datetime
 from enum import Enum
@@ -178,7 +179,8 @@ class Manager(BaseManager):
                     conversation_id=conversation_info.conversation_id,
                     delta=delta,
                     list_to_update="updated_messages",
-                    cached_msg=cached_msg
+                    cached_msg=cached_msg,
+                    mentions=self._get_bot_mentions(cached_msg)
                 )
             return
 
@@ -336,6 +338,30 @@ class Manager(BaseManager):
             conversation_info.pinned_messages.discard(message_id)
 
         return cached_msg
+
+    def _get_bot_mentions(self, cached_msg: CachedMessage) -> List[str]:
+        """Get bot mentions from a cached message.
+        Extracts mentions of the bot or @all from the message text.
+
+        Args:
+            cached_msg: The cached message to extract mentions from
+
+        Returns:
+            List of mentions (bot name or "all")
+        """
+        if not cached_msg or not cached_msg.text:
+            return []
+
+        mentions = set()
+        adapter_name = self.config.get_setting("adapter", "adapter_name")
+        adapter_id = self.config.get_setting("adapter", "adapter_id")
+
+        mention_pattern = r"@(\w+)"
+        for mention in re.findall(mention_pattern, cached_msg.text):
+            if adapter_name and mention == adapter_name:
+                mentions.add(adapter_id)
+
+        return list(mentions)
 
     async def _get_deleted_message_ids(self, event: Dict[str, Any]) -> List[str]:
         """Get the deleted message IDs from an event
