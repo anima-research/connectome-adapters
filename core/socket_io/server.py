@@ -28,7 +28,7 @@ class SocketIOServer:
             config: Config instance
         """
         self.config = config
-        self.adapter_type = self.config.get_setting("adapter", "type")
+        self.adapter_type = self.config.get_setting("adapter", "adapter_type")
         self.sio = socketio.AsyncServer(
             async_mode="aiohttp",
             cors_allowed_origins=self.config.get_setting(
@@ -48,6 +48,8 @@ class SocketIOServer:
         self.is_processing = False
         self.request_map = {}
         self.request_event_builder = RequestEventBuilder(self.adapter_type)
+
+        print(self.adapter_type)
 
         @self.sio.event
         async def connect(sid, environ):
