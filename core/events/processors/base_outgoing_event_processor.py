@@ -41,7 +41,7 @@ class BaseOutgoingEventProcessor(ABC):
         self.config = config
         self.client = client
         self.conversation_manager = conversation_manager
-        self.adapter_type = self.config.get_setting("adapter", "type")
+        self.adapter_type = self.config.get_setting("adapter", "adapter_type")
         self.rate_limiter = RateLimiter.get_instance(self.config)
         self.outgoing_event_builder = OutgoingEventBuilder()
 
