@@ -215,7 +215,7 @@ class Manager(BaseManager):
         except ValueError:
             edited_timestamp = datetime.now()
 
-        cached_msg.timestamp = int(edited_timestamp.timestamp() * 1e3)
+        cached_msg.timestamp = int(edited_timestamp.timestamp())
         cached_msg.text = data.get("content", "")
         await self._update_delta_list(
             conversation_id=cached_msg.conversation_id,

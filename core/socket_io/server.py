@@ -130,7 +130,7 @@ class SocketIOServer:
         Returns:
             request_id: ID of the queued request
         """
-        request_id = data.get("request_id", f"req_{sid}_{int(time.time() * 1e3)}")
+        request_id = data.get("request_id", f"req_{sid}_{int(time.time())}")
         event = SocketIOQueuedEvent(data, sid, time.time(), request_id)
         self.request_map[request_id] = event
 

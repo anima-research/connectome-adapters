@@ -114,8 +114,8 @@ class HistoryFetcher(BaseHistoryFetcher):
 
         for _ in range(max_iterations):
             if len(result) > self.history_limit * 2:
-                timestamp_1 = int(result[0].created_at.timestamp() * 1e3)
-                timestamp_2 = int(result[-1].created_at.timestamp() * 1e3)
+                timestamp_1 = int(result[0].created_at.timestamp())
+                timestamp_2 = int(result[-1].created_at.timestamp())
 
                 if self.before and timestamp_1 < self.before <= timestamp_2:
                     break
@@ -246,7 +246,7 @@ class HistoryFetcher(BaseHistoryFetcher):
             },
             "text": message.content,
             "thread_id": thread_id,
-            "timestamp": int(message.created_at.timestamp() * 1e3),
+            "timestamp": int(message.created_at.timestamp()),
             "attachments": attachments,
             "is_direct_message": self.conversation.conversation_type == "dm",
             "mentions": []

@@ -243,7 +243,7 @@ class Manager(BaseManager):
         if updated_text is not None and updated_text != cached_msg.text:
             cached_msg.text = updated_text
             cached_msg.timestamp = int(
-                getattr(message, "date", datetime.now()).timestamp() * 1e3
+                getattr(message, "date", datetime.now()).timestamp()
             )
         elif updated_text == cached_msg.text:
             delta.message_id = cached_msg.message_id
@@ -265,11 +265,11 @@ class Manager(BaseManager):
             conversation_info: Conversation info object
         """
         message_id = None
-        timestamp = int(datetime.now().timestamp() * 1e3)
+        timestamp = int(datetime.now().timestamp())
 
         if hasattr(message, 'reply_to') and message.reply_to:
             message_id = str(message.reply_to.reply_to_msg_id)
-            timestamp = int(getattr(message, "date", datetime.now()).timestamp() * 1e3)
+            timestamp = int(getattr(message, "date", datetime.now()).timestamp())
         elif isinstance(message, dict):
             message_id = message.get("message_id", None)
 
@@ -300,7 +300,7 @@ class Manager(BaseManager):
                 message_id,
                 conversation_info,
                 False,
-                int(datetime.now().timestamp() * 1e3)
+                int(datetime.now().timestamp())
             )
 
         return None

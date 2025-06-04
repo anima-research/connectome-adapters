@@ -8,7 +8,7 @@ class MessageBuilder(BaseMessageBuilder):
         """Add basic message info"""
         self.message_data["message_id"] = str(message.get("ts", ""))
         self.message_data["conversation_id"] = conversation.conversation_id
-        self.message_data["timestamp"] = int(float(message.get("ts", "0")) * 1e3)
+        self.message_data["timestamp"] = int(float(message.get("ts", "0")))
         self.message_data["is_direct_message"] = conversation.conversation_type == "im"
         return self
 

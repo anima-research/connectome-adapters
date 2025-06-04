@@ -64,9 +64,9 @@ class HistoryFetcher(BaseHistoryFetcher):
             if self.anchor:
                 params["latest"] = self.anchor
             elif self.before:
-                params["latest"] = f"{int(self.before / 1e3):.6f}"
+                params["latest"] = f"{int(self.before):.6f}"
             elif self.after:
-                params["oldest"] = f"{int(self.after / 1e3):.6f}"
+                params["oldest"] = f"{int(self.after):.6f}"
 
             result = await self._fetch_history_in_batches(params)
 
@@ -218,7 +218,7 @@ class HistoryFetcher(BaseHistoryFetcher):
             },
             "text": message.get("text", ""),
             "thread_id": message.get("thread_ts", None),
-            "timestamp": int(float(message.get("ts", "0")) * 1e3),
+            "timestamp": int(float(message.get("ts", "0"))),
             "attachments": attachments,
             "is_direct_message": message.get("channel_type", "") == "im",
             "mentions": []

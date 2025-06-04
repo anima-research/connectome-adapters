@@ -103,8 +103,8 @@ class HistoryFetcher(BaseHistoryFetcher):
 
         for _ in range(max_iterations):
             if len(result) > self.history_limit * 2:
-                timestamp_1 = int(result[0].date.timestamp() * 1e3) if hasattr(result[0], "date") else 0
-                timestamp_2 = int(result[-1].date.timestamp() * 1e3) if hasattr(result[-1], "date") else 0
+                timestamp_1 = int(result[0].date.timestamp()) if hasattr(result[0], "date") else 0
+                timestamp_2 = int(result[-1].date.timestamp()) if hasattr(result[-1], "date") else 0
 
                 if timestamp_1 <= self.after < timestamp_2:
                     break
@@ -137,7 +137,7 @@ class HistoryFetcher(BaseHistoryFetcher):
         )
 
         if offset_date:
-            offset_date = int(offset_date / 1e3)
+            offset_date = int(offset_date)
 
         result = await self.client(functions.messages.GetHistoryRequest(
             peer=int(self.conversation.conversation_id),
@@ -251,7 +251,7 @@ class HistoryFetcher(BaseHistoryFetcher):
                     },
                     "text": text,
                     "thread_id": str(reply_to_msg_id) if reply_to_msg_id else None,
-                    "timestamp": int(msg.date.timestamp() * 1e3) if hasattr(msg, "date") else int(datetime.now().timestamp() * 1e3),
+                    "timestamp": int(msg.date.timestamp()) if hasattr(msg, "date") else int(datetime.now().timestamp()),
                     "attachments": [attachment_info] if attachment_info else [],
                     "is_direct_message": self.conversation.conversation_type == "private",
                     "mentions": []

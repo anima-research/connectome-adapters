@@ -104,7 +104,7 @@ class TestMessageBuilder:
 
         assert builder.message_data["message_id"] == "1609502400.123456"
         assert builder.message_data["conversation_id"] == "T87654321/C11223344"
-        assert builder.message_data["timestamp"] == 1609502400123  # Converted to milliseconds
+        assert builder.message_data["timestamp"] == 1609502400  # Converted to seconds
         assert builder.message_data["is_direct_message"] is True
         assert result is builder
 
@@ -173,8 +173,8 @@ class TestMessageBuilder:
 
         builder.with_basic_info(message, mock_conversation_info)
 
-        # Should be converted to milliseconds (seconds * 1000 + microseconds / 1000)
-        expected_ms = int(float("1609502400.123456") * 1000)
+        # Should be converted to seconds
+        expected_ms = int(float("1609502400.123456"))
         assert builder.message_data["timestamp"] == expected_ms
 
     def test_full_build_chain(self,
@@ -193,7 +193,7 @@ class TestMessageBuilder:
 
         assert result["message_id"] == "1609502400.123456"
         assert result["conversation_id"] == "T87654321/C11223344"
-        assert result["timestamp"] == 1609502400123
+        assert result["timestamp"] == 1609502400
         assert result["sender_id"] == "U12345678"
         assert result["sender_name"] == "Slack User"
         assert result["is_from_bot"] is False

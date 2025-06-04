@@ -69,7 +69,7 @@ class TestMessageBuilder:
 
         assert builder.message_data["message_id"] == "123"
         assert builder.message_data["conversation_id"] == "123456789"
-        assert builder.message_data["timestamp"] == 1609502400000  # 2021-01-01 12:00:00 UTC in milliseconds
+        assert builder.message_data["timestamp"] == 1609502400  # 2021-01-01 12:00:00 UTC in seconds
         assert builder.message_data["is_direct_message"] is True
         assert result is builder
 
@@ -147,7 +147,7 @@ class TestMessageBuilder:
 
         assert result["message_id"] == "123"
         assert result["conversation_id"] == "123456789"
-        assert result["timestamp"] == 1609502400000
+        assert result["timestamp"] == 1609502400
         assert result["sender_id"] == "789123456"
         assert result["sender_name"] == "Discord User"
         assert result["is_from_bot"] is False

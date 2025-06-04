@@ -26,7 +26,7 @@ class CachedMessage:
     @property
     def age_seconds(self) -> float:
         """Get message age in seconds"""
-        return (datetime.now() - datetime.fromtimestamp(self.timestamp / 1e3)).total_seconds()
+        return (datetime.now() - datetime.fromtimestamp(self.timestamp)).total_seconds()
 
     def cache_to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for API responses"""
@@ -196,7 +196,7 @@ class MessageCache:
 
         sorted_messages = sorted(
             conversation.values(),
-            key=lambda m: datetime.fromtimestamp(m.timestamp / 1e3)
+            key=lambda m: datetime.fromtimestamp(m.timestamp)
         )
         self.messages[conversation_id] = {
             msg.message_id: msg for msg in sorted_messages[-self.max_messages_per_conversation:]
@@ -214,7 +214,7 @@ class MessageCache:
         for conv_id, messages in self.messages.items():
             for msg_id, msg in messages.items():
                 all_messages.append(
-                    (conv_id, msg_id, datetime.fromtimestamp(msg.timestamp / 1e3))
+                    (conv_id, msg_id, datetime.fromtimestamp(msg.timestamp))
                 )
 
         all_messages.sort(key=lambda x: x[2])

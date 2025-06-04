@@ -125,7 +125,7 @@ class TestHistoryFetcher:
                 },
                 "text": mock_slack_message_with_attachment["text"],
                 "thread_id": None,
-                "timestamp": int(float(mock_slack_message_with_attachment["ts"]) * 1e3),
+                "timestamp": int(float(mock_slack_message_with_attachment["ts"])),
                 "attachments": mock_attachments
             },
             {
@@ -137,7 +137,7 @@ class TestHistoryFetcher:
                 },
                 "text": mock_slack_message_reply["text"],
                 "thread_id": mock_slack_message_reply["thread_ts"],
-                "timestamp": int(float(mock_slack_message_reply["ts"]) * 1e3),
+                "timestamp": int(float(mock_slack_message_reply["ts"])),
                 "attachments": []
             }
         ]
@@ -155,7 +155,7 @@ class TestHistoryFetcher:
                 },
                 "text": "Message with attachment",
                 "thread_id": None,
-                "timestamp": 1609502400000,
+                "timestamp": 1609502400,
                 "attachments": []
             }
         ]
@@ -238,12 +238,12 @@ class TestHistoryFetcher:
 
         assert history[1]["message_id"] == "1609504200.000456"
         assert history[1]["thread_id"] == "1609502400.000123"
-        assert history[1]["timestamp"] == 1609504200000
+        assert history[1]["timestamp"] == 1609504200
 
     @pytest.mark.asyncio
     async def test_fetch_with_before(self, history_fetcher, slack_client_mock):
         """Test fetching history with before timestamp"""
-        before_timestamp = 1609504300000  # After both test messages
+        before_timestamp = 1609504300  # After both test messages
         fetcher = history_fetcher("T123456/C987654321", before=before_timestamp)
         history = await fetcher.fetch()
 
@@ -261,7 +261,7 @@ class TestHistoryFetcher:
     @pytest.mark.asyncio
     async def test_fetch_with_after(self, history_fetcher, slack_client_mock):
         """Test fetching history with after timestamp"""
-        after_timestamp = 1609501000000  # Before both test messages
+        after_timestamp = 1609501000  # Before both test messages
         fetcher = history_fetcher("T123456/C987654321", after=after_timestamp)
         history = await fetcher.fetch()
 
@@ -285,7 +285,7 @@ class TestHistoryFetcher:
     @pytest.mark.asyncio
     async def test_fetch_from_cache(self, history_fetcher, mock_cached_messages):
         """Test fetching from cache"""
-        fetcher = history_fetcher("T123456/C987654321", before=1609502500000)
+        fetcher = history_fetcher("T123456/C987654321", before=1609502500)
         fetcher.conversation_manager.get_conversation_cache.return_value = mock_cached_messages
         fetcher.cache_fetched_history = True
 
@@ -399,13 +399,13 @@ class TestHistoryFetcher:
         assert result["sender"]["display_name"] == "Cool User"
         assert result["text"] == "Message with attachment"
         assert result["thread_id"] is None
-        assert result["timestamp"] == 1609502400000
+        assert result["timestamp"] == 1609502400
         assert result["attachments"] == mock_attachments
 
     @pytest.mark.asyncio
     async def test_fetch_from_api_error_handling(self, history_fetcher):
         """Test error handling in _fetch_from_api"""
-        fetcher = history_fetcher("T123456/C987654321", before=1609504300000)
+        fetcher = history_fetcher("T123456/C987654321", before=1609504300)
 
         with patch.object(fetcher, "_fetch_history_in_batches",
                           side_effect=Exception("Test error")):

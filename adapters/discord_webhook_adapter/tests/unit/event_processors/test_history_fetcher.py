@@ -128,7 +128,7 @@ class TestHistoryFetcher:
     @pytest.mark.asyncio
     async def test_fetch_with_before(self, history_fetcher):
         """Test fetching history with before timestamp"""
-        fetcher = history_fetcher("987654321", before=1609504300000)  # After both messages
+        fetcher = history_fetcher("987654321", before=1609504300)  # After both messages
         history = await fetcher.fetch()
 
         assert len(history) == 2  # Both messages are before the timestamp
@@ -136,7 +136,7 @@ class TestHistoryFetcher:
     @pytest.mark.asyncio
     async def test_fetch_with_after(self, history_fetcher):
         """Test fetching history with after timestamp"""
-        fetcher = history_fetcher("987654321", after=1609501000000)  # Before both messages
+        fetcher = history_fetcher("987654321", after=1609501000)  # Before both messages
         history = await fetcher.fetch()
 
         assert len(history) == 2  # Both messages are after the timestamp
@@ -158,5 +158,5 @@ class TestHistoryFetcher:
         assert result["sender"]["display_name"] == "Cool User"
         assert result["text"] == "Message with attachment"
         assert result["thread_id"] is None
-        assert result["timestamp"] == 1609502400000
+        assert result["timestamp"] == 1609502400
         assert len(result["attachments"]) == 0

@@ -19,9 +19,9 @@ class MessageBuilder(BaseMessageBuilder):
         self.message_data["is_direct_message"] = conversation.conversation_type == "private"
 
         if hasattr(message, 'date'):
-            self.message_data["timestamp"] = int(message.date.timestamp() * 1e3)
+            self.message_data["timestamp"] = int(message.date.timestamp())
         else:
-            self.message_data["timestamp"] = int(datetime.now().timestamp() * 1e3)
+            self.message_data["timestamp"] = int(datetime.now().timestamp())
 
         return self
 

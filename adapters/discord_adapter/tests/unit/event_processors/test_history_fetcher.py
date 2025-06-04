@@ -117,7 +117,7 @@ class TestHistoryFetcher:
                 },
                 "text": mock_message_with_attachment.content,
                 "thread_id": None,
-                "timestamp": int(mock_message_with_attachment.created_at.timestamp() * 1e3),
+                "timestamp": int(mock_message_with_attachment.created_at.timestamp()),
                 "attachments": mock_attachments
             },
             {
@@ -129,7 +129,7 @@ class TestHistoryFetcher:
                 },
                 "text": mock_message_reply.content,
                 "thread_id": "111222333",
-                "timestamp": int(mock_message_reply.created_at.timestamp() * 1e3),
+                "timestamp": int(mock_message_reply.created_at.timestamp()),
                 "attachments": []
             }
         ]
@@ -147,7 +147,7 @@ class TestHistoryFetcher:
                 },
                 "text": "Message with attachment",
                 "thread_id": None,
-                "timestamp": 1609502400000,
+                "timestamp": 1609502400,
                 "attachments": []
             }
         ]
@@ -235,12 +235,12 @@ class TestHistoryFetcher:
 
         assert history[1]["message_id"] == "444555666"
         assert history[1]["thread_id"] == "111222333"
-        assert history[1]["timestamp"] == 1609504200000
+        assert history[1]["timestamp"] == 1609504200
 
     @pytest.mark.asyncio
     async def test_fetch_with_before(self, history_fetcher):
         """Test fetching history with before timestamp"""
-        fetcher = history_fetcher("987654321", before=1609504300000)  # After both messages
+        fetcher = history_fetcher("987654321", before=1609504300)  # After both messages
         history = await fetcher.fetch()
 
         fetcher.conversation_manager.get_conversation_cache.assert_called_once()
@@ -251,7 +251,7 @@ class TestHistoryFetcher:
                                     history_fetcher,
                                     channel_mock):
         """Test fetching history with after timestamp"""
-        fetcher = history_fetcher("987654321", after=1609501000000)  # Before both messages
+        fetcher = history_fetcher("987654321", after=1609501000)  # Before both messages
         history = await fetcher.fetch()
 
         fetcher.conversation_manager.get_conversation_cache.assert_called_once()
@@ -279,7 +279,7 @@ class TestHistoryFetcher:
         assert result["sender"]["display_name"] == "Cool User"
         assert result["text"] == "Message with attachment"
         assert result["thread_id"] is None
-        assert result["timestamp"] == 1609502400000
+        assert result["timestamp"] == 1609502400
         assert len(result["attachments"]) == 1
         assert "created_at" not in result["attachments"][0]
         assert "file_path" in result["attachments"][0]
