@@ -30,6 +30,7 @@ class TestDownloader:
             "id": "F123456",
             "name": "test.pdf",
             "size": 5000,
+            "mimetype": "application/pdf",
             "url_private": "https://slack.com/files/test.pdf"
         }
 
@@ -40,6 +41,7 @@ class TestDownloader:
             "id": "F789012",
             "name": "large.mp4",
             "size": 15 * 1024 * 1024,  # 15MB
+            "mimetype": "video/mp4",
             "url_private": "https://slack.com/files/large.mp4"
         }
 
@@ -143,12 +145,14 @@ class TestDownloader:
                 "id": "F123456",
                 "name": "document.pdf",
                 "size": 5000,
+                "mimetype": "application/pdf",
                 "url_private": "https://slack.com/files/document.pdf"
             },
             {
                 "id": "F789012",
                 "name": "image.jpg",
                 "size": 8000,
+                "mimetype": "image/jpeg",
                 "url_private": "https://slack.com/files/image.jpg"
             }
         ]
@@ -162,6 +166,6 @@ class TestDownloader:
 
                         assert len(result) == 2
                         assert result[0]["attachment_type"] == "document"
-                        assert result[0]["file_extension"] == "pdf"
+                        assert result[0]["filename"] == f"{files[0]['id']}.pdf"
                         assert result[1]["attachment_type"] == "image"
-                        assert result[1]["file_extension"] == "jpg"
+                        assert result[1]["filename"] == f"{files[1]['id']}.jpg"

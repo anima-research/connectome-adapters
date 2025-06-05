@@ -265,13 +265,15 @@ class TestDiscordToSocketIOFlowIntegration:
             with_attachment=True
         )
         attachment_result = [{
-            "attachment_id": "discord_444555666",
+            "attachment_id": "discord_4567",
             "attachment_type": "image",
-            "file_extension": "jpg",
-            "created_at": datetime.now(timezone.utc),
+            "filename": "discord_4567.jpg",
             "size": 12345,
-            "processable": True,
-            "content": "Hello from Discord!"
+            "content_type": "image/jpeg",
+            "content": "Hello from Discord!",
+            "url": "https://discord.com/attachments/test.jpg",
+            "created_at": datetime.now(timezone.utc),
+            "processable": True
         }]
         adapter.incoming_events_processor.downloader.download_attachment.return_value = attachment_result
 
@@ -294,7 +296,14 @@ class TestDiscordToSocketIOFlowIntegration:
 
             cached_attachments = adapter.conversation_manager.attachment_cache.attachments
             assert len(cached_attachments) == 1
-            assert "discord_444555666" in cached_attachments
+            assert "discord_4567" in cached_attachments
+            assert cached_attachments["discord_4567"].attachment_id == "discord_4567"
+            assert cached_attachments["discord_4567"].attachment_type == "image"
+            assert cached_attachments["discord_4567"].filename == "discord_4567.jpg"
+            assert cached_attachments["discord_4567"].size == 12345
+            assert cached_attachments["discord_4567"].content_type == "image/jpeg"
+            assert cached_attachments["discord_4567"].url == "https://discord.com/attachments/test.jpg"
+            assert cached_attachments["discord_4567"].processable is True
 
     @pytest.mark.asyncio
     async def test_edited_message_flow(self,

@@ -31,6 +31,8 @@ class TestDownloader:
         attachment.filename = "test.pdf"
         attachment.id = "xyz123"
         attachment.size = 12345
+        attachment.content_type = "application/pdf"
+        attachment.url = None
         attachment.save = AsyncMock()
         return attachment
 
@@ -66,7 +68,11 @@ class TestDownloader:
 
                             assert len(result) == 1
                             assert result[0]["attachment_id"] == "xyz123"
+                            assert result[0]["filename"] == "xyz123.pdf"
                             assert result[0]["size"] == 12345
+                            assert result[0]["content_type"] == "application/pdf"
+                            assert result[0]["url"] is None
+                            assert result[0]["processable"] is True
 
                             discord_message_mock.attachments[0].save.assert_called_once()
 
@@ -84,7 +90,12 @@ class TestDownloader:
 
                         assert len(result) == 1
                         assert result[0]["attachment_id"] == "xyz123"
+                        assert result[0]["filename"] == "xyz123.pdf"
                         assert result[0]["size"] == 12345
+                        assert result[0]["content_type"] == "application/pdf"
+                        assert result[0]["url"] is None
+                        assert result[0]["processable"] is True
+
                         assert mock_log.called
                         assert "Skipping download" in mock_log.call_args_list[0][0][0]
 

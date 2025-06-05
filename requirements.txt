@@ -12,3 +12,4 @@ discord.py==2.3.2  # Discord API client
 slack_sdk==3.26.1  # Official Slack API client with async support
 pydantic==2.5.2  # Data validation and settings management
 psutil==5.9.5  # For monitoring system resources
+python-magic==0.4.27  # File type detection by examining content

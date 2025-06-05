@@ -95,9 +95,13 @@ class TestHistoryFetcher:
             {
                 "attachment_id": "987654",
                 "attachment_type": "image",
-                "file_extension": "jpg",
-                "file_path": "/path/to/image.jpg",
-                "size": 12345
+                "filename": "987654.jpg",
+                "content_type": "image/jpeg",
+                "content": None,
+                "size": 12345,
+                "processable": True,
+                "url": "https://example.com/test.jpg",
+                "created_at": datetime(2021, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
             }
         ]
 
@@ -280,6 +284,13 @@ class TestHistoryFetcher:
         assert result["text"] == "Message with attachment"
         assert result["thread_id"] is None
         assert result["timestamp"] == 1609502400
+
         assert len(result["attachments"]) == 1
         assert "created_at" not in result["attachments"][0]
-        assert "file_path" in result["attachments"][0]
+        assert "attachment_id" in result["attachments"][0]
+        assert "filename" in result["attachments"][0]
+        assert "content_type" in result["attachments"][0]
+        assert "url" in result["attachments"][0]
+        assert "size" in result["attachments"][0]
+        assert "processable" in result["attachments"][0]
+        assert "content" in result["attachments"][0]

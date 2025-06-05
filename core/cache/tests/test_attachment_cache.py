@@ -29,7 +29,7 @@ class TestAttachmentCache:
     @pytest.fixture
     def attachment_cache(self, config_mock):
         """Create an AttachmentCache with mocked dependencies"""
-        with patch.object(AttachmentCache, '_upload_existing_attachments'):
+        with patch.object(AttachmentCache, "_upload_existing_attachments"):
             return AttachmentCache(config_mock)
 
     @pytest.fixture
@@ -38,11 +38,13 @@ class TestAttachmentCache:
         return {
             "attachment_id": "test123",
             "attachment_type": "photo",
-            "created_at": datetime.now(),
-            "file_extension": "jpg",
+            "filename": "test123.jpg",
             "size": 12345,
+            "content_type": "image/jpeg",
+            "content": None,
+            "url": "https://example.com/test123.jpg",
             "processable": True,
-            "content": None
+            "created_at": datetime.now()
         }
 
     @pytest.fixture
@@ -51,9 +53,11 @@ class TestAttachmentCache:
         attachment = CachedAttachment(
             attachment_id=sample_attachment_info["attachment_id"],
             attachment_type=sample_attachment_info["attachment_type"],
-            created_at=sample_attachment_info["created_at"],
-            file_extension=sample_attachment_info["file_extension"],
+            filename=sample_attachment_info["filename"],
             size=sample_attachment_info["size"],
+            content_type=sample_attachment_info["content_type"],
+            url=sample_attachment_info["url"],
+            created_at=sample_attachment_info["created_at"],
             processable=sample_attachment_info["processable"]
         )
         return attachment
@@ -61,23 +65,12 @@ class TestAttachmentCache:
     class TestAttachmentProperties:
         """Tests for CachedAttachment properties"""
 
-        def test_file_path_with_extension(self, cached_attachment):
+        def test_file_path(self, cached_attachment):
             """Test file_path property with extension"""
             expected_path = os.path.join(
                 cached_attachment.attachment_type,
                 cached_attachment.attachment_id,
-                f"{cached_attachment.attachment_id}.{cached_attachment.file_extension}"
-            )
-
-            assert cached_attachment.file_path == expected_path
-
-        def test_file_path_without_extension(self, cached_attachment):
-            """Test file_path property without extension"""
-            cached_attachment.file_extension = None
-            expected_path = os.path.join(
-                cached_attachment.attachment_type,
-                cached_attachment.attachment_id,
-                cached_attachment.attachment_id
+                cached_attachment.filename
             )
 
             assert cached_attachment.file_path == expected_path
@@ -124,11 +117,12 @@ class TestAttachmentCache:
             metadata = {
                 "attachment_id": attachment_id,
                 "attachment_type": "photo",
-                "created_at": datetime.now().isoformat(),
-                "file_extension": "jpg",
+                "filename": f"{attachment_id}.jpg",
                 "size": 12345,
-                "processable": True,
-                "content": None
+                "content_type": "image/jpeg",
+                "url": "https://example.com/test123.jpg",
+                "created_at": datetime.now().isoformat(),
+                "processable": True
             }
 
             with open(os.path.join(attachment_dir, f"{attachment_id}.json"), "w") as f:
@@ -138,7 +132,7 @@ class TestAttachmentCache:
 
         def test_directory_not_exists(self, config_mock):
             """Test handling when storage directory doesn't exist"""
-            with patch('os.path.exists', return_value=False):
+            with patch("os.path.exists", return_value=False):
                 cache = AttachmentCache(config_mock)
                 assert len(cache.attachments) == 0
 
@@ -149,7 +143,11 @@ class TestAttachmentCache:
 
             loaded_attachment = cache.attachments[test_attachment_structure]
             assert loaded_attachment.attachment_type == "photo"
-            assert loaded_attachment.file_extension == "jpg"
+            assert loaded_attachment.filename == "test_attachment_123.jpg"
+            assert loaded_attachment.size == 12345
+            assert loaded_attachment.content_type == "image/jpeg"
+            assert loaded_attachment.url == "https://example.com/test123.jpg"
+            assert loaded_attachment.processable
 
     class TestAddAttachment:
         """Tests for the add_attachment method"""
@@ -162,7 +160,11 @@ class TestAttachmentCache:
             assert sample_attachment_info["attachment_id"] in attachment_cache.attachments
             assert result.attachment_id == sample_attachment_info["attachment_id"]
             assert result.attachment_type == sample_attachment_info["attachment_type"]
-            assert result.file_extension == sample_attachment_info["file_extension"]
+            assert result.filename == sample_attachment_info["filename"]
+            assert result.size == sample_attachment_info["size"]
+            assert result.content_type == sample_attachment_info["content_type"]
+            assert result.url == sample_attachment_info["url"]
+            assert result.processable
             assert "conv123" in result.conversations
 
         @pytest.mark.asyncio
@@ -193,7 +195,7 @@ class TestAttachmentCache:
             await attachment_cache.add_attachment("conv123", sample_attachment_info)
             assert sample_attachment_info["attachment_id"] in attachment_cache.attachments
 
-            with patch('os.path.exists', return_value=False):
+            with patch("os.path.exists", return_value=False):
                 await attachment_cache.remove_attachment(sample_attachment_info["attachment_id"])
             assert sample_attachment_info["attachment_id"] not in attachment_cache.attachments
 
@@ -202,16 +204,16 @@ class TestAttachmentCache:
             """Test removing an attachment including its files"""
             await attachment_cache.add_attachment("conv123", sample_attachment_info)
 
-            with patch.object(CachedAttachment, 'file_path', new_callable=PropertyMock) as mock_file_path:
-                with patch.object(CachedAttachment, 'metadata_path', new_callable=PropertyMock) as mock_metadata_path:
+            with patch.object(CachedAttachment, "file_path", new_callable=PropertyMock) as mock_file_path:
+                with patch.object(CachedAttachment, "metadata_path", new_callable=PropertyMock) as mock_metadata_path:
                     mock_file_path.return_value = "/fake/dir/test123.jpg"
                     mock_metadata_path.return_value = "/fake/dir/test123.json"
 
-                    with patch('os.path.exists', return_value=True):
-                        with patch('os.remove') as os_remove_mock:
-                            with patch('os.path.dirname', return_value="/fake/dir"):
-                                with patch('os.listdir', return_value=[]):
-                                    with patch('os.rmdir') as os_rmdir_mock:
+                    with patch("os.path.exists", return_value=True):
+                        with patch("os.remove") as os_remove_mock:
+                            with patch("os.path.dirname", return_value="/fake/dir"):
+                                with patch("os.listdir", return_value=[]):
+                                    with patch("os.rmdir") as os_rmdir_mock:
                                         await attachment_cache.remove_attachment(sample_attachment_info["attachment_id"])
 
                                         assert os_remove_mock.call_count == 2
@@ -235,7 +237,7 @@ class TestAttachmentCache:
             old_info["created_at"] = datetime.now() - timedelta(days=31)  # Older than max_age_days
             await attachment_cache.add_attachment("conv123", old_info)
 
-            with patch.object(attachment_cache, 'remove_attachment') as remove_mock:
+            with patch.object(attachment_cache, "remove_attachment") as remove_mock:
                 await attachment_cache._enforce_age_limit()
                 remove_mock.assert_called_once_with("old123")
 
@@ -248,16 +250,18 @@ class TestAttachmentCache:
                 info = {
                     "attachment_id": f"test{i}",
                     "attachment_type": "photo",
-                    "created_at": datetime.now() - timedelta(minutes=i),  # Progressively older
-                    "file_extension": "jpg",
+                    "filename": f"test{i}.jpg",
                     "size": 12345,
-                    "processable": True,
-                    "content": None
+                    "content_type": "image/jpeg",
+                    "content": None,
+                    "url": f"https://example.com/test{i}.jpg",
+                    "created_at": datetime.now() - timedelta(minutes=i),  # Progressively older
+                    "processable": True
                 }
                 await attachment_cache.add_attachment(f"conv{i}", info)
             assert len(attachment_cache.attachments) == 5
 
-            with patch.object(attachment_cache, 'remove_attachment') as remove_mock:
+            with patch.object(attachment_cache, "remove_attachment") as remove_mock:
                 await attachment_cache._enforce_total_limit()
 
                 assert remove_mock.call_count == 3

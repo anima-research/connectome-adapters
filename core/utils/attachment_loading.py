@@ -78,13 +78,20 @@ def save_metadata_file(metadata: Dict[str, Any], attachment_dir: str) -> None:
         IOError: If saving metadata fails
     """
     try:
-        data_copy = metadata.copy()
-        del data_copy["content"]
+        required_keys = [
+            "attachment_id", "attachment_type",
+            "filename", "size", "content_type",
+            "url", "created_at", "processable"
+        ]
 
-        metadata_path = os.path.join(
-            attachment_dir, f"{metadata['attachment_id']}.json"
-        )
-        with open(metadata_path, "w") as f:
+        data_copy = metadata.copy()
+        existing_keys = list(data_copy.keys())
+
+        for key in existing_keys:
+            if key not in required_keys:
+                del data_copy[key]
+
+        with open(os.path.join(attachment_dir, f"{metadata['attachment_id']}.json"), "w") as f:
             json.dump(data_copy, f, indent=2, default=str)
     except Exception as e:
         logging.error(f"Error saving attachment metadata: {e}")

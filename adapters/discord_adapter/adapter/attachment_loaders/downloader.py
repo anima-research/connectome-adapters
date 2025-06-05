@@ -48,18 +48,20 @@ class Downloader():
         metadata = []
 
         for attachment in getattr(message, "attachments", []):
-            file_extension = ""
+            file_extension = None
             if "." in attachment.filename:
                 file_extension = attachment.filename.split(".")[-1].lower()
 
             attachment_metadata = {
                 "attachment_id": str(attachment.id),
                 "attachment_type": get_attachment_type_by_extension(file_extension),
-                "file_extension": file_extension,
+                "filename": self._get_local_filename(str(attachment.id), file_extension),
                 "size": attachment.size,
+                "content_type": attachment.content_type,
+                "content": None,
+                "url": attachment.url,
                 "created_at": datetime.now(),
-                "processable": False,
-                "content": None
+                "processable": False
             }
 
             if attachment_metadata["size"] > self.max_file_size:
@@ -70,10 +72,9 @@ class Downloader():
                     attachment_metadata["attachment_type"],
                     attachment_metadata["attachment_id"]
                 )
-                local_file_path = self._get_local_file_path(
+                local_file_path = os.path.join(
                     attachment_dir,
-                    attachment.filename,
-                    attachment_metadata
+                    attachment_metadata["filename"]
                 )
 
                 if await self._download_file(attachment_dir, local_file_path, attachment):
@@ -92,26 +93,24 @@ class Downloader():
 
         return metadata
 
-    def _get_local_file_path(self,
-                             attachment_dir: str,
-                             attachment_name: str,
-                             attachment: Dict[str, Any]) -> str:
-        """Get the local file path for an attachment
+    def _get_local_filename(self,
+                            attachment_id: str,
+                            file_extension: str) -> str:
+        """Get the local file name for an attachment
 
         Args:
-            attachment_dir: The directory of the attachment
-            attachment_name: The filename of the attachment
-            attachment: The attachment object
+            attachment_id: The ID of the attachment
+            file_extension: The file extension of the attachment
 
         Returns:
-            The local file path for the attachment
+            The local file name for the attachment
         """
-        file_name = attachment["attachment_id"]
+        file_name = attachment_id
 
-        if "." in attachment_name:
-            file_name += "." + attachment["file_extension"]
+        if file_extension:
+            file_name += "." + file_extension
 
-        return os.path.join(attachment_dir, file_name)
+        return file_name
 
     async def _download_file(self,
                              attachment_dir: str,

@@ -33,19 +33,21 @@ class BaseLoader:
             return {}
 
         metadata = {
-            "attachment_type": None,
             "attachment_id": None,
-            "file_extension": None,
-            "created_at": datetime.now(),
-            "processable": False,
+            "attachment_type": None,
+            "filename": None,
             "size": int(self._get_file_size(message)),
-            "content": None
+            "content_type": None,
+            "content": None,
+            "url": None,
+            "created_at": datetime.now(),
+            "processable": False
         }
 
         if hasattr(message, "photo") and message.photo:
             metadata["attachment_type"] = "photo"
             metadata["attachment_id"] = str(message.photo.id)
-            metadata["file_extension"] = "jpg"
+            metadata["filename"] = f"{metadata['attachment_id']}.jpg"
         elif hasattr(message, "document") and message.document:
             document = message.document
             file_extension = None
@@ -58,7 +60,10 @@ class BaseLoader:
 
             metadata["attachment_type"] = get_attachment_type_by_extension(file_extension)
             metadata["attachment_id"] = str(document.id)
-            metadata["file_extension"] = file_extension
+            metadata["filename"] = f"{metadata['attachment_id']}"
+
+            if file_extension:
+                metadata["filename"] += f".{file_extension}"
 
         return metadata
 
@@ -81,22 +86,3 @@ class BaseLoader:
             return None
         except Exception:
             return None
-
-    def _get_local_file_path(self,
-                             attachment_dir: str,
-                             attachment: Dict[str, Any]) -> str:
-        """Get the local file path for an attachment
-
-        Args:
-            attachment_dir: The directory of the attachment
-            attachment: The attachment object
-
-        Returns:
-            The local file path for the attachment
-        """
-        file_name = f"{attachment['attachment_id']}"
-
-        if attachment["file_extension"]:
-            file_name += f".{attachment['file_extension']}"
-
-        return os.path.join(attachment_dir, file_name)

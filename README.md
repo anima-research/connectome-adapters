@@ -302,12 +302,13 @@ The adapter emits `conversation_started` event when a new conversation is detect
         "is_direct_message": False,
         "attachments": [
           {
-            "attachment_id": "unique_attachment_id",
-            "attachment_type": "document",
-            "file_extension": "txt",
+            "attachment_id": "unique_id",
+            "filename": "unique_id.txt",
             "size": 12345,
-            "processable": True,
-            "content": None
+            "content_type": "plain/text",
+            "content": None,
+            "url": None,
+            "processable": True
           }
         ],
         "timestamp": 1620000000000
@@ -336,12 +337,13 @@ After that, the adapter emits `message_received` event for a new message that st
     "is_direct_message": False,
     "attachments": [
       {
-        "attachment_id": "unique_attachment_id",
-        "attachment_type": "document",
-        "file_extension": "txt",
+        "attachment_id": "unique_id",
+        "filename": "unique_id.txt",
         "size": 12345,
-        "processable": True,
-        "content": "dGVzdAo="
+        "content_type": "plain/text",
+        "content": "dGVzdAo=",
+        "url": None,
+        "processable": True
       }
     ],
     "timestamp": 1620000000000
@@ -355,7 +357,7 @@ The connectome-adapters framework provides a comprehensive system for processing
 1) Incoming Attachment Processing (Platform to LLM)
 
 * Message Reception. When a platform message contains attachments, the adapter identifies all attachments and extracts their metadata regardless of size. All attachments are included in the message metadata for awareness.
-* Automatic Download. The adapter automatically downloads all attachments that are under the configured `max_file_size_mb` limit. Attachments exceeding the size limit are marked with `processable` set to False and only metadata is retained. Downloaded attachments are stored in the attachment cache.
+* Automatic Download. The adapter automatically downloads all attachments that are under the configured `max_file_size_mb` limit. Attachments exceeding the size limit are marked with `processable` set to False and only metadata is retained. Depending on platform, attachments that are marked as NOT processable may have no content type set (for example, Telegram returns no content type, so to get it we need to download a file and check its type, yet if that file is too big to download, we are unable to get its content type). Downloaded attachments are stored in the attachment cache.
 * Size Limitations. The `max_file_size_mb` configuration is critical as it determines what can be processed. This limit should be set with multiple constraints in mind: a) Socket.IO transmission capacity (all attachments are sent together, underlying protocol allows up to 16MB during one transmission), b) LLM processing capabilities (what is the max size of a single attachment that can be handled by LLM in question).
 * History Fetching. When conversation history is fetched, all valid attachments (under size limit) are downloaded. Only attachment metadata is included in message history information. File content is not included in history responses to minimize payload size, therefore, `conetnt` is always None. Later, the necessary atatchment content can be fetched with the help of `fetch_attachment` request.
 

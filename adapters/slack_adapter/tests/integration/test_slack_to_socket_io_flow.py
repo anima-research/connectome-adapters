@@ -216,7 +216,6 @@ class TestSlackToSocketIOFlowIntegration:
                     message_type="channel",
                     with_reaction=None,
                     is_pinned=False,
-                    is_deleted=False,
                     parent_ts=None):
 
             if event_type == "message":

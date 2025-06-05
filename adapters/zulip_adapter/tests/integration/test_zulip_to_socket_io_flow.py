@@ -282,11 +282,14 @@ class TestZulipToSocketIOFlowIntegration:
         adapter.incoming_events_processor.downloader.download_attachment.return_value = [{
             "attachment_id": "abc123",
             "attachment_type": "document",
-            "file_extension": "txt",
-            "created_at": datetime.now(),
+            "filename": "abc123.txt",
+            "file_path": "test_attachments/document/abc123.txt",
             "size": 12345,
-            "processable": True,
-            "content": "dGVzdAo="
+            "content_type": "text/plain",
+            "content": "dGVzdAo=",
+            "url": "https://example.com/some_file.txt",
+            "created_at": datetime.now(),
+            "processable": True
         }]
 
         event = create_zulip_event(event_type="message", message_type="private", with_attachment=True)

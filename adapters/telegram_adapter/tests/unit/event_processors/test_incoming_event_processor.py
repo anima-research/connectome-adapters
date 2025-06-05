@@ -26,8 +26,6 @@ class TestIncomingEventProcessor:
         manager.add_to_conversation = AsyncMock()
         manager.update_conversation = AsyncMock()
         manager.delete_from_conversation = AsyncMock()
-        manager.migrate_conversation = AsyncMock()
-        manager.attachment_download_required = MagicMock(return_value=False)
         return manager
 
     @pytest.fixture
@@ -115,18 +113,6 @@ class TestIncomingEventProcessor:
         @pytest.mark.asyncio
         async def test_handle_new_message(self, processor, message_event_mock, user_mock):
             """Test handling a new message with an attachment"""
-            attachment_info = {
-                "attachment_type": "document",
-                "attachment_id": "some_id",
-                "file_extension": "txt",
-                "size": 12345,
-                "processable": True,
-                "content": "dGVzdAo="
-            }
-
-            processor.downloader.download_attachment.return_value = attachment_info
-            processor.conversation_manager.attachment_download_required.return_value = True
-
             added_message = {
                 "message_id": "123",
                 "conversation_id": "456",
@@ -134,7 +120,15 @@ class TestIncomingEventProcessor:
                 "sender": {"user_id": "456", "display_name": "Test User"},
                 "timestamp": 1234567890000,
                 "thread_id": None,
-                "attachments": [attachment_info]
+                "attachments": [{
+                    "attachment_id": "some_id",
+                    "filename": "some_id.txt",
+                    "size": 12345,
+                    "content_type": "text/plain",
+                    "content": "dGVzdAo=",
+                    "url": None,
+                    "processable": True
+                }]
             }
             delta = {
                 "conversation_id": "456",

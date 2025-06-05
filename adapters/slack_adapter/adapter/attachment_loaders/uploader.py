@@ -28,6 +28,7 @@ class Uploader():
         self.download_dir = self.config.get_setting("attachments", "storage_dir")
         self.temp_dir = os.path.join(self.download_dir, "tmp_uploads")
         self.max_file_size = self.config.get_setting("attachments", "max_file_size_mb") * 1024 * 1024
+
         os.makedirs(self.temp_dir, exist_ok=True)
 
     def __del__(self):

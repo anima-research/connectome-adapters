@@ -2,12 +2,13 @@ import aiohttp
 import asyncio
 import base64
 import logging
+import magic
 import os
 import re
 import time
 
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 
 from adapters.zulip_adapter.adapter.attachment_loaders.base_loader import BaseLoader
 from core.utils.attachment_loading import (
@@ -44,23 +45,27 @@ class Downloader(BaseLoader):
         Returns:
             List of dictionaries with attachment metadata, empty list if no attachments
         """
-        attachments_metadata = await self._get_attachment_metadata(message)
-        result_metadata = []
+        attachments_metadata = []
 
-        if not attachments_metadata:
-            return []
+        for filename, file_path in self._get_attachments_list(message):
+            metadata = self._get_initial_metadata(filename, file_path)
 
-        for metadata in attachments_metadata:
-            attachment_dir = os.path.join(self.download_dir, metadata["attachment_type"], metadata["attachment_id"])
-            local_file_path = self._get_local_file_path(attachment_dir, metadata)
+            attachment_dir = os.path.join(
+                self.download_dir,
+                metadata["attachment_type"],
+                metadata["attachment_id"]
+            )
+            local_file_path = os.path.join(attachment_dir, metadata["filename"])
 
             if not os.path.exists(local_file_path):
                 create_attachment_dir(attachment_dir)
-                await self._download_file(metadata, local_file_path)
+                await self._download_file(metadata["url"], local_file_path)
             else:
                 logging.info(f"Skipping download for {local_file_path} because it already exists")
 
             metadata["size"] = os.path.getsize(local_file_path)
+            mime = magic.Magic(mime=True)
+            metadata["content_type"] = mime.from_file(local_file_path)
 
             if metadata["size"] <= self.max_file_size:
                 metadata["processable"] = True
@@ -74,18 +79,18 @@ class Downloader(BaseLoader):
                     except Exception as e:
                         logging.error(f"Error reading file {local_file_path}: {e}")
 
-            result_metadata.append(metadata)
+            attachments_metadata.append(metadata)
 
-        return result_metadata
+        return attachments_metadata
 
-    async def _get_attachment_metadata(self, message: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _get_attachments_list(self, message: Dict[str, Any]) -> List[Tuple[str, str]]:
         """Extract attachment information from a Zulip message
 
         Args:
             message: Zulip message object
 
         Returns:
-            List of attachment metadata dictionaries, empty list if no attachments
+            List of attachment filenames and file_paths, empty list if no attachments
         """
         if not message or "content" not in message:
             return []
@@ -97,66 +102,86 @@ class Downloader(BaseLoader):
             filename = match.group(1)
             file_path = match.group(2)
 
-            if not file_path or not filename:
-                continue
-
-            file_extension = os.path.splitext(filename)[1].lower().lstrip(".")
-            if not file_extension:
-                file_extension = None
-
-            attachment_id = self._generate_attachment_id(file_path)
-            metadata = {
-                "attachment_type": get_attachment_type_by_extension(file_extension),
-                "attachment_id": attachment_id,
-                "file_name": filename,
-                "file_extension": file_extension,
-                "file_path": file_path,
-                "created_at": datetime.now(),
-                "size": None,  # Size isn't available until after download,
-                "processable": False,
-                "content": None
-            }
-
-            attachments.append(metadata)
+            if filename and file_path:
+                attachments.append((filename, file_path))
 
         return attachments
 
-    def _get_local_file_path(self,
-                             attachment_dir: str,
-                             attachment: Dict[str, Any]) -> str:
-        """Get the local file path for an attachment
+    def _get_local_filename(self,
+                            attachment_id: str,
+                            file_extension: Optional[str] = None) -> str:
+        """Get the local file name for an attachment
 
         Args:
-            attachment_dir: The directory of the attachment
-            attachment: The attachment object
+            attachment_id: The ID of the attachment
+            file_extension: The file extension of the attachment
 
         Returns:
-            The local file path for the attachment
+            The local file name for the attachment
         """
-        file_name = attachment["attachment_id"]
+        file_name = attachment_id
 
-        if attachment["file_extension"]:
-            file_name += "." + attachment["file_extension"]
+        if file_extension:
+            file_name += "." + file_extension
 
-        return os.path.join(attachment_dir, file_name)
+        return file_name
 
-    async def _download_file(self, metadata: Dict[str, Any], file_path: str) -> bool:
+    def _get_download_url(self, file_path: str) -> str:
+        """Get the download URL for an attachment
+
+        Args:
+            file_path: The file path of the attachment
+
+        Returns:
+            Download URL
+        """
+        api_key = self._get_api_key()
+        url = f"{self.zulip_site}{file_path}"
+        return url + ("?" if "?" not in url else "&") + f"api_key={api_key}"
+
+    def _get_initial_metadata(self, filename: str, file_path: str) -> Dict[str, Any]:
+        """Get the initial metadata for an attachment
+
+        Args:
+            filename: The filename of the attachment
+            file_path: The file path of the attachment
+
+        Returns:
+            Initial metadata for the attachment (size, content type)
+        """
+        attachment_id = self._generate_attachment_id(file_path)
+
+        file_extension = os.path.splitext(filename)[1].lower().lstrip(".")
+        if not file_extension:
+            file_extension = None
+
+        return {
+            "attachment_id": attachment_id,
+            "attachment_type": get_attachment_type_by_extension(file_extension),
+            "filename": self._get_local_filename(attachment_id, file_extension),
+            "file_path": file_path,
+            "size": None,  # Size isn't available until after download,
+            "content_type": None, # Content type isn't available until after download
+            "content": None,
+            "url": self._get_download_url(file_path),
+            "created_at": datetime.now(),
+            "processable": False
+        }
+
+    async def _download_file(self, download_url: str, file_path: str) -> None:
         """Download a file using standard download method
 
         Args:
-            metadata: Attachment metadata
+            download_url: The URL to download the file from
             file_path: Path to save the file
-
-        Returns:
-            True if download was successful, False otherwise
         """
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get(self._get_download_url(metadata), timeout=30) as response:
+                async with session.get(download_url, timeout=30) as response:
                     if response.status != 200:
                         content = await response.text()
                         logging.error(f"Download failed: HTTP {response.status}, Response: {content[:200]}")
-                        return False
+                        return
 
                     with open(file_path, "wb") as f:
                         while True:
@@ -167,23 +192,10 @@ class Downloader(BaseLoader):
 
             if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
                 logging.info(f"Downloaded file successfully: {os.path.getsize(file_path)/1024:.2f} KB")
-                return True
+                return
 
             logging.error("Download appeared to succeed but file is empty or missing")
-            return False
+            return
         except Exception as e:
             logging.error(f"Error downloading file: {e}", exc_info=True)
-            return False
-
-    def _get_download_url(self, metadata: Dict[str, Any]) -> str:
-        """Get the download URL for an attachment
-
-        Args:
-            metadata: Attachment metadata
-
-        Returns:
-            Download URL
-        """
-        api_key = self._get_api_key()
-        url = f"{self.zulip_site}{metadata['file_path']}"
-        return url + ("?" if "?" not in url else "&") + f"api_key={api_key}"
+            return

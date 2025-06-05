@@ -267,7 +267,7 @@ class Manager(BaseManager):
         message_id = None
         timestamp = int(datetime.now().timestamp())
 
-        if hasattr(message, 'reply_to') and message.reply_to:
+        if hasattr(message, "reply_to") and message.reply_to:
             message_id = str(message.reply_to.reply_to_msg_id)
             timestamp = int(getattr(message, "date", datetime.now()).timestamp())
         elif isinstance(message, dict):
@@ -290,7 +290,7 @@ class Manager(BaseManager):
             conversation_info: Conversation info object
         """
         message_id = None
-        if hasattr(message, 'messages') and message.messages:
+        if hasattr(message, "messages") and message.messages:
             message_id = str(message.messages[0])
         elif isinstance(message, dict):
             message_id = message.get("message_id", None)

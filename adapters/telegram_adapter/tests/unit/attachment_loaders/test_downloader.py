@@ -60,47 +60,31 @@ class TestDownloader:
         message.document = None
         return message
 
-    @pytest.fixture
-    def mock_large_file_message(self):
-        """Create a mock message with a large file attachment"""
-        message = MagicMock()
-        message.id = "789"
-        document = MagicMock()
-        document.id = "large123"
-        document.size = 60 * 1024 * 1024  # 60 MB, above threshold
-        attr = MagicMock()
-        attr.file_name = "large.mp4"
-        document.attributes = [attr]
-        message.document = document
-        message.photo = None
-        message.media = MagicMock()
-        return message
+    @pytest.mark.asyncio
+    async def test_download_file(self, downloader, mock_standard_file_message):
+        """Test downloading a standard file"""
+        metadata = {
+            "attachment_id": "photo789",
+            "attachment_type": "photo",
+            "filename": "photo789.jpg",
+            "size": 12345,
+            "content_type": "image/jpeg",
+            "content": None,
+            "url": None,
+            "created_at": datetime.now(),
+            "processable": True
+        }
 
-    class TestDownloadAttachment:
-        """Tests for the download_attachment method"""
+        with patch.object(downloader, "_get_attachment_metadata", return_value=metadata):
+            with patch("os.path.exists", return_value=False):  # File doesn't exist
+                with patch("core.utils.attachment_loading.create_attachment_dir"):
+                    with patch("magic.Magic") as mock_magic:
+                        mock_magic_instance = mock_magic.return_value
+                        mock_magic_instance.from_file.return_value = "image/jpeg"
 
-        @pytest.mark.asyncio
-        async def test_download_file(self, downloader, mock_standard_file_message):
-            """Test downloading a standard file"""
-            metadata = {
-                "attachment_id": "photo789",
-                "attachment_type": "photo",
-                "file_extension": "jpg",
-                "created_at": datetime.now(),
-                "size": 12345,
-                "processable": True,
-                "content": None
-            }
-            file_path = "/fake/path/photo/photo789/photo789.jpg"
+                        with patch("core.utils.attachment_loading.save_metadata_file"):
+                            result = await downloader.download_attachment(mock_standard_file_message)
 
-            with patch.object(downloader, "_get_attachment_metadata", return_value=metadata):
-                with patch("os.path.join", return_value=file_path):
-                    with patch("os.path.exists", return_value=False):  # File doesn't exist
-                        with patch("core.utils.attachment_loading.create_attachment_dir"):
-                            with patch.object(downloader, "_download_file") as mock_download:
-                                with patch("core.utils.attachment_loading.save_metadata_file"):
-                                    result = await downloader.download_attachment(mock_standard_file_message)
-
-                                    assert result["attachment_id"] == "photo789"
-                                    assert result["processable"] == True
-                                    mock_download.assert_called_once()
+                            assert result["attachment_id"] == "photo789"
+                            assert result["processable"] == True
+                            downloader.client.download_media.assert_called_once()

@@ -212,12 +212,12 @@ class TestManager:
         """Create a mock attachment"""
         return {
             "attachment_id": "F12345678",
-            "attachment_type": "document",
-            "file_extension": "txt",
-            "created_at": datetime.now().isoformat(),
-            "processable": True,
+            "filename": "F12345678.txt",
+            "size": 12345,
+            "content_type": "text/plain",
             "content": "dGVzdAo=",
-            "size": 12345
+            "url": "https://slack.com/files/F12345678",
+            "processable": True
         }
 
     class TestGetOrCreateConversation:
@@ -439,6 +439,9 @@ class TestManager:
         @pytest.mark.asyncio
         async def test_update_attachment(self, manager, attachment_mock):
             """Test updating attachment info in conversation info"""
+            attachment_mock["attachment_type"] = "document"
+            attachment_mock["created_at"] = datetime.now()
+
             conversation_info = ConversationInfo(
                 conversation_id="T12345678/C87654321",
                 conversation_type="channel"
@@ -454,7 +457,12 @@ class TestManager:
 
             assert len(result) == 1
             assert result[0]["attachment_id"] == attachment_mock["attachment_id"]
-            assert result[0]["attachment_type"] == attachment_mock["attachment_type"]
+            assert result[0]["filename"] == attachment_mock["filename"]
+            assert result[0]["size"] == attachment_mock["size"]
+            assert result[0]["content_type"] == attachment_mock["content_type"]
+            assert result[0]["url"] == attachment_mock["url"]
+            assert "attachment_type" not in result[0]
+            assert "created_at" not in result[0]
             assert "F12345678" in conversation_info.attachments
             manager.attachment_cache.add_attachment.assert_called_once_with(
                 "T12345678/C87654321", attachment_mock

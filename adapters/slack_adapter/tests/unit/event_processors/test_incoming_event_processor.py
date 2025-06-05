@@ -22,10 +22,10 @@ class TestIncomingEventProcessor:
     def conversation_manager_mock(self):
         """Create a mocked conversation manager"""
         manager = AsyncMock()
-        manager.add_to_conversation = AsyncMock()
-        manager.update_conversation = AsyncMock()
-        manager.delete_from_conversation = AsyncMock()
-        manager.get_conversation = AsyncMock()
+        manager.add_to_conversation = AsyncMock(return_value=None)
+        manager.update_conversation = AsyncMock(return_value=None)
+        manager.delete_from_conversation = AsyncMock(return_value=None)
+        manager.get_conversation = AsyncMock(return_value=None)
         return manager
 
     @pytest.fixture

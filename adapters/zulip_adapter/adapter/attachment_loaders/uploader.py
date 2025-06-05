@@ -2,7 +2,7 @@ import aiohttp
 import asyncio
 import base64
 import logging
-import mimetypes
+import magic
 import os
 import shutil
 
@@ -82,7 +82,8 @@ class Uploader(BaseLoader):
             Upload result dictionary
         """
         file_name = os.path.basename(file_path)
-        mime_type = self._get_mime_type(file_path)
+        mime = magic.Magic(mime=True)
+        mime_type = mime.from_file(file_path)
 
         api_key = self._get_api_key()
         email = self.config.get_setting("adapter", "adapter_email")
@@ -105,20 +106,6 @@ class Uploader(BaseLoader):
         except Exception as e:
             logging.error(f"Error in manual upload: {e}", exc_info=True)
             return {}
-
-    def _get_mime_type(self, file_path: str) -> str:
-        """Get the MIME type of a file
-
-        Args:
-            file_path: Path to the file
-
-        Returns:
-            MIME type string
-        """
-        mime_type, _ = mimetypes.guess_type(file_path)
-        if not mime_type:
-            return "application/octet-stream"
-        return mime_type
 
     def _clean_up_uploaded_file(self, old_path: str, zulip_uri: str) -> None:
         """Clean up a file after it has been uploaded to Zulip

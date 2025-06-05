@@ -26,7 +26,7 @@ class TestIncomingFileProcessor:
     def mock_adapter(self):
         """Create a mock Slack adapter"""
         adapter = AsyncMock()
-        adapter.process_incoming_event = AsyncMock()
+        adapter.process_incoming_event = AsyncMock(return_value=None)
         return adapter
 
     @pytest.fixture
@@ -55,6 +55,7 @@ class TestIncomingFileProcessor:
                     "id": "F123456",
                     "name": "test.pdf",
                     "size": 5000,
+                    "mimetype": "application/pdf",
                     "url_private": "https://slack.com/files/test.pdf",
                     "url_private_download": "https://slack.com/files/download/test.pdf"
                 }
@@ -76,6 +77,7 @@ class TestIncomingFileProcessor:
                     "id": "F789012",
                     "name": "test.mp4",
                     "size": 5000000,
+                    "mimetype": "video/mp4",
                     "url_private": "https://slack.com/files/test.mp4",
                     "url_private_download": "https://slack.com/files/download/test.mp4",
                     "subtype": "slack_video",
@@ -95,6 +97,7 @@ class TestIncomingFileProcessor:
             "id": "F789012",
             "name": "test.mp4",
             "size": 5000000,
+            "mimetype": "video/mp4",
             "url_private": "https://slack.com/files/test.mp4",
             "url_private_download": "https://slack.com/files/download/test.mp4",
             "subtype": "slack_video",

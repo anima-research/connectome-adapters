@@ -147,10 +147,12 @@ class TestManager:
         """Create a mock attachment"""
         return {
             "attachment_id": "abc123",
-            "attachment_type": "image",
-            "file_extension": "jpg",
-            "file_path": "image/abc123/abc123.jpg",
-            "size": 12345
+            "filename": "abc123.jpg",
+            "content_type": "image/jpeg",
+            "content": None,
+            "url": "https://discord.com/attachments/abc123.jpg",
+            "size": 12345,
+            "processable": True
         }
 
     class TestGetOrCreateConversation:

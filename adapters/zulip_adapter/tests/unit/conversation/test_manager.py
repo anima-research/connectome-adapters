@@ -156,10 +156,12 @@ class TestManager:
             """Create a mock attachment"""
             return {
                 "attachment_id": "abc123",
-                "attachment_type": "image",
-                "file_extension": "jpg",
-                "file_path": "image/abc123/abc123.jpg",
-                "size": 12345
+                "filename": "abc123.jpg",
+                "size": 12345,
+                "content_type": "image/jpeg",
+                "content": "test content",
+                "url": "https://zulip.com/user_uploads/1/ab/abc123/test.jpg",
+                "processable": True
             }
 
         @pytest.mark.asyncio

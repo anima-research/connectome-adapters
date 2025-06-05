@@ -14,22 +14,18 @@ class CachedAttachment:
     """Information about a cached Telegram attachment"""
     attachment_id: str
     attachment_type: str
+    filename: str
+    content_type: str
     size: int
     processable: bool = False
     created_at: datetime = field(default_factory=datetime.now)
     conversations: Set[str] = field(default_factory=set)  # Set of conversation IDs where this appears
-    file_extension: Optional[str] = None
+    url: Optional[str] = None
 
     @property
     def file_path(self) -> str:
         """Get the full path to the attachment file"""
-        if self.file_extension:
-            return os.path.join(
-                self.attachment_type,
-                self.attachment_id,
-                f"{self.attachment_id}.{self.file_extension}"
-            )
-        return os.path.join(self.attachment_type, self.attachment_id, self.attachment_id)
+        return os.path.join(self.attachment_type, self.attachment_id, self.filename)
 
     @property
     def metadata_path(self) -> str:
@@ -83,12 +79,14 @@ class AttachmentCache:
                     cached_attachment = CachedAttachment(
                         attachment_id=metadata.get("attachment_id"),
                         attachment_type=metadata.get("attachment_type"),
+                        filename=metadata.get("filename"),
+                        content_type=metadata.get("content_type"),
                         created_at=datetime.fromisoformat(
                             metadata.get("created_at", datetime.now().isoformat())
                         ),
-                        file_extension=metadata.get("file_extension"),
                         size=metadata.get("size"),
-                        processable=metadata.get("processable", True)
+                        processable=metadata.get("processable", True),
+                        url=metadata.get("url", None)
                     )
 
                     cached_attachment.conversations = set()
@@ -168,10 +166,12 @@ class AttachmentCache:
                 self.attachments[attachment_info["attachment_id"]] = CachedAttachment(
                     attachment_id=attachment_info["attachment_id"],
                     attachment_type=attachment_info["attachment_type"],
+                    filename=attachment_info["filename"],
+                    content_type=attachment_info["content_type"],
                     created_at=attachment_info["created_at"],
-                    file_extension=attachment_info["file_extension"],
                     size=attachment_info["size"],
-                    processable=attachment_info["processable"]
+                    processable=attachment_info["processable"],
+                    url=attachment_info.get("url", None)
                 )
 
             self.attachments[attachment_info["attachment_id"]].conversations.add(conversation_id)

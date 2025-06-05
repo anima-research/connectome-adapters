@@ -2,7 +2,7 @@ import json
 import os
 import pytest
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch, mock_open
+from unittest.mock import AsyncMock, MagicMock, mock_open
 
 from adapters.telegram_adapter.adapter.attachment_loaders.base_loader import BaseLoader
 
@@ -10,14 +10,9 @@ class TestBaseLoader:
     """Tests for the BaseLoader class"""
 
     @pytest.fixture
-    def client_mock(self):
-        """Create a mocked Telethon client"""
-        return AsyncMock()
-
-    @pytest.fixture
-    def base_loader(self, client_mock, patch_config):
+    def base_loader(self, patch_config):
         """Create a BaseLoader with mocked dependencies"""
-        yield BaseLoader(patch_config, client_mock)
+        yield BaseLoader(patch_config, AsyncMock())
 
     @pytest.fixture
     def mock_photo_message(self):
@@ -60,49 +55,41 @@ class TestBaseLoader:
         message.photo = None
         return message
 
-    class TestAttachmentMetadataDetection:
-        """Tests for attachment metadata extraction"""
+    @pytest.mark.asyncio
+    async def test_get_attachment_metadata_photo(self, base_loader, mock_photo_message):
+        """Test extracting metadata from a photo message"""
+        metadata = await base_loader._get_attachment_metadata(mock_photo_message)
 
-        @pytest.mark.asyncio
-        async def test_get_attachment_metadata_photo(self, base_loader, mock_photo_message):
-            """Test extracting metadata from a photo message"""
-            metadata = await base_loader._get_attachment_metadata(mock_photo_message)
+        assert metadata["attachment_type"] == "photo"
+        assert metadata["attachment_id"] == "photo789"
+        assert metadata["filename"] == "photo789.jpg"
+        assert metadata["size"] == 12345
+        assert "created_at" in metadata
 
-            assert metadata["attachment_type"] == "photo"
-            assert metadata["attachment_id"] == "photo789"
-            assert metadata["file_extension"] == "jpg"
-            assert metadata["size"] == 12345
-            assert "created_at" in metadata
+    @pytest.mark.asyncio
+    async def test_get_attachment_metadata_document(self, base_loader, mock_document_message):
+        """Test extracting metadata from a document message"""
+        metadata = await base_loader._get_attachment_metadata(mock_document_message)
 
-        @pytest.mark.asyncio
-        async def test_get_attachment_metadata_document(self, base_loader, mock_document_message):
-            """Test extracting metadata from a document message"""
-            metadata = await base_loader._get_attachment_metadata(mock_document_message)
+        assert metadata["attachment_type"] == "document"  # pdf -> document type
+        assert metadata["attachment_id"] == "doc789"
+        assert metadata["filename"] == "doc789.pdf"
+        assert metadata["size"] == 98765
+        assert "created_at" in metadata
 
-            assert metadata["attachment_type"] == "document"  # pdf -> document type
-            assert metadata["attachment_id"] == "doc789"
-            assert metadata["file_extension"] == "pdf"
-            assert metadata["size"] == 98765
-            assert "created_at" in metadata
+    @pytest.mark.asyncio
+    async def test_get_attachment_metadata_no_media(self, base_loader, mock_message_without_media):
+        """Test handling a message without media"""
+        assert await base_loader._get_attachment_metadata(mock_message_without_media) == {}
 
-        @pytest.mark.asyncio
-        async def test_get_attachment_metadata_no_media(self, base_loader, mock_message_without_media):
-            """Test handling a message without media"""
-            metadata = await base_loader._get_attachment_metadata(mock_message_without_media)
+    def test_get_file_size_photo(self, base_loader, mock_photo_message):
+        """Test getting file size from a photo message"""
+        assert base_loader._get_file_size(mock_photo_message) == 12345
 
-            assert metadata == {}  # Should return empty dict
+    def test_get_file_size_document(self, base_loader, mock_document_message):
+        """Test getting file size from a document message"""
+        assert base_loader._get_file_size(mock_document_message) == 98765
 
-        def test_get_file_size_photo(self, base_loader, mock_photo_message):
-            """Test getting file size from a photo message"""
-            size = base_loader._get_file_size(mock_photo_message)
-            assert size == 12345
-
-        def test_get_file_size_document(self, base_loader, mock_document_message):
-            """Test getting file size from a document message"""
-            size = base_loader._get_file_size(mock_document_message)
-            assert size == 98765
-
-        def test_get_file_size_no_media(self, base_loader, mock_message_without_media):
-            """Test getting file size from a message without media"""
-            size = base_loader._get_file_size(mock_message_without_media)
-            assert size is None
+    def test_get_file_size_no_media(self, base_loader, mock_message_without_media):
+        """Test getting file size from a message without media"""
+        assert base_loader._get_file_size(mock_message_without_media) is None

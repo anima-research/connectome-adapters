@@ -10,11 +10,12 @@ class SenderInfo(BaseModel):
 class IncomingAttachmentInfo(BaseModel):
     """Model for attachment information"""
     attachment_id: str
-    attachment_type: str
+    filename: str
     size: int
     processable: bool
-    file_extension: Optional[str] = None
+    content_type: Optional[str] = None
     content: Optional[str] = None
+    url: Optional[str] = None
 
 # Data models for incoming events
 class BaseIncomingData(BaseModel):

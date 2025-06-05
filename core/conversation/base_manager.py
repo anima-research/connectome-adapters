@@ -64,11 +64,12 @@ class BaseManager(ABC):
                 if cached_attachment:
                     msg_dict["attachments"].append({
                         "attachment_id": cached_attachment.attachment_id,
-                        "attachment_type": cached_attachment.attachment_type,
-                        "file_extension": cached_attachment.file_extension,
+                        "filename": cached_attachment.filename,
+                        "content_type": cached_attachment.content_type,
                         "content": None,
                         "size": cached_attachment.size,
-                        "processable": cached_attachment.processable
+                        "processable": cached_attachment.processable,
+                        "url": cached_attachment.url
                     })
 
             result.append(msg_dict)
@@ -238,11 +239,12 @@ class BaseManager(ABC):
             conversation_info.attachments.add(attachment["attachment_id"])
             result.append({
                 "attachment_id": attachment["attachment_id"],
-                "attachment_type": attachment["attachment_type"],
-                "file_extension": attachment["file_extension"],
+                "filename": attachment["filename"],
+                "content_type": attachment["content_type"],
                 "content": attachment["content"],
                 "size": attachment["size"],
-                "processable": attachment["processable"]
+                "processable": attachment["processable"],
+                "url": attachment["url"]
             })
 
         return result

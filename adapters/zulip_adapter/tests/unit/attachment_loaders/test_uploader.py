@@ -32,118 +32,92 @@ class TestUploader:
         }
 
     @pytest.fixture
-    def zulip_upload_response(self):
+    def mock_upload_response(self, expected_uri="/user_uploads/1/ab/xyz123/document.pdf"):
         """Create a mock Zulip upload response"""
-        return {
-            "uri": "/user_uploads/1/ab/xyz123/test.pdf",
-            "id": 12345
-        }
+        class MockResponse:
+            status = 200
 
-    class TestUploadFile:
-        """Tests for the _upload_file method"""
+            async def json(self):
+                return {"uri": expected_uri}
 
-        @pytest.fixture
-        def mock_upload_response(self, expected_uri="/user_uploads/1/ab/xyz123/document.pdf"):
-            """Create a mock Zulip upload response"""
-            class MockResponse:
-                status = 200
+            async def text(self):
+                return "Test response text"
 
-                async def json(self):
-                    return {"uri": expected_uri}
+            async def __aenter__(self):
+                return self
 
-                async def text(self):
-                    return "Test response text"
+            async def __aexit__(self, *args):
+                pass
 
-                async def __aenter__(self):
-                    return self
+        return MockResponse()
 
-                async def __aexit__(self, *args):
-                    pass
+    @pytest.fixture
+    def session_mock(self, mock_upload_response):
+        """Create a mocked Zulip session"""
+        class MockSession:
+            def __init__(self):
+                self.post_called = False
+                self.post_args = None
+                self.post_kwargs = None
 
-            return MockResponse()
+            async def __aenter__(self):
+                return self
 
-        @pytest.fixture
-        def session_mock(self, mock_upload_response):
-            """Create a mocked Zulip session"""
-            class MockSession:
-                def __init__(self):
-                    self.post_called = False
-                    self.post_args = None
-                    self.post_kwargs = None
+            async def __aexit__(self, *args):
+                pass
 
-                async def __aenter__(self):
-                    return self
+            def post(self, *args, **kwargs):
+                self.post_called = True
+                self.post_args = args
+                self.post_kwargs = kwargs
+                return mock_upload_response
 
-                async def __aexit__(self, *args):
-                    pass
+        return MockSession()
 
-                def post(self, *args, **kwargs):
-                    self.post_called = True
-                    self.post_args = args
-                    self.post_kwargs = kwargs
-                    return mock_upload_response
+    @pytest.fixture
+    def mock_magic_instance(self):
+        """Create a Downloader with mocked dependencies"""
+        mock_magic = MagicMock()
+        mock_magic.from_file.return_value = "application/pdf"
+        return mock_magic
 
-            return MockSession()
+    @pytest.mark.asyncio
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning")
+    async def test_upload_file_success(self, uploader, session_mock, mock_magic_instance):
+        """Test successful file upload"""
+        file_path = "/test/path/document.pdf"
 
-        @pytest.mark.asyncio
-        @pytest.mark.filterwarnings("ignore::RuntimeWarning")
-        async def test_upload_file_success(self, uploader, session_mock):
-            """Test successful file upload"""
-            file_path = "/test/path/document.pdf"
+        with patch("aiohttp.ClientSession", return_value=session_mock):
+            with patch("builtins.open", mock_open(read_data=b"test file content")):
+                with patch("aiohttp.FormData", return_value=MagicMock()):
+                    with patch("aiohttp.BasicAuth", return_value=MagicMock()):
+                        with patch("magic.Magic", return_value=mock_magic_instance):
+                            with patch.object(uploader, "_get_api_key", return_value="test_api_key"):
+                                result = await uploader._upload_file(file_path)
 
-            with patch("aiohttp.ClientSession", return_value=session_mock):
-                with patch("builtins.open", mock_open(read_data=b"test file content")):
-                    with patch("aiohttp.FormData", return_value=MagicMock()):
-                        with patch("aiohttp.BasicAuth", return_value=MagicMock()):
-                            with patch.object(uploader, "_get_mime_type", return_value="application/pdf"):
-                                with patch.object(uploader, "_get_api_key", return_value="test_api_key"):
-                                    result = await uploader._upload_file(file_path)
+                                assert "uri" in result
+                                assert "document.pdf" in result["uri"]
 
-                                    assert "uri" in result
-                                    assert "document.pdf" in result["uri"]
+                                assert session_mock.post_called, "session.post was not called"
+                                assert session_mock.post_args[0].endswith("/api/v1/user_uploads"), \
+                                    f"Unexpected URL: {session_mock.post_args[0]}"
+                                assert "auth" in session_mock.post_kwargs, "auth parameter missing"
+                                assert "data" in session_mock.post_kwargs, "data parameter missing"
 
-                                    assert session_mock.post_called, "session.post was not called"
-                                    assert session_mock.post_args[0].endswith("/api/v1/user_uploads"), \
-                                        f"Unexpected URL: {session_mock.post_args[0]}"
-                                    assert "auth" in session_mock.post_kwargs, "auth parameter missing"
-                                    assert "data" in session_mock.post_kwargs, "data parameter missing"
+    @pytest.mark.asyncio
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning")
+    async def test_upload_file_exception(self, uploader, mock_magic_instance):
+        """Test handling exception during upload"""
+        file_path = "/test/path/document.pdf"
 
-        @pytest.mark.asyncio
-        @pytest.mark.filterwarnings("ignore::RuntimeWarning")
-        async def test_upload_file_exception(self, uploader):
-            """Test handling exception during upload"""
-            file_path = "/test/path/document.pdf"
+        session_mock = AsyncMock()
+        session_mock.__aenter__.return_value = session_mock
+        session_mock.post.side_effect = Exception("Connection error")
 
-            session_mock = AsyncMock()
-            session_mock.__aenter__.return_value = session_mock
-            session_mock.post.side_effect = Exception("Connection error")
-
-            with patch("aiohttp.ClientSession", return_value=session_mock):
-                with patch("builtins.open", mock_open(read_data=b'test file content')):
-                    with patch.object(uploader, "_get_mime_type", return_value="application/pdf"):
-                        with patch.object(logging, "error") as mock_log:
-                            assert await uploader._upload_file(file_path) == {}
-                            assert mock_log.called
-                            assert "Error in manual upload" in mock_log.call_args[0][0]
-
-    class TestMimeType:
-        """Tests for MIME type detection"""
-
-        def test_get_mime_type_known(self, uploader):
-            """Test getting MIME type for known file extensions"""
-            test_cases = [
-                ("/path/to/file.pdf", "application/pdf"),
-                ("/path/to/image.jpg", "image/jpeg"),
-                ("/path/to/text.txt", "text/plain")
-            ]
-
-            for file_path, expected_mime in test_cases:
-                with patch("mimetypes.guess_type", return_value=(expected_mime, None)):
-                    result = uploader._get_mime_type(file_path)
-                    assert result == expected_mime
-
-        def test_get_mime_type_unknown(self, uploader):
-            """Test getting MIME type for unknown file extensions"""
-            with patch("mimetypes.guess_type", return_value=(None, None)):
-                result = uploader._get_mime_type("/path/to/unknown.xyz")
-                assert result == "application/octet-stream"
+        with patch("aiohttp.ClientSession", return_value=session_mock):
+            with patch("builtins.open", mock_open(read_data=b'test file content')):
+                with patch("magic.Magic", return_value=mock_magic_instance):
+                    with patch.object(logging, "error") as mock_log:
+                        assert await uploader._upload_file(file_path) == {}
+                        assert mock_log.called
+                        assert "Error in manual upload" in mock_log.call_args[0][0]

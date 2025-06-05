@@ -40,7 +40,7 @@ class TestOutgoingEventProcessor:
     def uploader_mock(self):
         """Create a mocked uploader"""
         uploader = AsyncMock()
-        uploader.upload_attachment = AsyncMock()
+        uploader.upload_attachment = AsyncMock(return_value=MagicMock())
         return uploader
 
     @pytest.fixture
@@ -101,17 +101,6 @@ class TestOutgoingEventProcessor:
             """Test sending a message with attachments"""
             telethon_client_mock.send_message.return_value = message_mock
             telethon_client_mock.get_entity.return_value = "entity"
-
-            attachment_info = {
-                "message": MagicMock(),
-                "attachment_id": "some_id",
-                "attachment_type": "document",
-                "file_extension": "txt",
-                "size": 12345,
-                "processable": True,
-                "content": None
-            }
-            uploader_mock.upload_attachment.return_value = attachment_info
 
             event_data = {
                 "event_type": "send_message",

@@ -101,10 +101,12 @@ class TestHistoryFetcher:
         return [
             {
                 "attachment_id": "attachment1",
-                "attachment_type": "image",
-                "file_extension": "jpg",
-                "file_path": "/path/to/image.jpg",
-                "size": 12345
+                "filename": "image.jpg",
+                "size": 12345,
+                "content_type": "image/jpeg",
+                "content": None,
+                "url": "https://zulip.com/user_uploads/1/ab/attachment1/image.jpg",
+                "processable": True
             }
         ]
 

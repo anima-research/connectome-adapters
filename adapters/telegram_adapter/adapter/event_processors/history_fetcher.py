@@ -319,9 +319,10 @@ class HistoryFetcher(BaseHistoryFetcher):
 
         return {
             "attachment_id": attachment["attachment_id"],
-            "attachment_type": attachment["attachment_type"],
-            "file_extension": attachment["file_extension"],
+            "filename": attachment["filename"],
             "size": attachment["size"],
-            "processable": attachment["processable"],
-            "content": attachment["content"]
+            "content_type": attachment["content_type"],
+            "content": attachment["content"],
+            "url": attachment["url"],
+            "processable": attachment["processable"]
         }

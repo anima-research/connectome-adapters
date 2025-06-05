@@ -26,11 +26,12 @@ class TestRequestEventBuilder:
         """Fixture for sample attachment info."""
         return {
             "attachment_id": "att_456",
-            "attachment_type": "document",
+            "filename": "test_attachment_123.txt",
             "size": 12345,
-            "processable": True,
-            "file_extension": "txt",
-            "content": None
+            "content_type": "text/plain",
+            "content": None,
+            "url": "https://example.com/test_attachment_123.txt",
+            "processable": True
         }
 
     @pytest.fixture
@@ -120,8 +121,11 @@ class TestRequestEventBuilder:
         assert len(history_item.attachments) == 1
         assert isinstance(history_item.attachments[0], IncomingAttachmentInfo)
         assert history_item.attachments[0].attachment_id == sample_attachment_info["attachment_id"]
-        assert history_item.attachments[0].attachment_type == sample_attachment_info["attachment_type"]
+        assert history_item.attachments[0].filename == sample_attachment_info["filename"]
         assert history_item.attachments[0].size == sample_attachment_info["size"]
+        assert history_item.attachments[0].content_type == sample_attachment_info["content_type"]
+        assert history_item.attachments[0].content == sample_attachment_info["content"]
+        assert history_item.attachments[0].url == sample_attachment_info["url"]
         assert history_item.attachments[0].processable == sample_attachment_info["processable"]
 
     def test_build_history_data_multiple_messages(self, request_event_builder, sample_message_data):

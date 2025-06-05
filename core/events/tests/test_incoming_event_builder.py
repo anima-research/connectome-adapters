@@ -24,11 +24,12 @@ class TestIncomingEventBuilder:
         """Fixture for a sample attachment."""
         return {
             "attachment_id": "test_attachment_123",
-            "attachment_type": "document",
-            "file_extension": "txt",
+            "filename": "test_attachment_123.txt",
             "size": 12345,
-            "processable": True,
-            "content": "base64encodedcontent"
+            "content_type": "text/plain",
+            "content": "base64encodedcontent",
+            "url": "https://example.com/test_attachment_123.txt",
+            "processable": True
         }
 
     @pytest.fixture
@@ -117,7 +118,12 @@ class TestIncomingEventBuilder:
 
         attachment = event["data"]["attachments"][0]
         assert attachment["attachment_id"] == sample_attachment["attachment_id"]
-        assert attachment["attachment_type"] == sample_attachment["attachment_type"]
+        assert attachment["filename"] == sample_attachment["filename"]
+        assert attachment["size"] == sample_attachment["size"]
+        assert attachment["content_type"] == sample_attachment["content_type"]
+        assert attachment["content"] == sample_attachment["content"]
+        assert attachment["url"] == sample_attachment["url"]
+        assert attachment["processable"] == sample_attachment["processable"]
 
     def test_message_deleted(self, event_builder):
         """Test message_deleted event creation."""
@@ -283,9 +289,11 @@ class TestIncomingEventBuilder:
         minimal_attachment = {
             "attachment_id": "test_attachment_123",
             "attachment_type": "image",
+            "filename": "test_attachment_123.jpg",
             "size": 12345,
+            "content_type": "image/jpeg",
             "processable": True
-            # Missing optional fields: file_extension, content
+            # Missing optional fields: url, content
         }
 
         message_delta = {
@@ -307,8 +315,9 @@ class TestIncomingEventBuilder:
         # Verify attachment fields
         attachment = event["data"]["attachments"][0]
         assert attachment["attachment_id"] == minimal_attachment["attachment_id"]
-        assert attachment["attachment_type"] == minimal_attachment["attachment_type"]
+        assert attachment["filename"] == minimal_attachment["filename"]
         assert attachment["size"] == minimal_attachment["size"]
+        assert attachment["content_type"] == minimal_attachment["content_type"]
         assert attachment["processable"] == minimal_attachment["processable"]
-        assert attachment["file_extension"] is None
+        assert attachment["url"] is None
         assert attachment["content"] is None

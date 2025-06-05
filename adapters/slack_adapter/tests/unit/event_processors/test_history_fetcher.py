@@ -58,7 +58,7 @@ class TestHistoryFetcher:
                     "name": "test.jpg",
                     "url_private": "https://files.slack.com/files-pri/T123456/test.jpg",
                     "size": 12345,
-                    "filetype": "jpg"
+                    "mimetype": "image/jpeg"
                 }
             ]
         }
@@ -102,10 +102,12 @@ class TestHistoryFetcher:
         return [
             {
                 "attachment_id": "F987654",
-                "attachment_type": "image",
-                "file_extension": "jpg",
-                "file_path": "test_attachments/image/F987654/test.jpg",
-                "size": 12345
+                "filename": "test.jpg",
+                "size": 12345,
+                "content_type": "image/jpeg",
+                "content": None,
+                "url": "https://files.slack.com/files-pri/T123456/test.jpg",
+                "processable": True
             }
         ]
 
@@ -126,7 +128,9 @@ class TestHistoryFetcher:
                 "text": mock_slack_message_with_attachment["text"],
                 "thread_id": None,
                 "timestamp": int(float(mock_slack_message_with_attachment["ts"])),
-                "attachments": mock_attachments
+                "attachments": mock_attachments,
+                "is_direct_message": False,
+                "mentions": []
             },
             {
                 "message_id": mock_slack_message_reply["ts"],
@@ -138,7 +142,9 @@ class TestHistoryFetcher:
                 "text": mock_slack_message_reply["text"],
                 "thread_id": mock_slack_message_reply["thread_ts"],
                 "timestamp": int(float(mock_slack_message_reply["ts"])),
-                "attachments": []
+                "attachments": [],
+                "is_direct_message": False,
+                "mentions": []
             }
         ]
 
@@ -407,6 +413,5 @@ class TestHistoryFetcher:
         """Test error handling in _fetch_from_api"""
         fetcher = history_fetcher("T123456/C987654321", before=1609504300)
 
-        with patch.object(fetcher, "_fetch_history_in_batches",
-                          side_effect=Exception("Test error")):
+        with patch.object(fetcher, "_fetch_history_in_batches", side_effect=Exception("Test error")):
             assert await fetcher._fetch_from_api() == []

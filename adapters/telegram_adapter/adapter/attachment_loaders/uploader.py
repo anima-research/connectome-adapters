@@ -1,12 +1,11 @@
 import asyncio
 import base64
 import logging
+import magic
 import os
 import shutil
 
-from typing import Dict, Any
-from datetime import datetime
-
+from typing import Any, Dict, Optional
 from adapters.telegram_adapter.adapter.attachment_loaders.base_loader import BaseLoader
 from core.utils.attachment_loading import (
     create_attachment_dir,
@@ -36,12 +35,16 @@ class Uploader(BaseLoader):
         except Exception as e:
             logging.error(f"Error removing temporary directory: {e}")
 
-    async def upload_attachment(self, conversation: Any, attachment: Any) -> Dict[str, Any]:
+    async def upload_attachment(self,
+                                conversation: Any,
+                                attachment: Any,
+                                reply_to: Optional[int] = None) -> Dict[str, Any]:
         """Upload a file to a Telegram chat
 
         Args:
             conversation: Telethon conversation object
             attachment: Attachment details
+            reply_to: Message ID to reply to
 
         Returns:
             Dictionary with attachment metadata or {} if error
@@ -65,24 +68,27 @@ class Uploader(BaseLoader):
             with open(temp_path, "wb") as f:
                 f.write(file_content)
 
-            message = await self.client.send_file(entity=conversation, file=temp_path)
-            attachment_metadata = await self._get_attachment_metadata(message)
+            message = await self.client.send_file(entity=conversation, file=temp_path, reply_to=reply_to)
+            metadata = await self._get_attachment_metadata(message)
 
-            if attachment_metadata:
-                attachment_metadata["processable"] = True
-                attachment_metadata["message"] = message
+            if metadata:
+                metadata["processable"] = True
+                metadata["message"] = message
+
                 attachment_dir = os.path.join(
                     self.download_dir,
-                    attachment_metadata["attachment_type"],
-                    attachment_metadata["attachment_id"]
+                    metadata["attachment_type"],
+                    metadata["attachment_id"]
                 )
-                local_file_path = self._get_local_file_path(attachment_dir, attachment_metadata)
-
+                local_file_path = os.path.join(attachment_dir, metadata["filename"])
                 create_attachment_dir(attachment_dir)
-                save_metadata_file(attachment_metadata, attachment_dir)
                 move_attachment(temp_path, local_file_path)
 
-            return attachment_metadata
+                mime = magic.Magic(mime=True)
+                metadata["content_type"] = mime.from_file(local_file_path)
+                save_metadata_file(metadata, attachment_dir)
+
+            return metadata
         except Exception as e:
             logging.error(f"Error uploading file: {str(e)}", exc_info=True)
             return {}

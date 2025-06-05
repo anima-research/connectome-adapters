@@ -31,11 +31,13 @@ class TestHistoryFetcher:
         downloader.download_attachment = AsyncMock(return_value={
             "attachment_id": "some_id",
             "attachment_type": "document",
-            "file_extension": "txt",
+            "filename": "some_id.txt",
             "size": 12345,
-            "processable": True,
+            "content_type": "text/plain",
             "content": "dGVzdAo=",
-            "created_at": datetime.now()
+            "url": None,
+            "created_at": datetime.now(),
+            "processable": True
         })
         return downloader
 
@@ -46,7 +48,6 @@ class TestHistoryFetcher:
         manager.get_conversation = MagicMock()
         manager.get_conversation_cache = MagicMock(return_value=[])
         manager.add_to_conversation = AsyncMock()
-        manager.attachment_download_required = MagicMock(return_value=True)
         return manager
 
     @pytest.fixture
@@ -112,11 +113,12 @@ class TestHistoryFetcher:
             "timestamp": 1627905600000,  # 2021-08-02 12:00:00 UTC
             "attachments": [{
                 "attachment_id": "some_id",
-                "attachment_type": "document",
-                "file_extension": "txt",
+                "filename": "some_id.txt",
                 "size": 12345,
-                "processable": True,
-                "content": "dGVzdAo="
+                "content_type": "text/plain",
+                "content": "dGVzdAo=",
+                "url": None,
+                "processable": True
             }]
         }
 
@@ -254,10 +256,12 @@ class TestHistoryFetcher:
                 0: {
                     "attachment_id": "some_id",
                     "attachment_type": "document",
-                    "file_extension": "txt",
+                    "filename": "some_id.txt",
                     "size": 12345,
-                    "processable": True,
+                    "content_type": "text/plain",
                     "content": "dGVzdAo=",
+                    "url": None,
+                    "processable": True,
                     "created_at": datetime.now()
                 }
             }
@@ -270,6 +274,7 @@ class TestHistoryFetcher:
         assert result[0]["thread_id"] == "1000"
         assert len(result[0]["attachments"]) == 1
         assert result[0]["attachments"][0]["attachment_id"] == "some_id"
+        assert "attachment_type" not in result[0]["attachments"][0]
         assert "created_at" not in result[0]["attachments"][0]
 
     @pytest.mark.asyncio

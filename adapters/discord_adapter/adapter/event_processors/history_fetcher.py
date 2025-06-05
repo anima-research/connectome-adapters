@@ -253,7 +253,8 @@ class HistoryFetcher(BaseHistoryFetcher):
         }
 
         for attachment in formatted_message["attachments"]:
-            if "created_at" in attachment:
-                del attachment["created_at"]
+            for key in ["created_at", "attachment_type"]:
+                if key in attachment:
+                    del attachment[key]
 
         return formatted_message
