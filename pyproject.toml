@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "connectome-adapters"
+version = "0.1.0"
+description = "Management tool for Connectome messaging platform adapters"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Your Name", email = "your.email@example.com"}
+]
+dependencies = [
+    "click==8.1.7",            # For the CLI interface
+    "psutil==5.9.5",           # For process management
+    "platformdirs==3.11.0",    # For platform-specific directories
+    "python-socketio==5.11.1",
+    "aiohttp==3.9.3",
+    "pyyaml==6.0.1",
+    "telethon==1.32.1",
+    "cryptg==0.4.0",  # For faster encryption/decryption in Telethon
+    "pillow==10.2.0",  # For handling images in Telethon
+    "zulip==0.9.0", # Official Zulip API Python client
+    "emoji==2.10.1",  # For emoji handling and conversion in Zulip
+    "discord.py==2.3.2",  # Discord API client
+    "slack_sdk==3.26.1",  # Official Slack API client with async support
+    "pydantic==2.5.2",  # Data validation and settings management
+    "python-magic==0.4.27",  # File type detection by examining content
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.23.0",
+]
+
+[project.scripts]
+connectome-adapters = "cli.cli:main"
+
+[tool.setuptools]
+packages = ["cli", "cli.commands", "src"]
+package-dir = {"" = "."}
+
+[tool.setuptools.package-data]
+"cli" = ["adapters.toml"]
+"*" = ["*.yml", "*.yaml", "*.csv"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]

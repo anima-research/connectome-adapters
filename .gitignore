@@ -36,3 +36,7 @@ zuliprc
 # Cache
 .cache/
 attachments/
+
+# Process management
+.pids/
+

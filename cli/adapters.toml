@@ -1,0 +1,14 @@
+# Project-local configuration for connectome-adapters
+
+[adapters]
+discord = false
+discord_webhook = false
+shell = false
+slack = false
+telegram = false
+text_file = false
+zulip = true
+
+# Paths relative to the project directory
+base_dir = "src"
+pid_dir = ".pids"
