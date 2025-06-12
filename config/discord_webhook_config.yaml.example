@@ -1,11 +1,11 @@
 adapter:
   adapter_type: "discord_webhook"
   bot_connections:
-    - bot_token: "bot_token_1"
-      application_id: "application_id_1"
+    - bot_token: "bot_token_1"                 # MUST BE SET
+      application_id: "application_id_1"       # MUST BE SET
     - bot_token: "bot_token_2"
       application_id: "application_id_2"
-  connection_check_interval: 300  # Seconds to check connection
+  connection_check_interval: 300               # in seconds
   max_reconnect_attempts: 5
   max_message_length: 1999
   max_history_limit: 100
@@ -16,10 +16,10 @@ adapter:
       name: "webhook_name"
 attachments:
   storage_dir: "attachments/discord_webhook_adapter"
-  max_file_size_mb: 8 # in MB
+  max_file_size_mb: 8                          # in MB
   max_attachments_per_message: 10
 logging:
-  logging_level: "info"  # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  logging_level: "info"                        # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
   log_file_path: "logs/discord_webhook_adapter.log"
   log_format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
   max_log_size: 5242880
@@ -30,5 +30,5 @@ rate_limit:
   message_rpm: 5
 socketio:
   host: "127.0.0.1"
-  port: 8083
+  port: 8083                                   # MUST BE SET
   cors_allowed_origins: "*"

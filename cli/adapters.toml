@@ -1,5 +1,6 @@
 # Project-local configuration for connectome-adapters
 
+# Adapters that are enabled/disabled
 [adapters]
 discord = false
 discord_webhook = false
@@ -9,6 +10,5 @@ telegram = false
 text_file = false
 zulip = true
 
-# Paths relative to the project directory
-base_dir = "src"
-pid_dir = ".pids"
+# Absolute path to the connectome-adapters project directory
+project_dir = "/home/user/connectome-adapters"

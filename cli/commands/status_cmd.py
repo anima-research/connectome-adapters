@@ -10,16 +10,11 @@ import time
 
 from pathlib import Path
 from datetime import datetime
-from cli.config import Config
 
 @click.command(name="status")
 @click.pass_context
 def status(ctx):
     """List all available adapters with their current status."""
-    config = Config(ctx).load_config()
-    if not config:
-        return
-
     adapters_dir = ctx.obj["project_root"] / "src" / "adapters"
     if not adapters_dir.exists():
         click.echo(f"Adapters directory not found: {adapters_dir}")
@@ -35,7 +30,7 @@ def status(ctx):
         click.echo("No adapters found.")
         return
 
-    adapter_config = config.get("adapters", {})
+    adapter_config = ctx.obj["adapters"]
     current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     # Configuration Status Table

@@ -1,9 +1,9 @@
 adapter:
   adapter_type: "slack"
-  bot_token: "xoxb-1234567890"
-  app_token: "xapp-1-1234567890"
+  bot_token: "xoxb-1234567890"         # MUST BE SET
+  app_token: "xapp-1-1234567890"       # MUST BE SET
   retry_delay: 5
-  connection_check_interval: 300  # Seconds to check connection
+  connection_check_interval: 300       # in seconds
   max_reconnect_attempts: 5
   max_message_length: 5000
   max_history_limit: 1000
@@ -13,7 +13,7 @@ attachments:
   max_age_days: 30
   max_total_attachments: 1000
   cleanup_interval_hours: 24
-  max_file_size_mb: 8 # in MB
+  max_file_size_mb: 8                  # in MB
   max_attachments_per_message: 10
 caching:
   max_messages_per_conversation: 100
@@ -33,5 +33,5 @@ rate_limit:
   message_rpm: 5
 socketio:
   host: "127.0.0.1"
-  port: 8085
+  port: 8085                           # MUST BE SET
   cors_allowed_origins: "*"

@@ -6,7 +6,6 @@ See [main repository](https://github.com/antra-tess/connectome) for more informa
 connectome-adapters is a framework that enables Large Language Models (LLMs) to interact with various messaging and communication platforms through a unified interface. This system allows LLMs to send and receive messages, process attachments, and maintain conversation context across multiple platforms.
 
 ### Purpose
-
 The primary purpose of connectome-adapters is to:
 * Provide Platform Abstraction. Create a standardized interface for communication platforms
 * Handle Real-time Messaging. Process incoming and outgoing messages with proper context
@@ -15,43 +14,20 @@ The primary purpose of connectome-adapters is to:
 * Ensure Reliability. Implement rate limiting, error handling, and recovery mechanisms
 
 ### Supported Adapters
-
 Currently, the project supports the following communication platforms:
 * Telegram: interact with Telegram chats, groups, and channels
 * Discord: connect with Discord servers and channels
 * Discord webhook: send messages to a Discord channel via a webhook
+* Shell: access shell and run commands there
 * Slack: communicate through Slack workspaces and channels
 * Zulip: engage with Zulip streams and topics
 * Text File: work with local filesystem for text file operations
 
-### Setup
-
-Each adapter instance handles exactly one user’s connection to a single provider (e.g., a user on Slack). The exception of rule is Discord webhook adapter. Also, each adapter runs in a separate process. One server can host many adapters, yet they require separate ports where they listen their platforms' events. To setup the adapter do the following steps.
-
-1. Install Python dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-2. Copy the configuration file:
-```bash
-cp adapters/selected_adapter/config/selected_adapter_config.yaml.example selected_adapter_config.yaml
-```
-
-3. Update `selected_adapter_config.yaml` with your settings.
-
-4. Run the application:
-```bash
-python adapters/selected_adapter/main.py
-```
-
 ### Project Structure
-
 The connectome-adapters codebase is organized into two main directories.
 
 ##### Core Directory
-
-The core/ directory contains shared functionality that's reused across all adapters:
+The src/core/ directory contains shared functionality that's reused across all adapters:
 
 1) Socket.IO Client
 * Manages communication between adapters and the connectome framework
@@ -80,8 +56,7 @@ The core/ directory contains shared functionality that's reused across all adapt
 6) Utilities...
 
 ##### Adapters Directory
-
-The adapters/ directory contains platform-specific implementations:
+The src/adapters/ directory contains platform-specific implementations:
 
 1) Platform-Specific Clients
 * Connection management for each platform
@@ -104,7 +79,6 @@ The adapters/ directory contains platform-specific implementations:
 * Implement platform-specific upload functionality
 
 ### Architecture
-
 The connectome-adapters project follows a modular, event-driven architecture. The typical flow of an event through the system:
 
 1) Platform to LLM:
@@ -125,7 +99,6 @@ The server runs as a persistent process that:
 * Ensures reliable message delivery
 
 ##### Outgoing Event Handling (LLM to Platform)
-
 Currently, the server reacts to the following set of events.
 
 ```python
@@ -172,7 +145,6 @@ The Socket.IO server handles the following event types from the connectome frame
 | fetch_attachment | Request attachment                       | { <br>&nbsp;&nbsp;"event_type": "fetch_attachment", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"attachment_id": str <br>&nbsp;&nbsp;} <br>}|
 
 ##### Examples of outgoing event flow
-
 1) Send message from the connectome framework to the adapter
 
 The request that triggers the `bot_response` event for socket.io server.
@@ -241,7 +213,6 @@ or `request_success`.
 ```
 
 ##### Incoming Event Handling (Platform to LLM)
-
 To ensure that the framework is able to receive platform's events it is necessary to add relevant listeners. At this moment the socket.io server emits the following set of events.
 
 ```python
@@ -276,7 +247,6 @@ Supported platform event types.
 | message_unpinned | Message unpinned |{ <br>&nbsp;&nbsp;"adapter_type": str, <br>&nbsp;&nbsp;"event_type": "message_unpinned", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"adapter_name": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"adapter_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"message_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str <br>&nbsp;&nbsp;} <br>}|
 
 ##### Examples of incoming event flow
-
 1) The beginning of a new conversation
 
 The adapter emits `conversation_started` event when a new conversation is detected.
@@ -404,7 +374,7 @@ connectome-adapters is designed with a strong focus on data minimization and eph
 13) Admin Actions (Pin/Unpin). The connectome-adapters support pinning and unpinning messages on Slack, Discord (excluding webhook connections), and Telegram platforms. These actions typically require the bot to have appropriate permissions configured on the platform (e.g., "Manage Messages" in Discord, "pins:write" scope in Slack). The framework does not support pinning in Zulip, which uses a different organizational model based on topics.
 
 ### Configuration
-The configuration is stored in YAML format. What can be configured is listed in README.md-s of relevant adapters.
+The adapters' configuration is stored in YAML format. What can be configured is listed in README.md-s of relevant adapters.
 
 ### Privacy Considerations
 * Message Content: Processed ephemerally and not stored permanently
@@ -421,6 +391,85 @@ Discord webhook adapter is the exception to the one-user-per-adapter rule, as it
 Text file adapter is designed to work with a single operating system where it runs, yet it is possible to have more then one text file adapter running in the same OS.
 
 This architecture strikes a balance between the simplicity of having a single adapter per platform type and the scalability needs of enterprise deployments, allowing teams to start with a minimal deployment and scale out incrementally as their usage grows.
+
+### System requirements
+connectome-adapters aim to be cross-platform in the long run, however, at this moment it was tested mostly on Linux. The key system requirements are:
+
+- Python 3.11 or higher,
+- pipx 1.7.0 or higher (installed with Python 3.11+)
+
+To install `pipx`, run `python3.11 -m pip install pipx`.
+
+### Package installation/removal
+To install package, you need to perform the following steps.
+
+1. Pull the code from Github and go into the project directory.
+```bash
+git clone https://github.com/antra-tess/connectome-adapters.git
+cd connectome-adapters
+```
+
+2. Update the `cli/adapters.toml` file. Set those adapters that you want to be started/stopped automatically to `true`. Indicate the absolute path to the connectome-adapters project directory. (Can be done with any text file editor.)
+```toml
+# Adapters that are enabled/disabled
+[adapters]
+discord = false
+discord_webhook = false
+shell = false
+slack = false
+telegram = false
+text_file = false
+zulip = true
+
+# Absolute path to the connectome-adapters project directory
+project_dir = "/home/user/connectome-adapters"
+```
+IMPORTANT: The `project_dir` must be an absolute path to your connectome-adapters project directory. This path is used to locate all adapter-related files (logs, attachments, configs, etc.).
+
+3. Install package using `pipx`.
+```bash
+python3.11 -m pipx install .
+```
+If you want to install package in development mode, you can do it like this.
+```bash
+python3.11 -m pipx install -e .
+```
+To verify installation, run
+```bash
+connectome-adapters --help
+connectome-adapters status
+```
+
+4. To uninstall project you simply need to run
+```bash
+python3.11 -m pipx uninstall connectome-adapters
+```
+Then optionally delete the cloned project directory (this action is recommeneded to ensure that all attachments and logs are cleaned).
+
+### Adapter setup
+Each adapter instance handles exactly one user’s connection to a single provider (e.g., a user on Slack). The exception of rule is Discord webhook adapter. Also, each adapter runs in a separate process. One server can host many adapters, yet they require separate ports where they listen their platforms' events. To setup adapter(-s) do the following steps.
+
+1. Go to the `connectome-adapters/config` directory.
+```bash
+cd your_path/connectome-adapters/config
+```
+
+2. Copy the configuration file of selected adapter and update those fields that are marked as mandatory.
+```bash
+cp selected_adapter_config.yaml.example selected_adapter_config.yaml
+```
+
+3. Use CLI to manage the adapter (see CLI section below).
+
+### CLI
+connectome-adapters have a CLI tool that allows to manage various adapters that run in the background. To get more details about how it works you may use
+```bash
+connectome-adapters --help
+```
+and see the list of available commands. To get more details about the specific command, please, run
+```bash
+connectome-adapters [command] --help
+```
 
 ### Future work
 * Filesystem

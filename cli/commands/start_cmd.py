@@ -10,9 +10,7 @@ import time
 import signal
 import sys
 import subprocess
-
 from pathlib import Path
-from cli.config import Config
 
 @click.command()
 @click.argument("adapter_name", required=False)
@@ -28,11 +26,7 @@ def start(ctx, adapter_name):
         connectome-adapters start
         connectome-adapters start zulip
     """
-    config = Config(ctx).load_config()
-    if not config:
-        return
-
-    adapters_dir = ctx.obj["project_root"] / config.get("base_dir", "src") / "adapters"
+    adapters_dir = ctx.obj["project_root"] / "src" / "adapters"
 
     if adapter_name:
         adapter_path = adapters_dir / f"{adapter_name}_adapter"
@@ -41,7 +35,7 @@ def start(ctx, adapter_name):
             return
         adapters_to_start = [adapter_name]
     else:
-        adapter_config = config.get("adapters", {})
+        adapter_config = ctx.obj["adapters"]
         adapters_to_start = [
             name for name, enabled in adapter_config.items()
             if enabled and (adapters_dir / f"{name}_adapter").exists()

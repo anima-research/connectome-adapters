@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=42", "wheel"]
+requires = ["setuptools>=71.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -39,9 +39,10 @@ dev = [
 [project.scripts]
 connectome-adapters = "cli.cli:main"
 
-[tool.setuptools]
-packages = ["cli", "cli.commands", "src"]
-package-dir = {"" = "."}
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["cli*", "src*"]
+exclude = ["tests*"]
 
 [tool.setuptools.package-data]
 "cli" = ["adapters.toml"]

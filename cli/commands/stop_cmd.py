@@ -12,9 +12,7 @@ import time
 import signal
 import sys
 import subprocess
-
 from pathlib import Path
-from cli.config import Config
 
 @click.command()
 @click.argument("adapter_name", required=False)
@@ -24,10 +22,6 @@ def stop(ctx, adapter_name):
     If ADAPTER_NAME is provided, stops that specific adapter.
     Otherwise, stops all running adapters.
     """
-    config = Config(ctx).load_config()
-    if not config:
-        return
-
     if adapter_name:
         pid_file = ctx.obj["pid_dir"] / f"{adapter_name}.pid"
         if not pid_file.exists():

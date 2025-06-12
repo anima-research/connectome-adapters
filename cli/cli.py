@@ -1,8 +1,8 @@
 import click
 import os
+import tomllib
 
 from pathlib import Path
-from cli.config import Config
 from cli.commands.restart_cmd import restart
 from cli.commands.status_cmd import status
 from cli.commands.start_cmd import start
@@ -21,13 +21,27 @@ def cli(ctx):
     """
     ctx.ensure_object(dict)
 
-    ctx.obj["cli_dir"] = Path(__file__).resolve().parent  # Get directory containing this file
-    ctx.obj["project_root"] = ctx.obj["cli_dir"].parent   # Get parent of cli directory
-    ctx.obj["cli_config_path"] = ctx.obj["cli_dir"] / "adapters.toml"
+    current_dir = Path(__file__).resolve().parent
+    cli_config_path = current_dir.parent / "cli" / "adapters.toml"
 
-    pid_dir = ctx.obj["project_root"] / ".pids"
-    pid_dir.mkdir(exist_ok=True)
-    ctx.obj["pid_dir"] = pid_dir
+    try:
+        with open(cli_config_path, "rb") as f:
+            config = tomllib.load(f)
+            if not config:
+                click.echo("Configuration file is empty.")
+                return
+    except FileNotFoundError:
+        click.echo(f"Configuration file not found: {cli_config_path}")
+        click.echo("Please make sure adapters.toml exists in the cli directory.")
+        return
+    except Exception as e:
+        click.echo(f"Error loading configuration: {e}")
+        return
+
+    ctx.obj["adapters"] = config.get("adapters", {})
+    ctx.obj["project_root"] = Path(config.get("project_dir", ""))
+    ctx.obj["pid_dir"] = ctx.obj["project_root"] / ".pids"
+    ctx.obj["pid_dir"].mkdir(exist_ok=True)
 
 # Register subcommands
 cli.add_command(status)

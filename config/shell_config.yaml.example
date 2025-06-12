@@ -1,22 +1,22 @@
 adapter:
   adapter_type: "shell"
-  connection_check_interval: 300  # Seconds to check connection
+  connection_check_interval: 300          # in seconds
   workspace_directory: "/home/user/"
-  session_max_lifetime: 5 # In minutes
-  command_max_lifetime: 60 # In seconds
-  max_output_size: 500 # In characters
-  begin_output_size: 200 # In characters
-  end_output_size: 300 # In characters
+  session_max_lifetime: 5                 # in minutes
+  command_max_lifetime: 60                # in seconds
+  max_output_size: 500                    # in characters
+  begin_output_size: 200                  # in characters
+  end_output_size: 300                    # in characters
   cpu_percent_limit: 50
   memory_mb_limit: 50
   disk_mb_limit: 50
 logging:
-  logging_level: "info"  # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  logging_level: "info"                   # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
   log_file_path: "logs/shell_adapter.log"
   log_format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
   max_log_size: 5242880
   backup_count: 3
 socketio:
   host: "127.0.0.1"
-  port: 8087
+  port: 8087                              # MUST BE SET
   cors_allowed_origins: "*"
