@@ -60,7 +60,7 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
         try:
             message = event.get("message", {})
 
-            if message.get("sender_realm_str", "") == "zulipinternal":
+            if self._skip_message(message):
                 return events
 
             delta = await self.conversation_manager.add_to_conversation({
@@ -239,3 +239,29 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             logging.error(f"Error handling reaction event: {e}", exc_info=True)
 
         return events
+
+    def _skip_message(self, message: Dict[str, Any]) -> bool:
+        """Check if the message should be skipped.
+        We skip service messages and messages not directed to the bot that violates privacy
+        (the last case happens when we mention the bot in DM-s in which our bot does not participate).
+
+        Args:
+            message: Zulip message object
+
+        Returns:
+            True if the message should be skipped, False otherwise
+        """
+        if message.get("sender_realm_str", "") == "zulipinternal":
+            return True
+
+        recipients = message.get("display_recipient", [])
+        adapter_id = self.config.get_setting("adapter", "adapter_id")
+
+        if not isinstance(recipients, list):
+            return False
+
+        for recipient in recipients:
+            if str(recipient.get("id", "")) == adapter_id:
+                return False
+
+        return True

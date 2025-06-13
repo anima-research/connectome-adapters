@@ -1,7 +1,7 @@
 adapter:
   adapter_type: "shell"
   connection_check_interval: 300          # in seconds
-  workspace_directory: "/home/user/"
+  workspace_directory: "/home/user/"      # MUST BE SET    (the default directory where a terminal starts)
   session_max_lifetime: 5                 # in minutes
   command_max_lifetime: 60                # in seconds
   max_output_size: 500                    # in characters

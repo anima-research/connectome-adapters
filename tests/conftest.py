@@ -136,6 +136,7 @@ def zulip_config(basic_config_data, mock_config_factory):
     config = copy.deepcopy(basic_config_data)
     config["adapter"].update({
         "adapter_type": "zulip",
+        "adapter_id": "789",
         "zuliprc_path": "config/zuliprc",
         "adapter_email": "adapter_email@example.com",
         "site": "https://zulip.example.com/",

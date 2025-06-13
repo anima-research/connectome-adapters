@@ -59,7 +59,7 @@ class TestIncomingEventProcessor:
                 "type": "private",
                 "display_recipient": [
                     {"id": 456, "email": "test@example.com", "full_name": "Test User"},
-                    {"id": 789, "email": "bot@example.com", "full_name": "Test Bot"}
+                    {"id": 789, "email": "adapter_email@example.com", "full_name": "Test Bot"}
                 ]
             }
         }
