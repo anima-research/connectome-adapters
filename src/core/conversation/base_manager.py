@@ -129,7 +129,7 @@ class BaseManager(ABC):
 
             delta = self._create_conversation_delta(event, conversation_info)
             delta.message_id = cached_msg.message_id
-            mentions = self._get_mentions(delta, cached_msg)
+            mentions = self._get_mentions(delta, cached_msg, message)
 
             await self._update_delta_list(
                 conversation_id=conversation_info.conversation_id,
@@ -273,12 +273,13 @@ class BaseManager(ABC):
 
         return self.conversations[conversation_id]
 
-    def _get_mentions(self, delta: ConversationDelta, cached_msg: CachedMessage) -> List[str]:
+    def _get_mentions(self, delta: ConversationDelta, cached_msg: CachedMessage, message: Any) -> List[str]:
         """Get the mentions for a given cached message
 
         Args:
             delta: Conversation delta object
             cached_msg: Cached message object
+            message: Raw message object from the adapter
 
         Returns:
             List of mentions
@@ -286,7 +287,7 @@ class BaseManager(ABC):
         if delta.history_fetching_in_progress:
             return []
 
-        return self._get_bot_mentions(cached_msg)
+        return self._get_bot_mentions(cached_msg, message)
 
     def _create_conversation_delta(self,
                                    event: Dict[str, Any],
@@ -414,7 +415,7 @@ class BaseManager(ABC):
         raise NotImplementedError("Child classes must implement _get_user_info")
 
     @abstractmethod
-    def _get_bot_mentions(self, cached_msg: CachedMessage) -> List[str]:
+    def _get_bot_mentions(self, cached_msg: CachedMessage, message: Any) -> List[str]:
         """Get the bot mentions for a given conversation info and cached message"""
         raise NotImplementedError("Child classes must implement _get_bot_mentions")
 

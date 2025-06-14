@@ -223,7 +223,7 @@ class Manager(BaseManager):
             list_to_update="updated_messages",
             cached_msg=cached_msg,
             attachments=[],
-            mentions=self._get_bot_mentions(cached_msg)
+            mentions=self._get_bot_mentions(cached_msg, data)
         )
 
     async def _update_pin_status(self,
@@ -283,12 +283,14 @@ class Manager(BaseManager):
                 delta=delta
             )
 
-    def _get_bot_mentions(self, cached_msg: CachedMessage) -> List[str]:
+    def _get_bot_mentions(self, cached_msg: CachedMessage, message: Any) -> List[str]:
         """Get bot mentions from a cached message.
         Extracts mentions of the bot or @all from the message text.
+        Also checks if the message is a reply to the bot.
 
         Args:
             cached_msg: The cached message to extract mentions from
+            message: Raw message object from the adapter
 
         Returns:
             List of mentions (bot name or "all")
@@ -298,6 +300,12 @@ class Manager(BaseManager):
 
         mentions = set()
         adapter_id = self.config.get_setting("adapter", "adapter_id")
+
+        # Check if the message is a reply to the bot
+        if message.reference and message.reference.resolved:
+            if isinstance(message.reference.resolved, discord.Message):
+                if message.reference.resolved.author.id == int(adapter_id):
+                    mentions.add(adapter_id)
 
         user_mention_pattern = r"<@(\d+)>"
         found_user_mentions = re.findall(user_mention_pattern, cached_msg.text)
