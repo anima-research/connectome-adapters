@@ -34,7 +34,9 @@ class SocketIOServer:
             cors_allowed_origins=self.config.get_setting(
                 "socketio", "cors_allowed_origins", "*"
             ),
-            logger=True
+            logger=True,
+            ping_interval=60,
+            ping_timeout=60
         )
         self.app = web.Application()
         self.sio.attach(self.app)
