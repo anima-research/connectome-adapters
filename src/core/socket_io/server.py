@@ -35,7 +35,7 @@ class SocketIOServer:
                 "socketio", "cors_allowed_origins", "*"
             ),
             logger=True,
-            ping_interval=60,
+            ping_interval=65,
             ping_timeout=60
         )
         self.app = web.Application()
