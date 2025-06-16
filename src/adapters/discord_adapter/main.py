@@ -35,7 +35,7 @@ async def main():
         socketio_server.set_adapter(adapter)
 
         # Signal handling - Windows compatible
-        if sys.platform != 'win32':
+        if sys.platform != "win32":
             loop = asyncio.get_running_loop()
             for sig in (signal.SIGTERM, signal.SIGINT):
                 loop.add_signal_handler(sig, shutdown)

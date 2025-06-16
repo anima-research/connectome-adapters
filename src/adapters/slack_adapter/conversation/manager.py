@@ -219,7 +219,7 @@ class Manager(BaseManager):
             list_to_update="updated_messages",
             cached_msg=cached_msg,
             attachments=[],
-            mentions=self._get_bot_mentions(cached_msg)
+            mentions=self._get_bot_mentions(cached_msg, data.get("message", {}))
         )
 
     async def _update_pin_status(self,
@@ -269,12 +269,13 @@ class Manager(BaseManager):
                 delta=delta
             )
 
-    def _get_bot_mentions(self, cached_msg: CachedMessage) -> List[str]:
+    def _get_bot_mentions(self, cached_msg: CachedMessage, message: Any) -> List[str]:
         """Get bot mentions from a cached message.
         Extracts mentions of the bot or @all from the message text.
 
         Args:
             cached_msg: The cached message to extract mentions from
+            message: The Slack message object
 
         Returns:
             List of mentions (bot name or "all")

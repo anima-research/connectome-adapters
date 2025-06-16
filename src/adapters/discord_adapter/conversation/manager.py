@@ -157,14 +157,13 @@ class Manager(BaseManager):
         event_type = event.get("event_type", None)
 
         if event_type == DiscordEventType.EDITED_MESSAGE:
-            data = getattr(event["message"], "data", None)
             cached_msg = await self.message_cache.get_message_by_id(
                 conversation_id=conversation_info.conversation_id,
                 message_id=str(getattr(event["message"], "message_id", ""))
             )
 
-            await self._update_pin_status(conversation_info, cached_msg, data, delta)
-            await self._update_message(cached_msg, data, delta)
+            await self._update_pin_status(conversation_info, cached_msg, event["message"], delta)
+            await self._update_message(cached_msg, event["message"], delta)
             return
 
         if event_type in [DiscordEventType.ADDED_REACTION, DiscordEventType.REMOVED_REACTION]:
@@ -195,15 +194,18 @@ class Manager(BaseManager):
 
     async def _update_message(self,
                               cached_msg: CachedMessage,
-                              data: Any,
+                              message: Any,
                               delta: ConversationDelta) -> None:
         """Update a message in the cache
 
         Args:
             cached_msg: CachedMessage object
-            data: Discord message data
+            message: Discord message object
             delta: ConversationDelta object
         """
+        data = getattr(message, "data", None)
+        platform_cached_msg = getattr(message, "cached_message", None)
+
         if not cached_msg or not data or cached_msg.text == data.get("content", ""):
             return
 
@@ -223,22 +225,27 @@ class Manager(BaseManager):
             list_to_update="updated_messages",
             cached_msg=cached_msg,
             attachments=[],
-            mentions=self._get_bot_mentions(cached_msg, data)
+            mentions=self._get_bot_mentions(
+                cached_msg,
+                message if not platform_cached_msg else platform_cached_msg
+            )
         )
 
     async def _update_pin_status(self,
                                  conversation_info: ConversationInfo,
                                  cached_msg: CachedMessage,
-                                 data: Any,
+                                 message: Any,
                                  delta: ConversationDelta) -> None:
         """Update the pin status of a message
 
         Args:
             conversation_info: Conversation info object
             cached_msg: CachedMessage object
-            data: Discord message data
+            message: Discord message object
             delta: ConversationDelta object
         """
+        data = getattr(message, "data", None)
+
         if not cached_msg or not data or cached_msg.is_pinned == data.get("pinned"):
             return None
 

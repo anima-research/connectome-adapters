@@ -36,9 +36,14 @@ async def main():
         adapter = Adapter(config, socketio_server, start_maintenance=True)
         socketio_server.set_adapter(adapter)
 
-        loop = asyncio.get_running_loop()
-        for sig in (signal.SIGTERM, signal.SIGINT):
-            loop.add_signal_handler(sig, shutdown)
+        if sys.platform != "win32":
+            loop = asyncio.get_running_loop()
+            for sig in (signal.SIGTERM, signal.SIGINT):
+                loop.add_signal_handler(sig, shutdown)
+        else:
+            # On Windows, use signal.signal instead
+            signal.signal(signal.SIGINT, lambda s, f: shutdown())
+            signal.signal(signal.SIGTERM, lambda s, f: shutdown())
 
         await socketio_server.start()
         await adapter.start()
@@ -48,7 +53,10 @@ async def main():
         logging.error(f"Configuration error: {e}")
         logging.error("Please ensure zulip_config.yaml exists with required settings")
     except Exception as e:
-        logging.error(f"Unexpected error: {e}")
+        import traceback
+        print(f"Unexpected error: {e}")
+        print("Full traceback:")
+        traceback.print_exc()
     finally:
         if adapter.running:
             await adapter.stop()

@@ -1,4 +1,5 @@
 import copy
+import json
 import os
 import pytest
 import shutil
@@ -154,9 +155,6 @@ def ensure_test_directories():
     os.makedirs("test_attachments/document", exist_ok=True)
     os.makedirs("test_attachments/image", exist_ok=True)
     os.makedirs("test_attachments/tmp_uploads", exist_ok=True)
-
-    with open("test_attachments/document/test.txt", "w") as f:
-        f.write("Test content")
 
     yield
 

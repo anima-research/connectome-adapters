@@ -96,14 +96,14 @@ class TestZulipToSocketIOFlowIntegration:
         """Setup a test private conversation"""
         def _setup():
             conversation = ConversationInfo(
-                conversation_id="101_102",
+                conversation_id="101_789",
                 conversation_type="private",
                 known_members={
                     "101": UserInfo(user_id="101", username="Test User", email="test@example.com"),
-                    "102": UserInfo(user_id="102", username="Bot User", email="bot@example.com")
+                    "789": UserInfo(user_id="789", username="Bot User", email="adapter_email@example.com")
                 }
             )
-            adapter.conversation_manager.conversations["101_102"] = conversation
+            adapter.conversation_manager.conversations["101_789"] = conversation
             return conversation
         return _setup
 
@@ -128,8 +128,8 @@ class TestZulipToSocketIOFlowIntegration:
                 "message_id": message_id,
                 "conversation_id": conversation_id,
                 "text": "Test message",
-                "sender_id": "102",
-                "sender_name": "Test User 2",
+                "sender_id": "101",
+                "sender_name": "Test User",
                 "timestamp": int(datetime.now().timestamp() * 1000),
                 "is_from_bot": False
             })
@@ -149,9 +149,9 @@ class TestZulipToSocketIOFlowIntegration:
         def _create(message_type="private", with_attachment=False, with_reaction=False):
             message = {
                 "id": 12345,
-                "sender_id": 102,
-                "sender_full_name": "Test User 2",
-                "sender_email": "test2@example.com",
+                "sender_id": 101,
+                "sender_full_name": "Test User",
+                "sender_email": "test@example.com",
                 "content": "Hello, world!",
                 "timestamp": int(datetime.now().timestamp())
             }
@@ -160,7 +160,7 @@ class TestZulipToSocketIOFlowIntegration:
                 message["type"] = "private"
                 message["display_recipient"] = [
                     {"id": 101, "email": "test@example.com", "full_name": "Test User"},
-                    {"id": 102, "email": "test2@example.com", "full_name": "Test User 2"}
+                    {"id": 789, "email": "adapter_email@example.com", "full_name": "Bot User"}
                 ]
             else:  # stream message
                 message["type"] = "stream"
@@ -173,7 +173,7 @@ class TestZulipToSocketIOFlowIntegration:
 
             if with_reaction:
                 message["reaction"] = {
-                    "user_id": 102,
+                    "user_id": 101,
                     "emoji_name": "+1",
                     "emoji_code": "1f44d",
                     "reaction_type": "unicode_emoji",
@@ -212,7 +212,7 @@ class TestZulipToSocketIOFlowIntegration:
                 return {
                     "type": "reaction",
                     "message_id": 12345,
-                    "user_id": 102,
+                    "user_id": 101,
                     "emoji_name": "+1",
                     "emoji_code": "1f44d",
                     "reaction_type": "unicode_emoji",
@@ -233,15 +233,15 @@ class TestZulipToSocketIOFlowIntegration:
         assert isinstance(result, list), "Expected _handle_message to return a list of events"
         assert len(result) > 0, "Expected at least one event to be generated"
 
-        assert "101_102" in adapter.conversation_manager.conversations
-        assert adapter.conversation_manager.conversations["101_102"].conversation_type == "private"
+        assert "101_789" in adapter.conversation_manager.conversations
+        assert adapter.conversation_manager.conversations["101_789"].conversation_type == "private"
 
-        conversation_messages = adapter.conversation_manager.message_cache.messages.get("101_102", {})
+        conversation_messages = adapter.conversation_manager.message_cache.messages.get("101_789", {})
         assert len(conversation_messages) == 1
 
         cached_message = next(iter(conversation_messages.values()))
         assert cached_message.text == "Hello, world!"
-        assert cached_message.sender_id == "102"
+        assert cached_message.sender_id == "101"
 
     @pytest.mark.asyncio
     async def test_receive_stream_message_flow(self, adapter, create_zulip_event):
@@ -260,7 +260,7 @@ class TestZulipToSocketIOFlowIntegration:
 
         cached_message = next(iter(conversation_messages.values()))
         assert cached_message.text == "Hello, world!"
-        assert cached_message.sender_id == "102"
+        assert cached_message.sender_id == "101"
 
     @pytest.mark.asyncio
     async def test_receive_message_with_attachment_flow(self, adapter, create_zulip_event):
@@ -296,7 +296,7 @@ class TestZulipToSocketIOFlowIntegration:
     async def test_update_message_flow(self, adapter, setup_private_conversation, setup_message, create_zulip_event):
         """Test flow from Zulip message update to socket.io event"""
         setup_private_conversation()
-        await setup_message("101_102", message_id="12345")
+        await setup_message("101_789", message_id="12345")
 
         event = create_zulip_event(event_type="update_message")
         result = await adapter.incoming_events_processor.process_event(event)
@@ -309,17 +309,17 @@ class TestZulipToSocketIOFlowIntegration:
 
         update_event = update_events[0]
         assert update_event["data"]["message_id"] == "12345"
-        assert update_event["data"]["conversation_id"] == "101_102"
+        assert update_event["data"]["conversation_id"] == "101_789"
         assert update_event["data"]["new_text"] == "Updated message content"
 
-        cached_message = adapter.conversation_manager.message_cache.messages["101_102"]["12345"]
+        cached_message = adapter.conversation_manager.message_cache.messages["101_789"]["12345"]
         assert cached_message.text == "Updated message content"
 
     @pytest.mark.asyncio
     async def test_delete_message_flow(self, adapter, setup_private_conversation, setup_message, create_zulip_event):
         """Test flow from Zulip message update to socket.io event"""
         setup_private_conversation()
-        await setup_message("101_102", message_id="12345")
+        await setup_message("101_789", message_id="12345")
 
         event = create_zulip_event(event_type="delete_message")
         result = await adapter.incoming_events_processor.process_event(event)
@@ -332,7 +332,7 @@ class TestZulipToSocketIOFlowIntegration:
 
         delete_event = delete_events[0]
         assert delete_event["data"]["message_id"] == "12345"
-        assert delete_event["data"]["conversation_id"] == "101_102"
+        assert delete_event["data"]["conversation_id"] == "101_789"
 
     @pytest.mark.asyncio
     async def test_add_reaction_flow(self,
@@ -343,7 +343,7 @@ class TestZulipToSocketIOFlowIntegration:
                                      create_zulip_event):
         """Test flow from Zulip add reaction to socket.io event"""
         setup_private_conversation()
-        await setup_message("101_102", message_id="12345")
+        await setup_message("101_789", message_id="12345")
 
         event = create_zulip_event(event_type="reaction")
         event["op"] = "add"
@@ -359,10 +359,10 @@ class TestZulipToSocketIOFlowIntegration:
 
             reaction_event = reaction_events[0]
             assert reaction_event["data"]["message_id"] == "12345"
-            assert reaction_event["data"]["conversation_id"] == "101_102"
+            assert reaction_event["data"]["conversation_id"] == "101_789"
             assert reaction_event["data"]["emoji"] == "thumbs_up"
 
-            cached_message = adapter.conversation_manager.message_cache.messages["101_102"]["12345"]
+            cached_message = adapter.conversation_manager.message_cache.messages["101_789"]["12345"]
             assert "thumbs_up" in cached_message.reactions
             assert cached_message.reactions["thumbs_up"] == 1
 
@@ -375,7 +375,7 @@ class TestZulipToSocketIOFlowIntegration:
                                         create_zulip_event):
         """Test flow from Zulip remove reaction to socket.io event"""
         setup_private_conversation()
-        await setup_message("101_102", message_id="12345", reactions={"thumbs_up": 1, "thumbs_down": 1})
+        await setup_message("101_789", message_id="12345", reactions={"thumbs_up": 1, "thumbs_down": 1})
 
         event = create_zulip_event(event_type="reaction")
         event["op"] = "remove"
@@ -391,10 +391,10 @@ class TestZulipToSocketIOFlowIntegration:
 
             reaction_event = reaction_events[0]
             assert reaction_event["data"]["message_id"] == "12345"
-            assert reaction_event["data"]["conversation_id"] == "101_102"
+            assert reaction_event["data"]["conversation_id"] == "101_789"
             assert reaction_event["data"]["emoji"] == "thumbs_up"
 
-            cached_message = adapter.conversation_manager.message_cache.messages["101_102"]["12345"]
+            cached_message = adapter.conversation_manager.message_cache.messages["101_789"]["12345"]
             assert "thumbs_up" not in cached_message.reactions
             assert "thumbs_down" in cached_message.reactions
             assert cached_message.reactions["thumbs_down"] == 1

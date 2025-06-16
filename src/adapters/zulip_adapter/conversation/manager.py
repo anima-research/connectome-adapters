@@ -248,7 +248,7 @@ class Manager(BaseManager):
         if event_type == ZulipEventType.UPDATE_MESSAGE:
             thread_changed, thread_info = await self.thread_handler.update_thread_info(message, conversation_info)
             cached_msg = await self._update_message(message, conversation_info, thread_changed, thread_info)
-            mentions = self._get_bot_mentions(cached_msg)
+            mentions = self._get_bot_mentions(cached_msg, message)
             attachments = await self._update_attachment(conversation_info, event.get("attachments", []))
             cached_msg.attachments = {attachment["attachment_id"] for attachment in attachments}
 
@@ -341,12 +341,13 @@ class Manager(BaseManager):
             delta.message_id = cached_msg.message_id
             ReactionHandler.update_message_reactions(message, cached_msg, delta)
 
-    def _get_bot_mentions(self, cached_msg: CachedMessage) -> List[str]:
+    def _get_bot_mentions(self, cached_msg: CachedMessage, message: Any) -> List[str]:
         """Get bot mentions from a cached message.
         Extracts mentions of the bot or @all from the message text.
 
         Args:
             cached_msg: The cached message to extract mentions from
+            message: The Zulip message object
 
         Returns:
             List of mentions (bot name or "all")
