@@ -81,7 +81,6 @@ class SocketIOServer:
         """
         await self.sio.emit(event, data)
         #print(f"Emitted event: {event} with data: {data}")
-        #logging.info(f"Emitted event: {event} with data: {data}")
 
     def set_adapter(self, adapter: Any) -> None:
         """Set the reference to the adapter instance
@@ -209,8 +208,6 @@ class SocketIOServer:
 
                 if "message_ids" in result:
                     data["message_ids"] = result["message_ids"]
-                elif "history" in result:
-                    data["history"] = result["history"]
                 elif "content" in result:
                     data["content"] = result["content"]
                 elif "file_content" in result:

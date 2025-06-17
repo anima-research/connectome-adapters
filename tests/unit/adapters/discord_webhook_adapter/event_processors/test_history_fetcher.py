@@ -38,6 +38,7 @@ class TestHistoryFetcher:
         message.id = 111222333
         message.content = "Message with attachment"
         message.created_at = datetime(2021, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        message.edited_at = None
         message.type = discord.MessageType.default
 
         author = MagicMock()
@@ -63,6 +64,7 @@ class TestHistoryFetcher:
         message.id = 444555666
         message.content = "This is a reply"
         message.created_at = datetime(2021, 1, 1, 12, 30, 0, tzinfo=timezone.utc)
+        message.edited_at = None
         message.type = discord.MessageType.default
 
         author = MagicMock()
@@ -159,4 +161,6 @@ class TestHistoryFetcher:
         assert result["text"] == "Message with attachment"
         assert result["thread_id"] is None
         assert result["timestamp"] == 1609502400
+        assert result["edited_timestamp"] is None
+        assert result["edited"] is False
         assert len(result["attachments"]) == 0

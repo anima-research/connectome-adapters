@@ -47,6 +47,8 @@ class TestIncomingEventBuilder:
             "is_direct_message": True,
             "attachments": [sample_attachment],
             "timestamp": int(datetime.now().timestamp() * 1000),
+            "edited_timestamp": None,
+            "edited": False,
             "mentions": ["user_101", "user_102"]
         }
 
@@ -99,6 +101,8 @@ class TestIncomingEventBuilder:
         assert event["data"]["thread_id"] == sample_message_delta["thread_id"]
         assert event["data"]["is_direct_message"] == sample_message_delta["is_direct_message"]
         assert event["data"]["mentions"] == sample_message_delta["mentions"]
+        assert event["data"]["edited_timestamp"] == sample_message_delta["edited_timestamp"]
+        assert event["data"]["edited"] == sample_message_delta["edited"]
         assert len(event["data"]["attachments"]) == 1
 
     def test_message_updated(self, event_builder, sample_message_delta, sample_attachment):

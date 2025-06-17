@@ -1,11 +1,7 @@
 from typing import Any, Dict, Optional
-
-from src.core.events.models.incoming_events import IncomingAttachmentInfo, SenderInfo
 from src.core.events.models.request_events import (
     RequestEvent,
     FetchedAttachmentData,
-    FetchedMessageData,
-    HistoryData,
     SentMessageData,
     ReadFileData,
     ViewDirectoryData
@@ -37,25 +33,6 @@ class RequestEventBuilder:
             validated_data = SentMessageData(message_ids=data["message_ids"])
         elif "content" in data:
             validated_data = FetchedAttachmentData(content=data["content"])
-        elif "history" in data:
-            history = []
-            for message in data["history"]:
-                attachments = [IncomingAttachmentInfo(**attachment) for attachment in message.get("attachments", [])]
-                history.append(
-                    FetchedMessageData(
-                        message_id=message.get("message_id", None),
-                        conversation_id=message.get("conversation_id", None),
-                        sender=SenderInfo(
-                            user_id=message.get("sender", {}).get("user_id", "Unknown"),
-                            display_name=message.get("sender", {}).get("display_name", "Unknown User")
-                        ),
-                        text=message.get("text", ""),
-                        thread_id=message.get("thread_id"),
-                        attachments=attachments,
-                        timestamp=message.get("timestamp", None)
-                    )
-                )
-            validated_data = HistoryData(history=history)
         elif "file_content" in data:
             validated_data = ReadFileData(file_content=data["file_content"])
         elif "directories" in data:

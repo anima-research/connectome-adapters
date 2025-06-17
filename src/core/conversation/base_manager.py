@@ -375,6 +375,8 @@ class BaseManager(ABC):
                 },
                 "text": cached_msg.text,
                 "timestamp": cached_msg.timestamp,
+                "edited_timestamp": cached_msg.edited_timestamp,
+                "edited": cached_msg.edited,
                 "thread_id": cached_msg.thread_id,
                 "is_direct_message": cached_msg.is_direct_message,
                 "attachments": attachments,

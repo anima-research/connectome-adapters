@@ -28,12 +28,14 @@ class MessageReceivedData(BaseIncomingData):
     message_id: str
     conversation_id: str
     sender: SenderInfo
+    timestamp: int
+    edited: bool
     is_direct_message: bool
     text: Optional[str] = ""
     thread_id: Optional[str] = None
     attachments: Optional[List[IncomingAttachmentInfo]] = Field(default_factory=list)
     mentions: Optional[List[str]] = Field(default_factory=list)
-    timestamp: int
+    edited_timestamp: Optional[int] = None
 
 class MessageUpdatedData(BaseIncomingData):
     """Message updated event data model"""

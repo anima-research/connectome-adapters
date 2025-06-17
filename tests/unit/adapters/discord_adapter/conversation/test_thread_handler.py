@@ -47,6 +47,8 @@ class TestThreadHandler:
             sender_name="Discord User",
             text="Hello world",
             timestamp=int(datetime.now().timestamp() * 1000),
+            edited_timestamp=None,
+            edited=False,
             is_from_bot=False,
             reply_to_message_id=None
         )
@@ -185,6 +187,8 @@ class TestThreadHandler:
                 sender_name=cached_message.sender_name,
                 text="I am replying to message 123",
                 timestamp=cached_message.timestamp,
+                edited_timestamp=None,
+                edited=False,
                 is_from_bot=cached_message.is_from_bot,
                 reply_to_message_id="123"  # This message replies to message 123
             )

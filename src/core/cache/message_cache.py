@@ -11,12 +11,14 @@ from src.core.utils.config import Config
 class CachedMessage:
     message_id: str
     conversation_id: str
-    thread_id: Optional[str]
     sender_id: str
     sender_name: str
-    text: Optional[str]
-    timestamp: Optional[int]
     is_from_bot: bool
+    text: Optional[str]
+    thread_id: Optional[str]
+    timestamp: Optional[int]
+    edited_timestamp: Optional[int]
+    edited: bool = False
     is_direct_message: bool = True
     reply_to_message_id: Optional[str] = None
     reactions: Dict[str, int] = field(default_factory=dict)
@@ -40,6 +42,8 @@ class CachedMessage:
             },
             "text": self.text,
             "timestamp": self.timestamp,
+            "edited_timestamp": self.edited_timestamp,
+            "edited": self.edited,
             "is_direct_message": self.is_direct_message
         }
 
@@ -122,6 +126,8 @@ class MessageCache:
                 sender_name=message_info.get("sender_name", None),
                 text=message_info["text"],
                 timestamp=message_info["timestamp"],
+                edited_timestamp=message_info.get("edited_timestamp", None),
+                edited=message_info.get("edited", False),
                 is_from_bot=message_info.get("is_from_bot", True),
                 is_direct_message=message_info.get("is_direct_message", True),
                 reply_to_message_id=message_info.get("reply_to_message_id", None)

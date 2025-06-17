@@ -252,8 +252,8 @@ class BaseOutgoingEventProcessor(ABC):
                 logging.error("No before or after datetime provided")
                 return {"request_completed": False}
 
-            history = await self._fetch_history(data)
-            return {"request_completed": True, "history": history}
+            #history = await self._fetch_history(data)
+            return {"request_completed": True}
         except Exception as e:
             logging.error(
                 f"Failed to fetch history of conversation {data.conversation_id}: {e}",

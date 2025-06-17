@@ -1,6 +1,5 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional, Union
-from src.core.events.models.incoming_events import IncomingAttachmentInfo, SenderInfo
 
 class SentMessageData(BaseModel):
     """Sent message data model"""
@@ -9,21 +8,6 @@ class SentMessageData(BaseModel):
 class FetchedAttachmentData(BaseModel):
     """Fetched attachment data model"""
     content: str
-
-class FetchedMessageData(BaseModel):
-    """Fetched message data model"""
-    message_id: str
-    conversation_id: str
-    sender: SenderInfo
-    text: str = ""
-    thread_id: Optional[str] = None
-    is_direct_message: bool = True
-    attachments: List[IncomingAttachmentInfo] = Field(default_factory=list)
-    timestamp: int
-
-class HistoryData(BaseModel):
-    """History data model"""
-    history: List[FetchedMessageData] = Field(default_factory=list)
 
 class ReadFileData(BaseModel):
     """Read file data model"""
@@ -42,7 +26,6 @@ class RequestEvent(BaseModel):
     data: Optional[
         Union[
             SentMessageData,
-            HistoryData,
             FetchedAttachmentData,
             ReadFileData,
             ViewDirectoryData

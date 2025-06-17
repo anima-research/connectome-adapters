@@ -21,6 +21,7 @@ class TestMessageBuilder:
         message.id = 123
         message.content = "Test message content"
         message.created_at = datetime(2021, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        message.edited_at = None
         return message
 
     @pytest.fixture
@@ -71,6 +72,8 @@ class TestMessageBuilder:
         assert builder.message_data["conversation_id"] == "123456789"
         assert builder.message_data["timestamp"] == 1609502400  # 2021-01-01 12:00:00 UTC in seconds
         assert builder.message_data["is_direct_message"] is True
+        assert builder.message_data["edited_timestamp"] is None
+        assert builder.message_data["edited"] is False
         assert result is builder
 
     def test_with_sender_info(self, builder, mock_sender):
@@ -154,3 +157,5 @@ class TestMessageBuilder:
         assert result["text"] == "Test message content"
         assert result["thread_id"] == "456"
         assert result["reply_to_message_id"] == "456"
+        assert result["edited_timestamp"] is None
+        assert result["edited"] is False

@@ -41,8 +41,6 @@ from src.core.events.models.outgoing_events import (
 )
 from src.core.events.models.request_events import (
     FetchedAttachmentData,
-    FetchedMessageData,
-    HistoryData,
     SentMessageData,
     ReadFileData,
     ViewDirectoryData,
@@ -87,8 +85,6 @@ __all__ = [
     "UnpinMessageEvent",
     "FetchedAttachmentData",
     "FetchAttachmentEvent",
-    "FetchedMessageData",
-    "HistoryData",
     "SentMessageData",
     "ReadFileData",
     "ViewDirectoryData",

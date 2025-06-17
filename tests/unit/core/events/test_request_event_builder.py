@@ -5,8 +5,6 @@ from src.core.events.models.incoming_events import IncomingAttachmentInfo, Sende
 from src.core.events.models.request_events import (
     RequestEvent,
     FetchedAttachmentData,
-    FetchedMessageData,
-    HistoryData,
     SentMessageData,
     ReadFileData,
     ViewDirectoryData
@@ -48,7 +46,9 @@ class TestRequestEventBuilder:
             "thread_id": "thread_101",
             "is_direct_message": True,
             "attachments": [sample_attachment_info],
-            "timestamp": int(datetime.now().timestamp() * 1000)
+            "timestamp": int(datetime.now().timestamp() * 1000),
+            "edited_timestamp": None,
+            "edited": False,
         }
 
     def test_initialization(self):
@@ -87,104 +87,6 @@ class TestRequestEventBuilder:
         assert event.internal_request_id == internal_request_id
         assert isinstance(event.data, FetchedAttachmentData)
         assert event.data.content == content
-
-    def test_build_history_data(self, request_event_builder, sample_message_data, sample_attachment_info):
-        """Test building an event with HistoryData."""
-        internal_request_id = "internal_req_789"
-        request_id = "req_789"
-        data = {"history": [sample_message_data]}
-
-        event = request_event_builder.build(request_id, internal_request_id, data)
-
-        assert isinstance(event, RequestEvent)
-        assert event.adapter_type == request_event_builder.adapter_type
-        assert event.request_id == request_id
-        assert event.internal_request_id == internal_request_id
-        assert isinstance(event.data, HistoryData)
-        assert len(event.data.history) == 1
-
-        # Verify the history item
-        history_item = event.data.history[0]
-        assert isinstance(history_item, FetchedMessageData)
-        assert history_item.message_id == sample_message_data["message_id"]
-        assert history_item.conversation_id == sample_message_data["conversation_id"]
-        assert history_item.text == sample_message_data["text"]
-        assert history_item.thread_id == sample_message_data["thread_id"]
-        assert history_item.timestamp == sample_message_data["timestamp"]
-
-        # Verify sender
-        assert isinstance(history_item.sender, SenderInfo)
-        assert history_item.sender.user_id == sample_message_data["sender"]["user_id"]
-        assert history_item.sender.display_name == sample_message_data["sender"]["display_name"]
-
-        # Verify attachments
-        assert len(history_item.attachments) == 1
-        assert isinstance(history_item.attachments[0], IncomingAttachmentInfo)
-        assert history_item.attachments[0].attachment_id == sample_attachment_info["attachment_id"]
-        assert history_item.attachments[0].filename == sample_attachment_info["filename"]
-        assert history_item.attachments[0].size == sample_attachment_info["size"]
-        assert history_item.attachments[0].content_type == sample_attachment_info["content_type"]
-        assert history_item.attachments[0].content == sample_attachment_info["content"]
-        assert history_item.attachments[0].url == sample_attachment_info["url"]
-        assert history_item.attachments[0].processable == sample_attachment_info["processable"]
-
-    def test_build_history_data_multiple_messages(self, request_event_builder, sample_message_data):
-        """Test building an event with HistoryData containing multiple messages."""
-        internal_request_id = "internal_req_789"
-        request_id = "req_789"
-
-        # Create a second message with different data
-        second_message = sample_message_data.copy()
-        second_message["message_id"] = "msg_987"
-        second_message["text"] = "Another message"
-
-        data = {"history": [sample_message_data, second_message]}
-
-        event = request_event_builder.build(request_id, internal_request_id, data)
-
-        assert isinstance(event.data, HistoryData)
-        assert len(event.data.history) == 2
-
-        # Verify both messages
-        assert event.data.history[0].message_id == sample_message_data["message_id"]
-        assert event.data.history[1].message_id == second_message["message_id"]
-        assert event.data.history[1].text == second_message["text"]
-
-    def test_build_history_data_empty(self, request_event_builder):
-        """Test building an event with empty HistoryData."""
-        event = request_event_builder.build("req_789", "internal_req_789", {"history": []})
-
-        assert isinstance(event.data, HistoryData)
-        assert len(event.data.history) == 0
-
-    def test_build_history_data_minimal_message(self, request_event_builder):
-        """Test building history with minimal message data."""
-        internal_request_id = "internal_req_789"
-        request_id = "req_789"
-        minimal_message = {
-            "message_id": "msg_123",
-            "conversation_id": "conv_456",
-            "timestamp": int(datetime.now().timestamp() * 1000)
-            # Missing optional fields
-        }
-        event = request_event_builder.build(
-            request_id, internal_request_id, {"history": [minimal_message]}
-        )
-
-        assert isinstance(event.data, HistoryData)
-        assert len(event.data.history) == 1
-
-        # Verify defaults for missing fields
-        history_item = event.data.history[0]
-        assert history_item.message_id == minimal_message["message_id"]
-        assert history_item.conversation_id == minimal_message["conversation_id"]
-        assert history_item.text == ""  # Default
-        assert history_item.thread_id is None  # Default
-        assert len(history_item.attachments) == 0  # Default
-
-        # Verify default sender
-        assert history_item.sender.user_id == "Unknown"
-        assert history_item.sender.display_name == "Unknown User"
 
     def test_build_read_file_data(self, request_event_builder):
         """Test building an event with ReadFileData."""

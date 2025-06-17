@@ -30,6 +30,8 @@ class TestMessageCache:
             "sender_name": "Test User",
             "text": "Hello, world!",
             "timestamp": int(datetime.now().timestamp()),
+            "edited_timestamp": None,
+            "edited": False,
             "is_from_bot": False,
             "reply_to_message_id": None
         }
@@ -50,6 +52,8 @@ class TestMessageCache:
                     "sender_name": "Test User",
                     "text": f"Message {i}",
                     "timestamp": int((base_time - timedelta(minutes=i)).timestamp()),
+                    "edited_timestamp": None,
+                    "edited": False,
                     "is_from_bot": False,
                     "reply_to_message_id": None
                 }
@@ -65,6 +69,8 @@ class TestMessageCache:
                     "sender_name": "Another User",
                     "text": f"Message in conv 2: {i}",
                     "timestamp": int((base_time - timedelta(minutes=i)).timestamp()),
+                    "edited_timestamp": None,
+                    "edited": False,
                     "is_from_bot": True,
                     "reply_to_message_id": None
                 }

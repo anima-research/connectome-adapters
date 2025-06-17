@@ -203,6 +203,10 @@ class HistoryFetcher(BaseHistoryFetcher):
         if message.reference and message.reference.message_id:
             thread_id = str(message.reference.message_id)
 
+        edited_timestamp = None
+        if getattr(message, "edited_at", None) and message.edited_at:
+            edited_timestamp = int(message.edited_at.timestamp())
+
         formatted_message = {
             "message_id": str(message.id),
             "conversation_id": self.conversation_id,
@@ -213,6 +217,8 @@ class HistoryFetcher(BaseHistoryFetcher):
             "text": message.content,
             "thread_id": thread_id,
             "timestamp": int(message.created_at.timestamp()),
+            "edited_timestamp": edited_timestamp,
+            "edited": edited_timestamp is not None,
             "attachments": [],
             "is_direct_message": isinstance(getattr(message, "channel", None), discord.DMChannel),
             "mentions": []

@@ -222,6 +222,8 @@ class TestSocketIOToDiscordWebhookFlowIntegration:
                 },
                 "text": "First message",
                 "thread_id": None,
+                "edited_timestamp": None,
+                "edited": False,
                 "timestamp": 1627984000000,
                 "attachments": []
             },
@@ -234,6 +236,8 @@ class TestSocketIOToDiscordWebhookFlowIntegration:
                 },
                 "text": "Second message",
                 "thread_id": None,
+                "edited_timestamp": 1627984200000,
+                "edited": True,
                 "timestamp": 1627984100000,
                 "attachments": []
             }
@@ -253,9 +257,4 @@ class TestSocketIOToDiscordWebhookFlowIntegration:
                     "limit": 10
                 }
             })
-
             assert result["request_completed"] is True
-            assert "history" in result
-            assert len(result["history"]) == 2
-            assert result["history"][0]["message_id"] == "111222333"
-            assert result["history"][1]["message_id"] == "222333444"

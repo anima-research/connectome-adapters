@@ -60,6 +60,8 @@ class TestManager:
             sender_name="Discord User",
             text="Hello world!",
             timestamp=1609459200000,  # 2021-01-01 in ms
+            edited_timestamp=None,
+            edited=False,
             is_from_bot=False,
             reactions={"+1": 1},
             is_pinned=False
@@ -71,8 +73,8 @@ class TestManager:
         message = MagicMock(spec=discord.Message)
         message.id = 111222333
         message.content = "Hello world!"
-        created_at = datetime(2021, 1, 1, 12, 0, 0)
-        message.created_at = created_at
+        message.created_at = datetime(2021, 1, 1, 12, 0, 0)
+        message.edited_at = None
 
         # Set up channel
         channel = MagicMock(spec=discord.TextChannel)
@@ -100,9 +102,9 @@ class TestManager:
         message.message_id = 111222333
         message.channel_id = 123456789
         message.guild_id = 987654321
+        message.edited_at = datetime(2021, 1, 1, 12, 30, 0)
         message.data = {
             "content": "Hello world! (edited)",
-            "edited_timestamp": "2021-01-01T12:30:00.000000+00:00",
             "pinned": False
         }
         return message
