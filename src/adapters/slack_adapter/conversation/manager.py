@@ -211,8 +211,9 @@ class Manager(BaseManager):
         if not cached_msg or not data:
             return
 
-        cached_msg.timestamp = int(datetime.now().timestamp())
         cached_msg.text = data.get("message", {}).get("text", "")
+        cached_msg.edited_timestamp = int(datetime.now().timestamp())
+        cached_msg.edited = True
         await self._update_delta_list(
             conversation_id=cached_msg.conversation_id,
             delta=delta,

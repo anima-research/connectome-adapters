@@ -58,6 +58,8 @@ class TestManager:
             sender_name="Slack User",
             text="Hello world!",
             timestamp=1625176800123,  # 2021-07-01 in ms
+            edited_timestamp=None,
+            edited=False,
             is_from_bot=False,
             reactions={"+1": 1},
             is_pinned=False

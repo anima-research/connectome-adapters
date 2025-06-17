@@ -42,6 +42,8 @@ class TestThreadHandler:
             sender_name="Slack User",
             text="Hello world",
             timestamp=int(datetime.now().timestamp() * 1000),
+            edited_timestamp=None,
+            edited=False,
             is_from_bot=False,
             reply_to_message_id=None
         )
