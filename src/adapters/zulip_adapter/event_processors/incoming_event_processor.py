@@ -71,7 +71,8 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             if delta:
                 if delta.get("fetch_history", False):
                     history = await self._fetch_conversation_history(delta)
-                    events.append(self.incoming_event_builder.conversation_started(delta, history))
+                    events.append(self.incoming_event_builder.conversation_started(delta))
+                    events.append(self.incoming_event_builder.history_fetched(delta, history))
 
                 for message in delta.get("added_messages", []):
                     events.append(self.incoming_event_builder.message_received(message))
@@ -149,7 +150,8 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
         if delta:
             if delta.get("fetch_history", False):
                 history = await self._fetch_conversation_history(delta)
-                events.append(self.incoming_event_builder.conversation_started(delta, history))
+                events.append(self.incoming_event_builder.conversation_started(delta))
+                events.append(self.incoming_event_builder.history_fetched(delta, history))
 
             old_conversation_id = f"{event.get('stream_id', '')}/{event.get('orig_subject', '')}"
             for message_id in delta.get("deleted_message_ids", []):

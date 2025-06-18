@@ -65,6 +65,10 @@ class PinStatusUpdateData(BaseIncomingData):
 class ConversationStartedData(BaseIncomingData):
     """Conversation started event data model"""
     conversation_id: str
+
+class HistoryFetchedData(BaseIncomingData):
+    """History fetched event data model"""
+    conversation_id: str
     history: List[MessageReceivedData] = Field(default_factory=list)
 
 # Base incoming event model
@@ -114,3 +118,8 @@ class MessageUnpinnedEvent(BaseIncomingEvent):
     """Message unpinned event model"""
     event_type: str = "message_unpinned"
     data: PinStatusUpdateData
+
+class HistoryFetchedEvent(BaseIncomingEvent):
+    """History fetched event model"""
+    event_type: str = "history_fetched"
+    data: HistoryFetchedData

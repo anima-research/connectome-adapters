@@ -319,22 +319,25 @@ class TestIncomingEventProcessor:
                 processor.incoming_event_builder.conversation_started = MagicMock(
                     return_value={"event_type": "conversation_started"}
                 )
+                processor.incoming_event_builder.history_fetched = MagicMock(
+                    return_value={"event_type": "history_fetched"}
+                )
                 processor.incoming_event_builder.message_received = MagicMock(
                     return_value={"event_type": "message_received"}
                 )
 
                 result = await processor._handle_message(message_event_mock)
 
-                assert len(result) == 2
+                assert len(result) == 3
                 assert {"event_type": "conversation_started"} in result
+                assert {"event_type": "history_fetched"} in result
                 assert {"event_type": "message_received"} in result
 
                 processor.client.users_info.assert_called_once_with(user="U12345678")
                 processor.downloader.download_attachments.assert_called_once_with(message_event_mock["event"])
                 processor.conversation_manager.add_to_conversation.assert_called_once()
-                processor.incoming_event_builder.conversation_started.assert_called_once_with(
-                    delta, [{"some": "history"}]
-                )
+                processor.incoming_event_builder.conversation_started.assert_called_once_with(delta)
+                processor.incoming_event_builder.history_fetched.assert_called_once_with(delta, [{"some": "history"}])
                 processor.incoming_event_builder.message_received.assert_called_once_with(message)
 
         @pytest.mark.asyncio

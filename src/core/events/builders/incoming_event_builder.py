@@ -8,6 +8,7 @@ from src.core.events.models.incoming_events import (
     MessageDeletedData,
     ReactionUpdateData,
     PinStatusUpdateData,
+    HistoryFetchedData,
     ConversationStartedEvent,
     MessageReceivedEvent,
     MessageUpdatedEvent,
@@ -15,7 +16,8 @@ from src.core.events.models.incoming_events import (
     ReactionAddedEvent,
     ReactionRemovedEvent,
     MessagePinnedEvent,
-    MessageUnpinnedEvent
+    MessageUnpinnedEvent,
+    HistoryFetchedEvent
 )
 
 class IncomingEventBuilder:
@@ -38,15 +40,12 @@ class IncomingEventBuilder:
         self.adapter_name = adapter_name
         self.adapter_id = adapter_id
 
-    def conversation_started(self,
-                             delta: Dict[str, Any],
-                             history: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def conversation_started(self, delta: Dict[str, Any]) -> Dict[str, Any]:
         """
         Create a conversation_started event with validation.
 
         Args:
             delta: Event change information
-            history: List of message history items
 
         Returns:
             Dictionary containing the validated event
@@ -56,8 +55,7 @@ class IncomingEventBuilder:
             data=ConversationStartedData(
                 adapter_name=self.adapter_name,
                 adapter_id=self.adapter_id,
-                conversation_id=delta["conversation_id"],
-                history=[self._process_message(message) for message in history]
+                conversation_id=delta["conversation_id"]
             )
         )
         return event.model_dump()
@@ -196,6 +194,30 @@ class IncomingEventBuilder:
         else:
             raise ValueError(f"Unknown pin status event type: {event_type}")
 
+        return event.model_dump()
+
+    def history_fetched(self,
+                        delta: Dict[str, Any],
+                        history: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Create a history_fetched event with validation.
+
+        Args:
+            delta: Event change information
+            history: List of message history items
+
+        Returns:
+            Dictionary containing the validated event
+        """
+        event = HistoryFetchedEvent(
+            adapter_type=self.adapter_type,
+            data=HistoryFetchedData(
+                adapter_name=self.adapter_name,
+                adapter_id=self.adapter_id,
+                conversation_id=delta["conversation_id"],
+                history=[self._process_message(message) for message in history]
+            )
+        )
         return event.model_dump()
 
     def _process_message(self, delta: Dict[str, Any]) -> MessageReceivedData:

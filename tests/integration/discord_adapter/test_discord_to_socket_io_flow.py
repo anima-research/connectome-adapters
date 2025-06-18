@@ -265,9 +265,9 @@ class TestDiscordToSocketIOFlowIntegration:
         with patch.object(adapter.incoming_events_processor, "_fetch_conversation_history", return_value=[]):
             result = await adapter.incoming_events_processor.process_event(event)
 
-            assert len(result) == 2, "Expected two event to be generated"
-            assert "attachments" in result[1]["data"]
-            assert len(result[1]["data"]["attachments"]) == 1
+            assert len(result) == 3, "Expected three events to be generated"
+            assert "attachments" in result[2]["data"]
+            assert len(result[2]["data"]["attachments"]) == 1
 
             assert "987654321/123456789" in adapter.conversation_manager.conversations
             assert len(adapter.conversation_manager.conversations["987654321/123456789"].messages) == 1

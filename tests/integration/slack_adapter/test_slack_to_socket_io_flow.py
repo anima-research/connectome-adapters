@@ -329,7 +329,7 @@ class TestSlackToSocketIOFlowIntegration:
         with patch.object(adapter.incoming_events_processor, "_fetch_conversation_history", return_value=[]):
             result = await adapter.incoming_events_processor.process_event(event)
 
-            assert len(result) == 2, "Expected two events to be generated"
+            assert len(result) == 3, "Expected three events to be generated"
 
             assert "T12345/C12345678" in adapter.conversation_manager.conversations
             assert len(adapter.conversation_manager.conversations["T12345/C12345678"].messages) == 1

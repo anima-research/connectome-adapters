@@ -69,23 +69,17 @@ class TestIncomingEventBuilder:
         assert builder.adapter_name == "telegram_bot"
         assert builder.adapter_id == "telegram_bot_id"
 
-    def test_conversation_started(self, event_builder, sample_message_delta, sample_history):
+    def test_conversation_started(self, event_builder):
         """Test conversation_started event creation."""
         delta = {"conversation_id": "conv_456"}
 
-        event = event_builder.conversation_started(delta, sample_history)
+        event = event_builder.conversation_started(delta)
 
         assert event["adapter_type"] == event_builder.adapter_type
         assert event["event_type"] == "conversation_started"
         assert event["data"]["conversation_id"] == delta["conversation_id"]
         assert event["data"]["adapter_name"] == event_builder.adapter_name
         assert event["data"]["adapter_id"] == event_builder.adapter_id
-        assert len(event["data"]["history"]) == 1
-
-        history_item = event["data"]["history"][0]
-        assert history_item["message_id"] == sample_message_delta["message_id"]
-        assert history_item["conversation_id"] == sample_message_delta["conversation_id"]
-        assert history_item["text"] == sample_message_delta["text"]
 
     def test_message_received(self, event_builder, sample_message_delta):
         """Test message_received event creation."""
@@ -242,6 +236,24 @@ class TestIncomingEventBuilder:
 
         with pytest.raises(ValueError, match="Unknown pin status event type: invalid_type"):
             event_builder.pin_status_update("invalid_type", delta)
+
+    def test_history_fetched(self, event_builder, sample_message_delta, sample_history):
+        """Test history_fetched event creation."""
+        delta = {"conversation_id": "conv_456"}
+
+        event = event_builder.history_fetched(delta, sample_history)
+
+        assert event["adapter_type"] == event_builder.adapter_type
+        assert event["event_type"] == "history_fetched"
+        assert event["data"]["conversation_id"] == delta["conversation_id"]
+        assert event["data"]["adapter_name"] == event_builder.adapter_name
+        assert event["data"]["adapter_id"] == event_builder.adapter_id
+        assert len(event["data"]["history"]) == 1
+
+        history_item = event["data"]["history"][0]
+        assert history_item["message_id"] == sample_message_delta["message_id"]
+        assert history_item["conversation_id"] == sample_message_delta["conversation_id"]
+        assert history_item["text"] == sample_message_delta["text"]
 
     def test_event_model_validation(self, event_builder, sample_message_delta):
         """Test that events can be properly converted back to Pydantic models."""

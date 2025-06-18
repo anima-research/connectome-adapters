@@ -11,6 +11,7 @@ from src.core.events.models.incoming_events import (
     MessageDeletedData,
     ReactionUpdateData,
     PinStatusUpdateData,
+    HistoryFetchedData,
     BaseIncomingEvent,
     ConversationStartedEvent,
     MessageReceivedEvent,
@@ -19,7 +20,8 @@ from src.core.events.models.incoming_events import (
     ReactionAddedEvent,
     ReactionRemovedEvent,
     MessagePinnedEvent,
-    MessageUnpinnedEvent
+    MessageUnpinnedEvent,
+    HistoryFetchedEvent
 )
 from src.core.events.models.outgoing_events import (
     OutgoingAttachmentInfo,
@@ -58,6 +60,7 @@ __all__ = [
     "MessageDeletedData",
     "ReactionUpdateData",
     "PinStatusUpdateData",
+    "HistoryFetchedData",
     "BaseIncomingEvent",
     "ConversationStartedEvent",
     "MessageReceivedEvent",
@@ -67,6 +70,7 @@ __all__ = [
     "ReactionRemovedEvent",
     "MessagePinnedEvent",
     "MessageUnpinnedEvent",
+    "HistoryFetchedEvent",
     "OutgoingAttachmentInfo",
     "SendMessageData",
     "EditMessageData",

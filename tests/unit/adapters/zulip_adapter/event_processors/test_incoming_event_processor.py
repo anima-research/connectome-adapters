@@ -156,14 +156,18 @@ class TestIncomingEventProcessor:
             processor.incoming_event_builder.conversation_started = MagicMock(
                 return_value={"event_type": "conversation_started"}
             )
+            processor.incoming_event_builder.history_fetched = MagicMock(
+                return_value={"event_type": "history_fetched"}
+            )
             processor.incoming_event_builder.message_received = MagicMock(
                 return_value={"event_type": "message_received"}
             )
 
             result = await processor._handle_message(message_event_mock)
 
-            assert len(result) == 2
+            assert len(result) == 3
             assert {"event_type": "conversation_started"} in result
+            assert {"event_type": "history_fetched"} in result
             assert {"event_type": "message_received"} in result
 
             processor.conversation_manager.add_to_conversation.assert_called_once_with(
@@ -171,7 +175,8 @@ class TestIncomingEventProcessor:
             )
 
             processor._fetch_conversation_history.assert_called_once()
-            processor.incoming_event_builder.conversation_started.assert_called_once_with(
+            processor.incoming_event_builder.conversation_started.assert_called_once_with(delta)
+            processor.incoming_event_builder.history_fetched.assert_called_once_with(
                 delta, processor._fetch_conversation_history.return_value
             )
             processor.incoming_event_builder.message_received.assert_called_once_with(message)
@@ -267,6 +272,9 @@ class TestIncomingEventProcessor:
             processor.incoming_event_builder.conversation_started = MagicMock(
                 return_value={"event_type": "conversation_started"}
             )
+            processor.incoming_event_builder.history_fetched = MagicMock(
+                return_value={"event_type": "history_fetched"}
+            )
             processor.incoming_event_builder.message_deleted = MagicMock(
                 return_value={"event_type": "message_deleted"}
             )
@@ -276,17 +284,20 @@ class TestIncomingEventProcessor:
 
             result = await processor._handle_topic_change(topic_change_event_mock)
 
-            # Should have 3 events: 1 conversation_started, 2 message_deleted, 1 message_received
-            assert len(result) == 4
+            # Should have 5 events: 1 conversation_started, 1 history_fetched, 2 message_deleted, 1 message_received
+            assert len(result) == 5
 
             event_types = [event.get("event_type") for event in result]
             assert "conversation_started" in event_types
+            assert "history_fetched" in event_types
             assert "message_deleted" in event_types
             assert "message_received" in event_types
 
             processor.conversation_manager.migrate_between_conversations.assert_called_once_with(
                 topic_change_event_mock
             )
+            assert processor.incoming_event_builder.conversation_started.call_count == 1
+            assert processor.incoming_event_builder.history_fetched.call_count == 1
             assert processor.incoming_event_builder.message_deleted.call_count == 2
             assert processor.incoming_event_builder.message_received.call_count == 1
 
