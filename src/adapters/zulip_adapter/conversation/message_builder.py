@@ -10,6 +10,8 @@ class MessageBuilder(BaseMessageBuilder):
         self.message_data["conversation_id"] = conversation.conversation_id
         self.message_data["timestamp"] = message.get("timestamp", None)
         self.message_data["is_direct_message"] = conversation.conversation_type == "private"
+        self.message_data["edit_timestamp"] = message.get("last_edit_timestamp", None)
+        self.message_data["edited"] = self.message_data["edit_timestamp"] is not None
         return self
 
     def with_content(self, message: Any) -> 'MessageBuilder':

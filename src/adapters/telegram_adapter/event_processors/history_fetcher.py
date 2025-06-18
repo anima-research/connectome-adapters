@@ -241,6 +241,10 @@ class HistoryFetcher(BaseHistoryFetcher):
             if hasattr(msg, "reply_to") and msg.reply_to:
                 reply_to_msg_id = getattr(msg.reply_to, "reply_to_msg_id", None)
 
+            edit_timestamp = None
+            if hasattr(msg, "edit_date") and msg.edit_date:
+                edit_timestamp = int(msg.edit_date.timestamp())
+
             if text or attachment_info:
                 result.append({
                     "message_id": str(msg.id),
@@ -252,6 +256,8 @@ class HistoryFetcher(BaseHistoryFetcher):
                     "text": text,
                     "thread_id": str(reply_to_msg_id) if reply_to_msg_id else None,
                     "timestamp": int(msg.date.timestamp()) if hasattr(msg, "date") else int(datetime.now().timestamp()),
+                    "edit_timestamp": edit_timestamp,
+                    "edited": edit_timestamp is not None,
                     "attachments": [attachment_info] if attachment_info else [],
                     "is_direct_message": self.conversation.conversation_type == "private",
                     "mentions": []

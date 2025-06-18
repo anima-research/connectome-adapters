@@ -122,7 +122,7 @@ class TestIncomingEventProcessor:
         message.guild_id = 444555666
         message.data = {
             "content": "Edited test message",
-            "edited_timestamp": "2023-01-01T12:00:00.000000+00:00",
+            "edit_timestamp": "2023-01-01T12:00:00.000000+00:00",
             "pinned": False
         }
 

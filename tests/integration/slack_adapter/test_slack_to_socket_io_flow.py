@@ -164,7 +164,7 @@ class TestSlackToSocketIOFlowIntegration:
                 "text": "Test message",
                 "sender_id": "U12345678",
                 "sender_name": "Slack User",
-                "timestamp": int(float(message_id) * 1000),  # Convert Slack ts to ms
+                "timestamp": int(float(message_id)),  # Convert Slack ts to ms
                 "is_from_bot": False,
                 "thread_id": thread_id
             })

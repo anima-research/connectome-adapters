@@ -209,9 +209,9 @@ class HistoryFetcher(BaseHistoryFetcher):
         Returns:
             Formatted message
         """
-        edited_timestamp = None
+        edit_timestamp = None
         if message.get("edited", {}):
-            edited_timestamp = int(float(message.get("edited", {}).get("ts", "0")))
+            edit_timestamp = int(float(message.get("edited", {}).get("ts", "0")))
 
         return {
             "message_id": message.get("ts", None),
@@ -223,8 +223,8 @@ class HistoryFetcher(BaseHistoryFetcher):
             "text": message.get("text", ""),
             "thread_id": message.get("thread_ts", None),
             "timestamp": int(float(message.get("ts", "0"))),
-            "edited_timestamp": edited_timestamp,
-            "edited": edited_timestamp is not None,
+            "edit_timestamp": edit_timestamp,
+            "edited": edit_timestamp is not None,
             "attachments": attachments,
             "is_direct_message": message.get("channel_type", "") == "im",
             "mentions": []

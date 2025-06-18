@@ -84,6 +84,8 @@ class TestMessageBuilder:
         assert builder.message_data["message_id"] == "123"
         assert builder.message_data["conversation_id"] == "123_456"
         assert builder.message_data["timestamp"] == 1609502400
+        assert builder.message_data["edit_timestamp"] is None
+        assert builder.message_data["edited"] is False
         assert result is builder
 
     def test_with_basic_info_stream_message(self,
@@ -96,6 +98,8 @@ class TestMessageBuilder:
         assert builder.message_data["message_id"] == "456"
         assert builder.message_data["conversation_id"] == "789/Test Topic"
         assert builder.message_data["timestamp"] == 1609502400
+        assert builder.message_data["edit_timestamp"] is None
+        assert builder.message_data["edited"] is False
         assert result is builder
 
     def test_with_sender_info(self, builder, mock_sender):

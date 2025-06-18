@@ -96,7 +96,7 @@ class IncomingEventBuilder:
                 message_id=delta["message_id"],
                 conversation_id=delta["conversation_id"],
                 new_text=delta.get("text", ""),
-                timestamp=delta["timestamp"],
+                timestamp=delta["edit_timestamp"],
                 attachments=[IncomingAttachmentInfo(**attachment) for attachment in delta.get("attachments", [])],
                 mentions=delta.get("mentions", [])
             )
@@ -225,7 +225,7 @@ class IncomingEventBuilder:
             thread_id=delta.get("thread_id"),
             is_direct_message=delta.get("is_direct_message", True),
             timestamp=delta["timestamp"],
-            edited_timestamp=delta.get("edited_timestamp", None),
+            edit_timestamp=delta.get("edit_timestamp", None),
             edited=delta.get("edited", False),
             attachments=[IncomingAttachmentInfo(**attachment) for attachment in delta.get("attachments", [])],
             mentions=delta.get("mentions", [])

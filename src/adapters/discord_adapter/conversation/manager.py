@@ -210,14 +210,14 @@ class Manager(BaseManager):
             return
 
         try:
-            edited_timestamp = datetime.strptime(
-                data.get("edited_timestamp", ""),
+            edit_timestamp = datetime.strptime(
+                data.get("edit_timestamp", ""),
                 "%Y-%m-%dT%H:%M:%S.%f%z"
             )
         except ValueError:
-            edited_timestamp = datetime.now()
+            edit_timestamp = datetime.now()
 
-        cached_msg.edited_timestamp = int(edited_timestamp.timestamp())
+        cached_msg.edit_timestamp = int(edit_timestamp.timestamp())
         cached_msg.edited = True
         cached_msg.text = data.get("content", "")
         await self._update_delta_list(

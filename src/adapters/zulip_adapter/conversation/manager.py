@@ -310,8 +310,9 @@ class Manager(BaseManager):
         )
 
         if cached_msg:
-            cached_msg.timestamp = message.get("edit_timestamp", int(datetime.now().timestamp()))
             cached_msg.text = message.get("content", "")
+            cached_msg.edit_timestamp = message.get("edit_timestamp", int(datetime.now().timestamp()))
+            cached_msg.edited = True
 
             if threading_changed:
                 if not thread_info:

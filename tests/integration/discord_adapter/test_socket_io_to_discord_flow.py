@@ -103,7 +103,7 @@ class TestSocketIOToDiscordFlowIntegration:
                 "text": "Test message",
                 "sender_id": "123456789",
                 "sender_name": "Test User",
-                "timestamp": int(datetime.now(timezone.utc).timestamp() * 1000),
+                "timestamp": int(datetime.now(timezone.utc).timestamp()),
                 "is_from_bot": False
             })
 

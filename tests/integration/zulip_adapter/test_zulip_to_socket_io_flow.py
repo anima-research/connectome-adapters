@@ -130,7 +130,7 @@ class TestZulipToSocketIOFlowIntegration:
                 "text": "Test message",
                 "sender_id": "101",
                 "sender_name": "Test User",
-                "timestamp": int(datetime.now().timestamp() * 1000),
+                "timestamp": int(datetime.now().timestamp()),
                 "is_from_bot": False
             })
 

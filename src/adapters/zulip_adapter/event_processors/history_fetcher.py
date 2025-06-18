@@ -187,6 +187,7 @@ class HistoryFetcher(BaseHistoryFetcher):
                 for cached_msg in delta.get("added_messages", []):
                     formatted_history.append(cached_msg)
             else:
+                edit_timestamp = msg.get("last_edit_timestamp", None)
                 formatted_history.append({
                     "message_id": str(msg.get("id", "")),
                     "conversation_id": self.conversation.conversation_id,
@@ -197,6 +198,8 @@ class HistoryFetcher(BaseHistoryFetcher):
                     "text": msg.get("content", ""),
                     "thread_id": self._extract_reply_to_id(msg.get("content", "")),
                     "timestamp": msg.get("timestamp", None),
+                    "edit_timestamp": edit_timestamp,
+                    "edited": edit_timestamp is not None,
                     "attachments": attachments.get(i, []),
                     "is_direct_message": self.conversation.conversation_type == "private",
                     "mentions": []

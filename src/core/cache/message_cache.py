@@ -17,7 +17,7 @@ class CachedMessage:
     text: Optional[str]
     thread_id: Optional[str]
     timestamp: Optional[int]
-    edited_timestamp: Optional[int]
+    edit_timestamp: Optional[int]
     edited: bool = False
     is_direct_message: bool = True
     reply_to_message_id: Optional[str] = None
@@ -42,7 +42,7 @@ class CachedMessage:
             },
             "text": self.text,
             "timestamp": self.timestamp,
-            "edited_timestamp": self.edited_timestamp,
+            "edit_timestamp": self.edit_timestamp,
             "edited": self.edited,
             "is_direct_message": self.is_direct_message
         }
@@ -126,7 +126,7 @@ class MessageCache:
                 sender_name=message_info.get("sender_name", None),
                 text=message_info["text"],
                 timestamp=message_info["timestamp"],
-                edited_timestamp=message_info.get("edited_timestamp", None),
+                edit_timestamp=message_info.get("edit_timestamp", None),
                 edited=message_info.get("edited", False),
                 is_from_bot=message_info.get("is_from_bot", True),
                 is_direct_message=message_info.get("is_direct_message", True),

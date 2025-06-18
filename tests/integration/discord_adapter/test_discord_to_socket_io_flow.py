@@ -105,7 +105,7 @@ class TestDiscordToSocketIOFlowIntegration:
                 "text": "Test message",
                 "sender_id": "123456789",
                 "sender_name": "Test User",
-                "timestamp": int(datetime.now(timezone.utc).timestamp() * 1000),
+                "timestamp": int(datetime.now(timezone.utc).timestamp()),
                 "is_from_bot": False,
                 "thread_id": thread_id
             })
@@ -206,7 +206,7 @@ class TestDiscordToSocketIOFlowIntegration:
                 payload.guild_id = 987654321 if message_type == "channel" else None
                 payload.data = {
                     "content": "Edited message content",
-                    "edited_timestamp": datetime.now(timezone.utc).isoformat(),
+                    "edit_timestamp": datetime.now(timezone.utc).isoformat(),
                     "pinned": is_pinned
                 }
                 return {

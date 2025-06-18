@@ -60,7 +60,7 @@ class TestManager:
             sender_name="Discord User",
             text="Hello world!",
             timestamp=1609459200000,  # 2021-01-01 in ms
-            edited_timestamp=None,
+            edit_timestamp=None,
             edited=False,
             is_from_bot=False,
             reactions={"+1": 1},

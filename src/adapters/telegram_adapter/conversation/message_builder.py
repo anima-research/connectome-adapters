@@ -18,11 +18,17 @@ class MessageBuilder(BaseMessageBuilder):
         self.message_data["conversation_id"] = conversation.conversation_id
         self.message_data["is_direct_message"] = conversation.conversation_type == "private"
 
-        if hasattr(message, 'date'):
+        if hasattr(message, "date"):
             self.message_data["timestamp"] = int(message.date.timestamp())
         else:
             self.message_data["timestamp"] = int(datetime.now().timestamp())
 
+        edit_timestamp = None
+        if hasattr(message, "edit_date") and message.edit_date:
+            edit_timestamp = int(message.edit_date.timestamp())
+
+        self.message_data["edit_timestamp"] = edit_timestamp
+        self.message_data["edited"] = edit_timestamp is not None
         return self
 
     def with_sender_info(self, sender: Optional[UserInfo]) -> 'MessageBuilder':

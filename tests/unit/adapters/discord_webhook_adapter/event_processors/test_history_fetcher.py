@@ -161,6 +161,6 @@ class TestHistoryFetcher:
         assert result["text"] == "Message with attachment"
         assert result["thread_id"] is None
         assert result["timestamp"] == 1609502400
-        assert result["edited_timestamp"] is None
+        assert result["edit_timestamp"] is None
         assert result["edited"] is False
         assert len(result["attachments"]) == 0

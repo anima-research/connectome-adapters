@@ -222,7 +222,7 @@ class TestSocketIOToDiscordWebhookFlowIntegration:
                 },
                 "text": "First message",
                 "thread_id": None,
-                "edited_timestamp": None,
+                "edit_timestamp": None,
                 "edited": False,
                 "timestamp": 1627984000000,
                 "attachments": []
@@ -236,7 +236,7 @@ class TestSocketIOToDiscordWebhookFlowIntegration:
                 },
                 "text": "Second message",
                 "thread_id": None,
-                "edited_timestamp": 1627984200000,
+                "edit_timestamp": 1627984200000,
                 "edited": True,
                 "timestamp": 1627984100000,
                 "attachments": []

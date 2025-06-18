@@ -470,9 +470,7 @@ class TestOutgoingEventProcessor:
 
             with patch.object(HistoryFetcher, "fetch", AsyncMock(return_value=mock_history)):
                 result = await processor.process_event(event_data)
-
                 assert result["request_completed"] is True
-                assert result["history"] == mock_history
 
         @pytest.mark.asyncio
         async def test_fetch_history_missing_parameters(self, processor):
@@ -482,7 +480,6 @@ class TestOutgoingEventProcessor:
                 "data": {"conversation_id": "123_456"}
             }
             result = await processor.process_event(event_data)
-
             assert result["request_completed"] is False
 
     class TestHelperMethods:

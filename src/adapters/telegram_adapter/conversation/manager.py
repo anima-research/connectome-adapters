@@ -14,7 +14,6 @@ from src.adapters.telegram_adapter.conversation.user_builder import UserBuilder
 
 from src.core.conversation.base_data_classes import ConversationDelta, ThreadInfo, UserInfo
 from src.core.conversation.base_manager import BaseManager
-from src.core.cache.attachment_cache import AttachmentCache
 from src.core.cache.message_cache import CachedMessage
 from src.core.utils.config import Config
 
@@ -242,9 +241,9 @@ class Manager(BaseManager):
 
         if updated_text is not None and updated_text != cached_msg.text:
             cached_msg.text = updated_text
-            cached_msg.timestamp = int(
-                getattr(message, "date", datetime.now()).timestamp()
-            )
+            edit_date = getattr(message, "edit_date", None)
+            cached_msg.edit_timestamp = int((edit_date if edit_date else datetime.now()).timestamp())
+            cached_msg.edited = True
         elif updated_text == cached_msg.text:
             delta.message_id = cached_msg.message_id
             ReactionHandler.update_message_reactions(

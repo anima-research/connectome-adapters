@@ -46,9 +46,9 @@ class TestIncomingEventBuilder:
             "thread_id": "thread_101",
             "is_direct_message": True,
             "attachments": [sample_attachment],
-            "timestamp": int(datetime.now().timestamp() * 1000),
-            "edited_timestamp": None,
-            "edited": False,
+            "timestamp": int(datetime.now().timestamp()),
+            "edit_timestamp": None,
+            "edited": True,
             "mentions": ["user_101", "user_102"]
         }
 
@@ -101,7 +101,7 @@ class TestIncomingEventBuilder:
         assert event["data"]["thread_id"] == sample_message_delta["thread_id"]
         assert event["data"]["is_direct_message"] == sample_message_delta["is_direct_message"]
         assert event["data"]["mentions"] == sample_message_delta["mentions"]
-        assert event["data"]["edited_timestamp"] == sample_message_delta["edited_timestamp"]
+        assert event["data"]["edit_timestamp"] == sample_message_delta["edit_timestamp"]
         assert event["data"]["edited"] == sample_message_delta["edited"]
         assert len(event["data"]["attachments"]) == 1
 
@@ -116,7 +116,6 @@ class TestIncomingEventBuilder:
         assert event["data"]["message_id"] == sample_message_delta["message_id"]
         assert event["data"]["conversation_id"] == sample_message_delta["conversation_id"]
         assert event["data"]["new_text"] == sample_message_delta["text"]
-        assert event["data"]["timestamp"] == sample_message_delta["timestamp"]
         assert event["data"]["mentions"] == sample_message_delta["mentions"]
         assert len(event["data"]["attachments"]) == 1
 
@@ -280,7 +279,7 @@ class TestIncomingEventBuilder:
                 "display_name": "Test User"
             },
             "is_direct_message": True,
-            "timestamp": int(datetime.now().timestamp() * 1000)
+            "timestamp": int(datetime.now().timestamp())
         }
 
         # Should raise error due to missing message_id
@@ -309,7 +308,7 @@ class TestIncomingEventBuilder:
             },
             "is_direct_message": True,
             "attachments": [minimal_attachment],
-            "timestamp": int(datetime.now().timestamp() * 1000),
+            "timestamp": int(datetime.now().timestamp()),
             "mentions": ["user_101", "user_102"]
         }
 

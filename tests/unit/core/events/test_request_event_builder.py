@@ -46,8 +46,8 @@ class TestRequestEventBuilder:
             "thread_id": "thread_101",
             "is_direct_message": True,
             "attachments": [sample_attachment_info],
-            "timestamp": int(datetime.now().timestamp() * 1000),
-            "edited_timestamp": None,
+            "timestamp": int(datetime.now().timestamp()),
+            "edit_timestamp": None,
             "edited": False,
         }
 

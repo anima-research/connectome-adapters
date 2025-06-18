@@ -74,6 +74,8 @@ class TestManager:
             sender_name="Test User 2",
             text="Hello!",
             timestamp=1609459200,
+            edit_timestamp=None,
+            edited=False,
             is_from_bot=False
         )
 

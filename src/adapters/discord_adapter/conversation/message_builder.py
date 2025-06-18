@@ -12,12 +12,12 @@ class MessageBuilder(BaseMessageBuilder):
         self.message_data["timestamp"] = int(getattr(message, "created_at", datetime.now()).timestamp())
         self.message_data["is_direct_message"] = conversation.conversation_type == "dm"
 
-        edited_timestamp = None
+        edit_timestamp = None
         if getattr(message, "edited_at", None) and message.edited_at:
-            edited_timestamp = int(message.edited_at.timestamp())
+            edit_timestamp = int(message.edited_at.timestamp())
 
-        self.message_data["edited_timestamp"] = edited_timestamp
-        self.message_data["edited"] = edited_timestamp is not None
+        self.message_data["edit_timestamp"] = edit_timestamp
+        self.message_data["edited"] = edit_timestamp is not None
         return self
 
     def with_content(self, message: Any) -> 'MessageBuilder':

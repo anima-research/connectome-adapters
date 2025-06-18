@@ -50,6 +50,7 @@ class TestConversationManager:
             message.message = message_text
             message.reactions = reactions
             message.reply_to = reply_to
+            message.edit_date = None
             return message
         return _create_message
 
@@ -118,6 +119,8 @@ class TestConversationManager:
                 sender_name="Test User",
                 text=text,
                 timestamp=datetime.now(),
+                edit_timestamp=None,
+                edited=False,
                 is_from_bot=False,
                 reactions=reactions or {}
             )

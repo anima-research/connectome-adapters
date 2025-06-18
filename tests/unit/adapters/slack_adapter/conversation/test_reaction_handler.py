@@ -18,7 +18,7 @@ class TestReactionHandler:
             sender_id="U12345",
             sender_name="Test User",
             timestamp=1234567890000,
-            edited_timestamp=None,
+            edit_timestamp=None,
             edited=False,
             is_from_bot=False,
             thread_id=None,

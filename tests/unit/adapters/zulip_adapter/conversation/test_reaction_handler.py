@@ -19,6 +19,8 @@ class TestReactionHandler:
             sender_id="789",
             sender_name="Test User",
             timestamp=1234567890000,
+            edit_timestamp=None,
+            edited=False,
             is_from_bot=False,
             thread_id = None,
             reactions={"thumbs_up": 1}  # Initial reaction
