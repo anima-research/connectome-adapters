@@ -3,7 +3,7 @@ import discord
 import logging
 
 from enum import Enum
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, Dict, List, Optional
 
 from src.adapters.discord_adapter.attachment_loaders.downloader import Downloader
 from src.adapters.discord_adapter.conversation.manager import Manager
@@ -20,6 +20,7 @@ class DiscordIncomingEventType(str, Enum):
     DELETED_MESSAGE = "deleted_message"
     ADDED_REACTION = "added_reaction"
     REMOVED_REACTION = "removed_reaction"
+    FETCH_HISTORY = "fetch_history"
 
 class IncomingEventProcessor(BaseIncomingEventProcessor):
     """Discord events processor"""
@@ -47,7 +48,8 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             DiscordIncomingEventType.EDITED_MESSAGE: self._handle_edited_message,
             DiscordIncomingEventType.DELETED_MESSAGE: self._handle_deleted_message,
             DiscordIncomingEventType.ADDED_REACTION: self._handle_reaction,
-            DiscordIncomingEventType.REMOVED_REACTION: self._handle_reaction
+            DiscordIncomingEventType.REMOVED_REACTION: self._handle_reaction,
+            DiscordIncomingEventType.FETCH_HISTORY: self._handle_fetch_history
         }
 
     async def _handle_message(self, event: Any) -> List[Dict[str, Any]]:
@@ -73,8 +75,9 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
 
             if delta:
                 if delta.get("fetch_history", False):
-                    history = await self._fetch_conversation_history(delta)
                     events.append(self.incoming_event_builder.conversation_started(delta))
+
+                    history = await self._fetch_history(delta["conversation_id"], anchor="newest")
                     events.append(self.incoming_event_builder.history_fetched(delta, history))
 
                 for message in delta.get("added_messages", []):
@@ -83,27 +86,6 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             logging.error(f"Error handling new message: {e}", exc_info=True)
 
         return events
-
-    async def _fetch_conversation_history(self, delta: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Fetch conversation history
-
-        Args:
-            delta: Event change information containing conversation ID
-
-        Returns:
-            List of formatted message history
-        """
-        try:
-            return await HistoryFetcher(
-                self.config,
-                self.client,
-                self.conversation_manager,
-                delta["conversation_id"],
-                anchor="newest"
-            ).fetch()
-        except Exception as e:
-            logging.error(f"Error fetching conversation history: {e}", exc_info=True)
-            return []
 
     async def _handle_edited_message(self, event: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Handle an edited message event from Discord
@@ -210,3 +192,7 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             logging.error(f"Error handling reaction event: {e}", exc_info=True)
 
         return events
+
+    def _history_fetcher_class(self):
+        """History fetcher class"""
+        return HistoryFetcher

@@ -247,24 +247,11 @@ class BaseOutgoingEventProcessor(ABC):
         Returns:
             Dict[str, Any]: Dictionary containing the status and history
         """
-        try:
-            if not data.before and not data.after:
-                logging.error("No before or after datetime provided")
-                return {"request_completed": False}
-
-            #history = await self._fetch_history(data)
-            return {"request_completed": True}
-        except Exception as e:
-            logging.error(
-                f"Failed to fetch history of conversation {data.conversation_id}: {e}",
-                exc_info=True
-            )
+        if not data.before and not data.after:
+            logging.error("No before or after datetime provided")
             return {"request_completed": False}
 
-    @abstractmethod
-    async def _fetch_history(self, data: BaseModel) -> List[Any]:
-        """Fetch history of a conversation"""
-        raise NotImplementedError("Child classes must implement _fetch_history")
+        return {"request_completed": True}
 
     async def _handle_pin_event(self, data: BaseModel) -> Dict[str, Any]:
         """Pin a message

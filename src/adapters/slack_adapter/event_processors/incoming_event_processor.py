@@ -2,7 +2,7 @@ import asyncio
 import logging
 
 from enum import Enum
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Optional
 
 from src.adapters.slack_adapter.attachment_loaders.downloader import Downloader
 from src.adapters.slack_adapter.conversation.manager import Manager
@@ -20,6 +20,7 @@ class SlackIncomingEventType(str, Enum):
     REMOVED_REACTION = "reaction_removed"
     ADDED_PIN = "pin_added"
     REMOVED_PIN = "pin_removed"
+    FETCH_HISTORY = "fetch_history"
 
 class IncomingEventProcessor(BaseIncomingEventProcessor):
     """Slack events processor"""
@@ -52,7 +53,8 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             SlackIncomingEventType.ADDED_REACTION: self._handle_reaction,
             SlackIncomingEventType.REMOVED_REACTION: self._handle_reaction,
             SlackIncomingEventType.ADDED_PIN: self._handle_pin,
-            SlackIncomingEventType.REMOVED_PIN: self._handle_pin
+            SlackIncomingEventType.REMOVED_PIN: self._handle_pin,
+            SlackIncomingEventType.FETCH_HISTORY: self._handle_fetch_history
         }
 
     async def _handle_message(self, event: Any) -> List[Dict[str, Any]]:
@@ -75,41 +77,21 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             })
 
             if delta:
+                added_messages = delta.get("added_messages", [])
+
                 if delta.get("fetch_history", False):
-                    history = await self._fetch_conversation_history(delta)
                     events.append(self.incoming_event_builder.conversation_started(delta))
+
+                    anchor = (added_messages[-1].get("message_id", None) if added_messages else None)
+                    history = await self._fetch_history(delta["conversation_id"], anchor=anchor)
                     events.append(self.incoming_event_builder.history_fetched(delta, history))
 
-                for message in delta.get("added_messages", []):
+                for message in added_messages:
                     events.append(self.incoming_event_builder.message_received(message))
         except Exception as e:
             logging.error(f"Error handling new message: {e}", exc_info=True)
 
         return events
-
-    async def _fetch_conversation_history(self, delta: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Fetch conversation history
-
-        Args:
-            delta: Event change information containing conversation ID
-
-        Returns:
-            List of formatted message history
-        """
-        try:
-            messages = delta.get("added_messages", [])
-            if messages:
-                return await HistoryFetcher(
-                    self.config,
-                    self.client,
-                    self.conversation_manager,
-                    delta["conversation_id"],
-                    anchor=messages[-1].get("message_id", None)
-                ).fetch()
-        except Exception as e:
-            logging.error(f"Error fetching conversation history: {e}", exc_info=True)
-
-        return []
 
     async def _handle_edited_message(self, event: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Handle an edited message event from Slack
@@ -263,3 +245,7 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             logging.error(f"Error fetching user info: {e}")
 
         return {}
+
+    def _history_fetcher_class(self):
+        """History fetcher class"""
+        return HistoryFetcher

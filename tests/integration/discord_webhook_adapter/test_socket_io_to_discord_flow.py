@@ -8,7 +8,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from src.adapters.discord_webhook_adapter.adapter import Adapter
 from src.adapters.discord_webhook_adapter.attachment_loaders.uploader import Uploader
 from src.adapters.discord_webhook_adapter.conversation.data_classes import ConversationInfo
-from src.adapters.discord_webhook_adapter.event_processors.history_fetcher import HistoryFetcher
 from src.adapters.discord_webhook_adapter.event_processors.outgoing_event_processor import OutgoingEventProcessor
 
 class TestSocketIOToDiscordWebhookFlowIntegration:
@@ -202,59 +201,3 @@ class TestSocketIOToDiscordWebhookFlowIntegration:
             "https://discord.com/api/webhooks/123456789/token/messages/111222333"
         )
         assert adapter.conversation_manager.conversations["987654321/123456789"].message_count == 0
-
-    @pytest.mark.asyncio
-    @pytest.mark.filterwarnings("ignore::RuntimeWarning")
-    async def test_fetch_history_flow(self,
-                                      adapter,
-                                      setup_channel_conversation,
-                                      discord_webhook_client_mock):
-        """Test fetching message history"""
-        setup_channel_conversation()
-
-        history_messages = [
-            {
-                "message_id": "111222333",
-                "conversation_id": "987654321/123456789",
-                "sender": {
-                    "user_id": "444555666",
-                    "display_name": "Test User"
-                },
-                "text": "First message",
-                "thread_id": None,
-                "edit_timestamp": None,
-                "edited": False,
-                "timestamp": 1627984000000,
-                "attachments": []
-            },
-            {
-                "message_id": "222333444",
-                "conversation_id": "987654321/123456789",
-                "sender": {
-                    "user_id": "444555666",
-                    "display_name": "Test User"
-                },
-                "text": "Second message",
-                "thread_id": None,
-                "edit_timestamp": 1627984200000,
-                "edited": True,
-                "timestamp": 1627984100000,
-                "attachments": []
-            }
-        ]
-
-        with patch.object(HistoryFetcher, "fetch") as mock_fetch:
-            mock_fetch.return_value = history_messages
-            discord_webhook_client_mock.get_client_bot = AsyncMock(
-                return_value=discord_webhook_client_mock
-            )
-
-            result = await adapter.process_outgoing_event({
-                "event_type": "fetch_history",
-                "data": {
-                    "conversation_id": "987654321/123456789",
-                    "before": 1627985000000,  # Some time after the messages
-                    "limit": 10
-                }
-            })
-            assert result["request_completed"] is True

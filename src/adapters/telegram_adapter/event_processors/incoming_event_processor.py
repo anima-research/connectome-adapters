@@ -21,6 +21,7 @@ class TelegramIncomingEventType(str, Enum):
     EDITED_MESSAGE = "edited_message"
     DELETED_MESSAGE = "deleted_message"
     CHAT_ACTION = "chat_action"
+    FETCH_HISTORY = "fetch_history"
 
 class IncomingEventProcessor(BaseIncomingEventProcessor):
     """Telegram events processor"""
@@ -47,7 +48,8 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             TelegramIncomingEventType.NEW_MESSAGE: self._handle_new_message,
             TelegramIncomingEventType.EDITED_MESSAGE: self._handle_edited_message,
             TelegramIncomingEventType.DELETED_MESSAGE: self._handle_deleted_message,
-            TelegramIncomingEventType.CHAT_ACTION: self._handle_chat_action
+            TelegramIncomingEventType.CHAT_ACTION: self._handle_chat_action,
+            TelegramIncomingEventType.FETCH_HISTORY: self._handle_fetch_history
         }
 
     async def _handle_new_message(self, event: Any) -> List[Dict[str, Any]]:
@@ -71,8 +73,9 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
 
             if delta:
                 if delta.get("fetch_history", False):
-                    history = await self._fetch_conversation_history(delta["conversation_id"])
                     events.append(self.incoming_event_builder.conversation_started(delta))
+
+                    history = await self._fetch_history(delta["conversation_id"], anchor="newest")
                     events.append(self.incoming_event_builder.history_fetched(delta, history))
 
                 for message in delta.get("added_messages", []):
@@ -164,29 +167,6 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
 
         return []
 
-    async def _fetch_conversation_history(self,
-                                          conversation_id: str) -> List[Dict[str, Any]]:
-        """Fetch and format recent conversation history from Telegram
-
-        Args:
-            conversation_id: ID of the conversation
-            message_id: ID of the message that triggered the history fetch
-
-        Returns:
-            List of formatted message objects for the history
-        """
-        try:
-            return await HistoryFetcher(
-                self.config,
-                self.client,
-                self.conversation_manager,
-                conversation_id,
-                anchor="newest"
-            ).fetch()
-        except Exception as e:
-            logging.error(f"Error fetching conversation history: {e}", exc_info=True)
-            return []
-
     async def _get_user(self, message: Any) -> Optional[Any]:
         """Get user information from Telegram
 
@@ -271,3 +251,7 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
                 )
 
         return events
+
+    def _history_fetcher_class(self):
+        """History fetcher class"""
+        return HistoryFetcher

@@ -243,9 +243,7 @@ class TestIncomingEventProcessor:
             }
 
             processor.conversation_manager.add_to_conversation.return_value = delta
-            processor._fetch_conversation_history = AsyncMock(
-                return_value=[{"some": "history"}]
-            )
+            processor._fetch_history = AsyncMock(return_value=[{"some": "history"}])
             processor.incoming_event_builder.conversation_started = MagicMock(
                 return_value={"event_type": "conversation_started"}
             )
@@ -264,10 +262,10 @@ class TestIncomingEventProcessor:
             assert {"event_type": "message_received"} in result
 
             processor.conversation_manager.add_to_conversation.assert_called_once()
-            processor._fetch_conversation_history.assert_called_once_with(delta)
+            processor._fetch_history.assert_called_once()
             processor.incoming_event_builder.conversation_started.assert_called_once_with(delta)
             processor.incoming_event_builder.history_fetched.assert_called_once_with(
-                delta, processor._fetch_conversation_history.return_value
+                delta, processor._fetch_history.return_value
             )
             processor.incoming_event_builder.message_received.assert_called_once_with(message)
 

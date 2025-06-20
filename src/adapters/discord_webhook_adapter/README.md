@@ -107,8 +107,6 @@ adapter:
   connection_check_interval: 300          # Seconds between connection health checks
   max_reconnect_attempts: 5               # Max number of attempts to reconnect if connection lost
   max_message_length: 1999                # Maximum message length (Discord limit: 2000)
-  max_history_limit: 100                  # Maximum messages to fetch for history
-  max_pagination_iterations: 10           # Maximum pagination iterations for history
   webhooks:                               # Pre-configured webhooks that can be unrelated to bots
     - conversation_id: "guild_id/channel_id"
       url: "webhook_url"
@@ -146,11 +144,9 @@ socketio:
 * Message Sending (creating new messages in channels)
 * Message Editing (modifying previously sent messages)
 * Message Deletion (removing messages sent through the webhook)
-* History Fetching (retrieving message history on request)
 
 3) Message edits and deletes only work for messages sent by the same webhook.
 
 4) Simplified flow compared to the full Discord adapter.
 * Initial Setup. Connects bots during startup and loads existing webhooks from Discord and configuration.
 * Request Handling. Receives requests from the connectome framework, retrieves or creates webhooks as needed, sends received requests and returns Discord's identifiers for new messages.
-* History Retrieval. Uses bot API to fetch message history when requested, no caching of message history.

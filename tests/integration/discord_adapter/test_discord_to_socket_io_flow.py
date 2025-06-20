@@ -262,7 +262,7 @@ class TestDiscordToSocketIOFlowIntegration:
         }]
         adapter.incoming_events_processor.downloader.download_attachment.return_value = attachment_result
 
-        with patch.object(adapter.incoming_events_processor, "_fetch_conversation_history", return_value=[]):
+        with patch.object(adapter.incoming_events_processor, "_fetch_history", return_value=[]):
             result = await adapter.incoming_events_processor.process_event(event)
 
             assert len(result) == 3, "Expected three events to be generated"

@@ -54,7 +54,7 @@ class TestDownloader:
     @pytest.fixture
     def mock_client(self):
         """Create a mock Slack client"""
-        client = AsyncMock()
+        client = AsyncMock(return_value=None)
         client.token = "xoxb-test-token-123"
         client.files_info.return_value = {
             "file": {
@@ -93,7 +93,7 @@ class TestDownloader:
     @pytest.mark.asyncio
     async def test_download_new_file(self, downloader, slack_message_with_files):
         """Test downloading a new small file"""
-        with patch.object(downloader, "_download_file", AsyncMock()) as mock_download:
+        with patch.object(downloader, "_download_file", AsyncMock(return_value=MagicMock())) as mock_download:
             with patch("os.path.exists", return_value=False):  # File doesn't exist
                 with patch("src.core.utils.attachment_loading.create_attachment_dir"):
                     with patch("src.core.utils.attachment_loading.save_metadata_file"):
@@ -149,7 +149,7 @@ class TestDownloader:
         message = {"files": files}
 
         with patch("os.path.exists", return_value=False):
-            with patch.object(downloader, "_download_file", AsyncMock()):
+            with patch.object(downloader, "_download_file", AsyncMock(return_value=MagicMock())):
                 with patch("src.core.utils.attachment_loading.create_attachment_dir"):
                     with patch("src.core.utils.attachment_loading.save_metadata_file"):
                         with patch("builtins.open", mock_open(read_data=b"")):

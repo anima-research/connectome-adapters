@@ -8,8 +8,6 @@ adapter:
   connection_check_interval: 300               # in seconds
   max_reconnect_attempts: 5
   max_message_length: 1999
-  max_history_limit: 100
-  max_pagination_iterations: 10
   webhooks:                                     # lists of additional webhooks to load
     - conversation_id: "guild_id/channel_id"    # should be a string in format guild_id/channel_id
       url: "webhook_url"

@@ -8,7 +8,6 @@ from typing import Any, Dict, List
 
 from src.adapters.discord_webhook_adapter.attachment_loaders.uploader import Uploader
 from src.adapters.discord_webhook_adapter.conversation.manager import Manager
-from src.adapters.discord_webhook_adapter.event_processors.history_fetcher import HistoryFetcher
 
 from src.core.conversation.base_data_classes import UserInfo
 from src.core.events.processors.base_outgoing_event_processor import BaseOutgoingEventProcessor
@@ -174,29 +173,6 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         logging.info(f"Message {data.message_id} deleted successfully")
         return {"request_completed": True}
 
-    async def _fetch_history(self, data: BaseModel) -> List[Any]:
-        """Fetch history of a conversation
-
-        Args:
-            data: Event data containing conversation_id,
-                  before or after datetime as int (one of the two must be provided),
-                  limit (optional, default is taken from config)
-
-        Returns:
-            List[Any]: History
-        """
-        webhook_info = await self._get_webhook_info(data.conversation_id)
-
-        return await HistoryFetcher(
-            self.config,
-            self.client.get_client_bot(webhook_info["bot_token"]),
-            self.conversation_manager,
-            data.conversation_id,
-            before=data.before,
-            after=data.after,
-            history_limit=data.limit
-        ).fetch()
-
     async def _get_webhook_info(self, conversation_id: str) -> Dict[str, Any]:
         """Get webhook info for a conversation
 
@@ -216,6 +192,10 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         if response.status < 400:
             return
         raise Exception(f"Error processing webhook message: {await response.text()}")
+
+    async def _handle_fetch_history_event(self, data: BaseModel) -> Dict[str, Any]:
+        """Fetch history of a conversation. Not supported for webhooks adapter"""
+        raise NotImplementedError("fetching history is not supported for webhooks adapter")
 
     async def _add_reaction(self, data: BaseModel) -> Dict[str, Any]:
         """Add a reaction to a message. Not supported for webhooks adapter"""

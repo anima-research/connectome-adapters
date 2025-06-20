@@ -10,7 +10,6 @@ from typing import Any, Dict, List, Optional
 from src.adapters.discord_adapter.attachment_loaders.uploader import Uploader
 from src.adapters.discord_adapter.conversation.manager import Manager
 from src.adapters.discord_adapter.event_processors.discord_utils import get_discord_channel
-from src.adapters.discord_adapter.event_processors.history_fetcher import HistoryFetcher
 
 from src.core.conversation.base_data_classes import UserInfo
 from src.core.events.processors.base_outgoing_event_processor import BaseOutgoingEventProcessor
@@ -155,27 +154,6 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         await message.remove_reaction(emoji_symbol, self.client.user)
         logging.info(f"Reaction removed from message {data.message_id}")
         return {"request_completed": True}
-
-    async def _fetch_history(self, data: BaseModel) -> List[Any]:
-        """Fetch history of a conversation
-
-        Args:
-            data: Event data containing conversation_id,
-                  before or after datetime as int (one of the two must be provided),
-                  limit (optional, default is taken from config)
-
-        Returns:
-            List[Any]: History
-        """
-        return await HistoryFetcher(
-            self.config,
-            self.client,
-            self.conversation_manager,
-            data.conversation_id,
-            before=data.before,
-            after=data.after,
-            history_limit=data.limit
-        ).fetch()
 
     async def _pin_message(self, data: BaseModel) -> Dict[str, Any]:
         """Pin a message

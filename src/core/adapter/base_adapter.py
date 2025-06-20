@@ -196,4 +196,46 @@ class BaseAdapter(ABC):
             logging.error("Adapter is not connected to perform action")
             return {"request_completed": False}
 
-        return await self.outgoing_events_processor.process_event(data)
+        result = await self.outgoing_events_processor.process_event(data)
+        if self._incoming_event_should_be_triggered(data, result):
+            asyncio.create_task(
+                self.process_incoming_event(
+                    self._convert_outgoing_event_to_incoming_one(data)
+                )
+            )
+
+        return result
+
+    def _incoming_event_should_be_triggered(self,
+                                            data: Any,
+                                            outgoing_event_result: Dict[str, Any]) -> bool:
+        """Check if incoming event should be triggered
+
+        Args:
+            data: data for event
+            outgoing_event_result: result of outgoing event
+
+        Returns:
+            bool: True if incoming event should be triggered, False otherwise
+        """
+        outgoing_events_that_should_trigger_incoming_ones = ["fetch_history"]
+
+        return (
+            data["event_type"] in outgoing_events_that_should_trigger_incoming_ones and
+            outgoing_event_result["request_completed"]
+        )
+
+    def _convert_outgoing_event_to_incoming_one(self, data: Any) -> Any:
+        """Convert outgoing event to incoming one
+
+        Args:
+            data: data for event
+
+        Returns:
+            Any: converted data
+        """
+        data["type"] = data["event_type"]
+        del data["event_type"]
+        data["event"] = data["data"].copy()
+        del data["data"]
+        return data

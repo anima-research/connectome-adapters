@@ -12,15 +12,15 @@ class TestIncomingEventProcessor:
     @pytest.fixture
     def zulip_client_mock(self):
         """Create a mocked Zulip client"""
-        return AsyncMock()
+        return AsyncMock(return_value=None)
 
     @pytest.fixture
     def conversation_manager_mock(self):
         """Create a mocked conversation manager"""
         manager = AsyncMock()
-        manager.add_to_conversation = AsyncMock()
-        manager.update_conversation = AsyncMock()
-        manager.migrate_between_conversations = AsyncMock()
+        manager.add_to_conversation = AsyncMock(return_value={})
+        manager.update_conversation = AsyncMock(return_value={})
+        manager.migrate_between_conversations = AsyncMock(return_value={})
         return manager
 
     @pytest.fixture
@@ -148,11 +148,13 @@ class TestIncomingEventProcessor:
             }
             delta = {
                 "fetch_history": True,
+                "conversation_id": "456_789",
                 "added_messages": [message]
             }
+            history = [{"some": "history"}]
 
             processor.conversation_manager.add_to_conversation.return_value = delta
-            processor._fetch_conversation_history = AsyncMock(return_value=[{"some": "history"}])
+            processor._fetch_history = AsyncMock(return_value=history)
             processor.incoming_event_builder.conversation_started = MagicMock(
                 return_value={"event_type": "conversation_started"}
             )
@@ -173,12 +175,9 @@ class TestIncomingEventProcessor:
             processor.conversation_manager.add_to_conversation.assert_called_once_with(
                 {"message": message_event_mock.get("message"), "attachments": []}
             )
-
-            processor._fetch_conversation_history.assert_called_once()
+            processor._fetch_history.assert_called_once()
             processor.incoming_event_builder.conversation_started.assert_called_once_with(delta)
-            processor.incoming_event_builder.history_fetched.assert_called_once_with(
-                delta, processor._fetch_conversation_history.return_value
-            )
+            processor.incoming_event_builder.history_fetched.assert_called_once_with(delta, history)
             processor.incoming_event_builder.message_received.assert_called_once_with(message)
 
         @pytest.mark.asyncio
@@ -268,7 +267,7 @@ class TestIncomingEventProcessor:
             }
 
             processor.conversation_manager.migrate_between_conversations.return_value = delta
-            processor._fetch_conversation_history = AsyncMock(return_value=[])
+            processor._fetch_history = AsyncMock(return_value=[])
             processor.incoming_event_builder.conversation_started = MagicMock(
                 return_value={"event_type": "conversation_started"}
             )
@@ -293,9 +292,7 @@ class TestIncomingEventProcessor:
             assert "message_deleted" in event_types
             assert "message_received" in event_types
 
-            processor.conversation_manager.migrate_between_conversations.assert_called_once_with(
-                topic_change_event_mock
-            )
+            processor.conversation_manager.migrate_between_conversations.assert_called_once_with(topic_change_event_mock)
             assert processor.incoming_event_builder.conversation_started.call_count == 1
             assert processor.incoming_event_builder.history_fetched.call_count == 1
             assert processor.incoming_event_builder.message_deleted.call_count == 2

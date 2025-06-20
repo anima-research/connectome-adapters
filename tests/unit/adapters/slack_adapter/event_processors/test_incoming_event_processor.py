@@ -15,7 +15,7 @@ class TestIncomingEventProcessor:
     def slack_client_mock(self):
         """Create a mocked Slack client"""
         client = AsyncMock()
-        client.users_info = AsyncMock()
+        client.users_info = AsyncMock(return_value=None)
         return client
 
     @pytest.fixture

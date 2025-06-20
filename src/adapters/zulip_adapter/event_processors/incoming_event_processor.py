@@ -17,6 +17,7 @@ class ZulipIncomingEventType(str, Enum):
     UPDATE_MESSAGE = "update_message"
     DELETE_MESSAGE = "delete_message"
     REACTION = "reaction"
+    FETCH_HISTORY = "fetch_history"
 
 class IncomingEventProcessor(BaseIncomingEventProcessor):
     """Zulip events processor"""
@@ -43,7 +44,8 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             ZulipIncomingEventType.MESSAGE: self._handle_message,
             ZulipIncomingEventType.UPDATE_MESSAGE: self._handle_update_message,
             ZulipIncomingEventType.DELETE_MESSAGE: self._handle_delete_message,
-            ZulipIncomingEventType.REACTION: self._handle_reaction
+            ZulipIncomingEventType.REACTION: self._handle_reaction,
+            ZulipIncomingEventType.FETCH_HISTORY: self._handle_fetch_history
         }
 
     async def _handle_message(self, event: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -70,8 +72,9 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
 
             if delta:
                 if delta.get("fetch_history", False):
-                    history = await self._fetch_conversation_history(delta)
                     events.append(self.incoming_event_builder.conversation_started(delta))
+
+                    history = await self._fetch_history(delta["conversation_id"], anchor="newest")
                     events.append(self.incoming_event_builder.history_fetched(delta, history))
 
                 for message in delta.get("added_messages", []):
@@ -80,27 +83,6 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             logging.error(f"Error handling new message: {e}", exc_info=True)
 
         return events
-
-    async def _fetch_conversation_history(self, delta: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Fetch conversation history
-
-        Args:
-            delta: Event change information containing conversation ID
-
-        Returns:
-            List of formatted message history
-        """
-        try:
-            return await HistoryFetcher(
-                self.config,
-                self.client,
-                self.conversation_manager,
-                delta["conversation_id"],
-                anchor=delta.get("message_id", "newest")
-            ).fetch()
-        except Exception as e:
-            logging.error(f"Error fetching conversation history: {e}", exc_info=True)
-            return []
 
     async def _handle_update_message(self, event: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Handle an update message event from Zulip
@@ -149,8 +131,9 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
 
         if delta:
             if delta.get("fetch_history", False):
-                history = await self._fetch_conversation_history(delta)
                 events.append(self.incoming_event_builder.conversation_started(delta))
+
+                history = await self._fetch_history(delta["conversation_id"], anchor=delta.get("message_id", "newest"))
                 events.append(self.incoming_event_builder.history_fetched(delta, history))
 
             old_conversation_id = f"{event.get('stream_id', '')}/{event.get('orig_subject', '')}"
@@ -241,6 +224,10 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             logging.error(f"Error handling reaction event: {e}", exc_info=True)
 
         return events
+
+    def _history_fetcher_class(self):
+        """History fetcher class"""
+        return HistoryFetcher
 
     def _skip_message(self, message: Dict[str, Any]) -> bool:
         """Check if the message should be skipped.
