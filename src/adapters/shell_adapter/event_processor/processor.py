@@ -62,7 +62,10 @@ class Processor():
             return await handler(outgoing_event.data)
         except Exception as e:
             logging.error(f"Error processing event: {e}", exc_info=True)
-            return {"request_completed": False}
+            return {
+                "request_completed": False,
+                "error": f"Error processing event: {e}"
+            }
 
     async def _handle_open_session_event(self, _: BaseModel) -> Dict[str, Any]:
         """Open a new shell session
@@ -75,7 +78,10 @@ class Processor():
             return {"request_completed": True, "session_id": session_id}
         except Exception as e:
             logging.error(f"Error opening session: {e}", exc_info=True)
-            return {"request_completed": False}
+            return {
+                "request_completed": False,
+                "error": f"Error opening session: {e}"
+            }
 
     async def _handle_close_session_event(self, data: BaseModel) -> Dict[str, Any]:
         """Close the current shell session
@@ -92,7 +98,10 @@ class Processor():
             return {"request_completed": True}
         except Exception as e:
             logging.error(f"Error closing session: {e}", exc_info=True)
-            return {"request_completed": False}
+            return {
+                "request_completed": False,
+                "error": f"Error closing session: {e}"
+            }
 
     async def _handle_execute_command_event(self, data: BaseModel) -> Dict[str, Any]:
         """Execute a command
@@ -118,7 +127,10 @@ class Processor():
             return {"request_completed": True, "metadata": result}
         except Exception as e:
             logging.error(f"Error executing command: {e}", exc_info=True)
-            return {"request_completed": False}
+            return {
+                "request_completed": False,
+                "error": f"Error executing command: {e}"
+            }
 
     async def _handle_shell_metadata_event(self, _: BaseModel) -> Dict[str, Any]:
         """Get metadata about the shell
@@ -133,4 +145,7 @@ class Processor():
             }
         except Exception as e:
             logging.error(f"Error getting shell metadata: {e}", exc_info=True)
-            return {"request_completed": False}
+            return {
+                "request_completed": False,
+                "error": f"Error getting shell metadata: {e}"
+            }

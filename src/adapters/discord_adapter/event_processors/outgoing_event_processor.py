@@ -125,8 +125,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         emoji_symbol = emoji.emojize(f":{data.emoji}:")
 
         if not emoji_symbol or emoji_symbol == f":{data.emoji}:":
-            logging.error(f"Python library emoji does not support this emoji: {data.emoji}")
-            return {"request_completed": False}
+            raise Exception(f"Python library emoji does not support this emoji: {data.emoji}")
 
         await self.rate_limiter.limit_request("add_reaction", data.conversation_id)
         await message.add_reaction(emoji_symbol)
@@ -147,8 +146,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         emoji_symbol = emoji.emojize(f":{data.emoji}:")
 
         if not emoji_symbol or emoji_symbol == f":{data.emoji}:":
-            logging.error(f"Python library emoji does not support this emoji: {data.emoji}")
-            return {"request_completed": False}
+            raise Exception(f"Python library emoji does not support this emoji: {data.emoji}")
 
         await self.rate_limiter.limit_request("remove_reaction", data.conversation_id)
         await message.remove_reaction(emoji_symbol, self.client.user)

@@ -485,19 +485,18 @@ class TestOutgoingEventProcessor:
     class TestHelperMethods:
         """Tests for helper methods"""
 
-        def test_check_api_request_success(self, processor):
-            """Test API response checking with success result"""
-            result = {"result": "success"}
-            assert processor._check_api_request_success(result, "test operation") is True
-
         def test_check_api_request_failure(self, processor):
             """Test API response checking with failure result"""
-            result = {"result": "error", "msg": "Test error"}
-            assert processor._check_api_request_success(result, "test operation") is False
+            with pytest.raises(Exception):
+                processor._check_api_request_success(
+                    {"result": "error", "msg": "Test error"},
+                    "test operation"
+                )
 
         def test_check_api_request_none(self, processor):
             """Test API response checking with None result"""
-            assert processor._check_api_request_success(None, "test operation") is False
+            with pytest.raises(Exception):
+                processor._check_api_request_success(None, "test operation")
 
         def test_split_long_message_short(self, processor):
             """Test splitting a message that's already short enough"""

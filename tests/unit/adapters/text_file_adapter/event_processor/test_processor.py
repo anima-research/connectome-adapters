@@ -627,10 +627,6 @@ class TestProcessor:
     class TestUtilityMethods:
         """Tests for utility methods"""
 
-        def test_check_if_path_exists_success(self, processor, test_file_paths):
-            """Test path existence check success"""
-            assert processor._check_if_path_exists(test_file_paths["test_file"]) is True
-
         def test_check_if_path_exists_failure(self, processor):
             """Test path existence check failure"""
             with pytest.raises(ValueError):

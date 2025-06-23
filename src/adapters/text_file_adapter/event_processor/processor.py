@@ -10,7 +10,7 @@ from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from pydantic import BaseModel
-from typing import Any, Dict, List
+from typing import Any, Dict
 from uuid import uuid4
 
 from src.adapters.text_file_adapter.event_processor.file_event_cache import FileEventCache
@@ -76,7 +76,10 @@ class Processor():
             return await handler(outgoing_event.data)
         except Exception as e:
             logging.error(f"Error processing event: {e}", exc_info=True)
-            return {"request_completed": False}
+            return {
+                "request_completed": False,
+                "error": f"Error processing event: {e}"
+            }
 
     async def _handle_view_event(self, data: BaseModel) -> Dict[str, Any]:
         """List files and directories in a directory
@@ -91,8 +94,7 @@ class Processor():
         try:
             path = self._sanitize_path(data.path)
             if not os.path.isdir(path):
-                logging.error(f"Path is not a directory: {path}")
-                return {"request_completed": False}
+                raise Exception(f"Path is not a directory: {path}")
 
             files = []
             directories = []
@@ -112,7 +114,10 @@ class Processor():
             }
         except Exception as e:
             logging.error(f"Error viewing directory: {e}", exc_info=True)
-            return {"request_completed": False}
+            return {
+                "request_completed": False,
+                "error": f"Error viewing directory: {e}"
+            }
 
     async def _handle_read_event(self, data: BaseModel) -> Dict[str, Any]:
         """Read a file's contents
@@ -131,8 +136,7 @@ class Processor():
 
             if not validator.validate():
                 error_msg = " ".join(validator.errors)
-                logging.error(f"File validation failed: {path}. {error_msg}")
-                return {"request_completed": False}
+                raise Exception(f"File validation failed: {path}. {error_msg}")
 
             view_range = data.line_range
             with open(path, "r", encoding="utf-8") as file:
@@ -144,7 +148,10 @@ class Processor():
             return {"request_completed": True, "file_content": content}
         except Exception as e:
             logging.error(f"Error reading file: {e}", exc_info=True)
-            return {"request_completed": False}
+            return {
+                "request_completed": False,
+                "error": f"Error reading file: {e}"
+            }
 
     async def _handle_create_event(self, data: BaseModel) -> Dict[str, Any]:
         """Create a new file with content
@@ -168,7 +175,10 @@ class Processor():
             return {"request_completed": True}
         except Exception as e:
             logging.error(f"Error creating file: {e}", exc_info=True)
-            return {"request_completed": False}
+            return {
+                "request_completed": False,
+                "error": f"Error creating file: {e}"
+            }
 
     async def _handle_delete_event(self, data: BaseModel) -> Dict[str, Any]:
         """Delete a file
@@ -189,7 +199,10 @@ class Processor():
             return {"request_completed": True}
         except Exception as e:
             logging.error(f"Error deleting file: {e}", exc_info=True)
-            return {"request_completed": False}
+            return {
+                "request_completed": False,
+                "error": f"Error deleting file: {e}"
+            }
 
     async def _handle_move_event(self, data: BaseModel) -> Dict[str, Any]:
         """Move a file to a new location
@@ -216,7 +229,10 @@ class Processor():
             return {"request_completed": True}
         except Exception as e:
             logging.error(f"Error moving file: {e}", exc_info=True)
-            return {"request_completed": False}
+            return {
+                "request_completed": False,
+                "error": f"Error moving file: {e}"
+            }
 
     async def _handle_update_event(self, data: BaseModel) -> Dict[str, Any]:
         """Update a file's entire content
@@ -240,7 +256,10 @@ class Processor():
             return {"request_completed": True}
         except Exception as e:
             logging.error(f"Error updating file: {e}", exc_info=True)
-            return {"request_completed": False}
+            return {
+                "request_completed": False,
+                "error": f"Error updating file: {e}"
+            }
 
     async def _handle_insert_event(self, data: BaseModel) -> Dict[str, Any]:
         """Insert content at a specific line in a file
@@ -276,7 +295,10 @@ class Processor():
             return {"request_completed": True}
         except Exception as e:
             logging.error(f"Error inserting into file: {e}", exc_info=True)
-            return {"request_completed": False}
+            return {
+                "request_completed": False,
+                "error": f"Error inserting into file: {e}"
+            }
 
     async def _handle_replace_event(self, data: BaseModel) -> Dict[str, Any]:
         """Replace text in a file
@@ -305,7 +327,10 @@ class Processor():
             return {"request_completed": True}
         except Exception as e:
             logging.error(f"Error replacing text in file: {e}", exc_info=True)
-            return {"request_completed": False}
+            return {
+                "request_completed": False,
+                "error": f"Error replacing text in file: {e}"
+            }
 
     async def _handle_undo_event(self, data: BaseModel) -> Dict[str, Any]:
         """Undo the last change to a file
@@ -323,10 +348,14 @@ class Processor():
 
             if restored:
                 return {"request_completed": True}
+            else:
+                raise Exception("Failed to undo file changes")
         except Exception as e:
             logging.error(f"Error undoing file changes: {e}", exc_info=True)
-
-        return {"request_completed": False}
+            return {
+                "request_completed": False,
+                "error": f"Error undoing file changes: {e}"
+            }
 
     def _sanitize_path(self, path: str) -> str:
         """Sanitize a path to prevent directory traversal"""
@@ -340,19 +369,14 @@ class Processor():
 
         return abs_path
 
-    def _check_if_path_exists(self, path: str) -> bool:
+    def _check_if_path_exists(self, path: str) -> None:
         """Check if a path exists
 
         Args:
             path: The path to check if it exists
-
-        Returns:
-            True if the path exists
 
         Raises:
             ValueError: If the path does not exist
         """
         if not os.path.exists(path):
             raise ValueError(f"Path does not exist: {path}")
-
-        return True

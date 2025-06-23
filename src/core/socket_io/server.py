@@ -215,6 +215,8 @@ class SocketIOServer:
                 elif "directories" in result and "files" in result:
                     data["directories"] = result["directories"]
                     data["files"] = result["files"]
+                elif "error" in result:
+                    data["error"] = result["error"]
 
                 await self.sio.emit(
                     status,

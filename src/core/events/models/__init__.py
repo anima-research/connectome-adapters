@@ -46,6 +46,7 @@ from src.core.events.models.request_events import (
     SentMessageData,
     ReadFileData,
     ViewDirectoryData,
+    ErrorData,
     RequestEvent
 )
 
@@ -92,5 +93,6 @@ __all__ = [
     "SentMessageData",
     "ReadFileData",
     "ViewDirectoryData",
+    "ErrorData",
     "RequestEvent"
 ]

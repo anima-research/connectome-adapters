@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import List, Optional, Union
 
 class SentMessageData(BaseModel):
@@ -18,6 +18,10 @@ class ViewDirectoryData(BaseModel):
     directories: Optional[List[str]] = []
     files: Optional[List[str]] = []
 
+class ErrorData(BaseModel):
+    """Error data model"""
+    error: Optional[str] = None
+
 class RequestEvent(BaseModel):
     """Request event model"""
     adapter_type: str
@@ -28,6 +32,7 @@ class RequestEvent(BaseModel):
             SentMessageData,
             FetchedAttachmentData,
             ReadFileData,
-            ViewDirectoryData
+            ViewDirectoryData,
+            ErrorData
         ]
     ] = None

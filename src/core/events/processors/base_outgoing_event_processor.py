@@ -72,7 +72,10 @@ class BaseOutgoingEventProcessor(ABC):
             return await handler(outgoing_event.data)
         except Exception as e:
             logging.error(f"Error processing event: {e}", exc_info=True)
-            return {"request_completed": False}
+            return {
+                "request_completed": False,
+                "error": f"Error processing event: {e}"
+            }
 
     async def _handle_fetch_attachment_event(self, data: BaseModel) -> Dict[str, Any]:
         """Fetch attachment content
@@ -97,12 +100,11 @@ class BaseOutgoingEventProcessor(ABC):
                         "content": base64.b64encode(f.read()).decode("utf-8")
                     }
         except Exception as e:
-            logging.error(
-                f"Failed to fetch attachment {data.attachment_id}: {e}",
-                exc_info=True
-            )
-
-        return {"request_completed": False}
+            logging.error(f"Failed to fetch attachment {data.attachment_id}: {e}", exc_info=True)
+            return {
+                "request_completed": False,
+                "error": f"Failed to fetch attachment: {e}"
+            }
 
     async def _handle_send_message_event(self, data: BaseModel) -> Dict[str, Any]:
         """Send a message to a conversation
@@ -119,16 +121,15 @@ class BaseOutgoingEventProcessor(ABC):
             if self._conversation_should_exist():
                 conversation_info = self.conversation_manager.get_conversation(data.conversation_id)
                 if not conversation_info:
-                    logging.error(f"Conversation {data.conversation_id} not found")
-                    return {"request_completed": False}
+                    raise Exception(f"Conversation {data.conversation_id} not found")
 
             return await self._send_message(conversation_info, data)
         except Exception as e:
-            logging.error(
-                f"Failed to send message to conversation {data.conversation_id}: {e}",
-                exc_info=True
-            )
-            return {"request_completed": False}
+            logging.error(f"Failed to send message to conversation {data.conversation_id}: {e}", exc_info=True)
+            return {
+                "request_completed": False,
+                "error": f"Failed to send message: {e}"
+            }
 
     @abstractmethod
     async def _send_message(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
@@ -150,16 +151,15 @@ class BaseOutgoingEventProcessor(ABC):
             if self._conversation_should_exist():
                 conversation_info = self.conversation_manager.get_conversation(data.conversation_id)
                 if not conversation_info:
-                    logging.error(f"Conversation {data.conversation_id} not found")
-                    return {"request_completed": False}
+                    raise Exception(f"Conversation {data.conversation_id} not found")
 
             return await self._edit_message(conversation_info, data)
         except Exception as e:
-            logging.error(
-                f"Failed to edit message {data.message_id}: {e}",
-                exc_info=True
-            )
-            return {"request_completed": False}
+            logging.error(f"Failed to edit message {data.message_id}: {e}", exc_info=True)
+            return {
+                "request_completed": False,
+                "error": f"Failed to edit message: {e}"
+            }
 
     @abstractmethod
     async def _edit_message(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
@@ -178,11 +178,11 @@ class BaseOutgoingEventProcessor(ABC):
         try:
             return await self._delete_message(data)
         except Exception as e:
-            logging.error(
-                f"Failed to delete message {data.message_id}: {e}",
-                exc_info=True
-            )
-            return {"request_completed": False}
+            logging.error(f"Failed to delete message {data.message_id}: {e}", exc_info=True)
+            return {
+                "request_completed": False,
+                "error": f"Failed to delete message: {e}"
+            }
 
     @abstractmethod
     async def _delete_message(self, data: BaseModel) -> Dict[str, Any]:
@@ -201,11 +201,11 @@ class BaseOutgoingEventProcessor(ABC):
         try:
             return await self._add_reaction(data)
         except Exception as e:
-            logging.error(
-                f"Failed to add reaction to message {data.message_id}: {e}",
-                exc_info=True
-            )
-            return {"request_completed": False}
+            logging.error(f"Failed to add reaction to message {data.message_id}: {e}", exc_info=True)
+            return {
+                "request_completed": False,
+                "error": f"Failed to add reaction: {e}"
+            }
 
     @abstractmethod
     async def _add_reaction(self, data: BaseModel) -> Dict[str, Any]:
@@ -224,11 +224,11 @@ class BaseOutgoingEventProcessor(ABC):
         try:
             return await self._remove_reaction(data)
         except Exception as e:
-            logging.error(
-                f"Failed to remove reaction from message {data.message_id}: {e}",
-                exc_info=True
-            )
-            return {"request_completed": False}
+            logging.error(f"Failed to remove reaction from message {data.message_id}: {e}", exc_info=True)
+            return {
+                "request_completed": False,
+                "error": f"Failed to remove reaction: {e}"
+            }
 
     @abstractmethod
     async def _remove_reaction(self, data: BaseModel) -> Dict[str, Any]:
@@ -249,7 +249,10 @@ class BaseOutgoingEventProcessor(ABC):
         """
         if not data.before and not data.after:
             logging.error("No before or after datetime provided")
-            return {"request_completed": False}
+            return {
+                "request_completed": False,
+                "error": "Failed to fetch history: no before or after datetime provided"
+            }
 
         return {"request_completed": True}
 
@@ -267,11 +270,11 @@ class BaseOutgoingEventProcessor(ABC):
         try:
             return await self._pin_message(data)
         except Exception as e:
-            logging.error(
-                f"Failed to pin message {data.message_id}: {e}",
-                exc_info=True
-            )
-            return {"request_completed": False}
+            logging.error(f"Failed to pin message {data.message_id}: {e}", exc_info=True)
+            return {
+                "request_completed": False,
+                "error": f"Failed to pin message: {e}"
+            }
 
     @abstractmethod
     async def _pin_message(self, data: BaseModel) -> Dict[str, Any]:
@@ -292,11 +295,11 @@ class BaseOutgoingEventProcessor(ABC):
         try:
             return await self._unpin_message(data)
         except Exception as e:
-            logging.error(
-                f"Failed to unpin message {data.message_id}: {e}",
-                exc_info=True
-            )
-            return {"request_completed": False}
+            logging.error(f"Failed to unpin message {data.message_id}: {e}", exc_info=True)
+            return {
+                "request_completed": False,
+                "error": f"Failed to unpin message: {e}"
+            }
 
     @abstractmethod
     async def _unpin_message(self, data: BaseModel) -> Dict[str, Any]:

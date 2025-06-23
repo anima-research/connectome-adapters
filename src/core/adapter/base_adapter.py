@@ -194,7 +194,10 @@ class BaseAdapter(ABC):
         """
         if not self.client:
             logging.error("Adapter is not connected to perform action")
-            return {"request_completed": False}
+            return {
+                "request_completed": False,
+                "error": "Adapter is not connected to perform action"
+            }
 
         result = await self.outgoing_events_processor.process_event(data)
         if self._incoming_event_should_be_triggered(data, result):

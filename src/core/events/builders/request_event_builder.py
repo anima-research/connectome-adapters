@@ -4,6 +4,7 @@ from src.core.events.models.request_events import (
     FetchedAttachmentData,
     SentMessageData,
     ReadFileData,
+    ErrorData,
     ViewDirectoryData
 )
 
@@ -37,6 +38,8 @@ class RequestEventBuilder:
             validated_data = ReadFileData(file_content=data["file_content"])
         elif "directories" in data:
             validated_data = ViewDirectoryData(directories=data["directories"], files=data["files"])
+        elif "error" in data:
+            validated_data = ErrorData(error=data["error"])
 
         return RequestEvent(
             adapter_type=self.adapter_type,

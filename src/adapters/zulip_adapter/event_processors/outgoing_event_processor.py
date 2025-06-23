@@ -54,6 +54,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
             subject = conversation_info.conversation_id.split("/")[1]
 
         message_ids = []
+
         for message in messages:
             await self.rate_limiter.limit_request("message", conversation_info.conversation_id)
             result = self.client.send_message({
@@ -62,9 +63,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
                 "content": message,
                 "subject": subject
             })
-
-            if not self._check_api_request_success(result, f"send message to {conversation_info.conversation_id}"):
-                return {"request_completed": False}
+            self._check_api_request_success(result, "send message")
 
             if "id" in result:
                 message_ids.append(str(result["id"]))
@@ -88,12 +87,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
             "message_id": int(data.message_id),
             "content": self._mention_users(conversation_info, data.mentions, data.text)
         }
-
-        if not self._check_api_request_success(
-            self.client.update_message(message_data),
-            f"edit message {data.message_id}"
-        ):
-            return {"request_completed": False}
+        self._check_api_request_success(self.client.update_message(message_data), "edit message")
 
         logging.info(f"Message {data.message_id} edited successfully")
         return {"request_completed": True}
@@ -109,15 +103,13 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         """
         await self.rate_limiter.limit_request("delete_message", data.conversation_id)
 
-        if not self._check_api_request_success(
+        self._check_api_request_success(
             self.client.call_endpoint(
                 f"messages/{int(data.message_id)}",
                 method="DELETE"
             ),
-            f"delete message {data.message_id}"
-        ):
-            return {"request_completed": False}
-
+            "delete message"
+        )
         await self.conversation_manager.delete_from_conversation(
             outgoing_event={
                 "message_id": data.message_id,
@@ -143,12 +135,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
             "message_id": int(data.message_id),
             "emoji_name": EmojiConverter.get_instance().standard_to_platform_specific(data.emoji)
         }
-
-        if not self._check_api_request_success(
-            self.client.add_reaction(reaction_data),
-            f"add reaction to {data.message_id}"
-        ):
-            return {"request_completed": False}
+        self._check_api_request_success(self.client.add_reaction(reaction_data), "add reaction")
 
         logging.info(f"Reaction {data.emoji} added to message {data.message_id}")
         return {"request_completed": True}
@@ -168,12 +155,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
             "message_id": int(data.message_id),
             "emoji_name": EmojiConverter.get_instance().standard_to_platform_specific(data.emoji)
         }
-
-        if not self._check_api_request_success(
-            self.client.remove_reaction(reaction_data),
-            f"remove reaction from {data.message_id}"
-        ):
-            return {"request_completed": False}
+        self._check_api_request_success(self.client.remove_reaction(reaction_data), "remove reaction")
 
         logging.info(f"Reaction {data.emoji} removed from message {data.message_id}")
         return {"request_completed": True}
@@ -229,8 +211,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
             bool: True if successful, False otherwise
         """
         if result and result.get("result", None) == "success":
-            return True
+            return
 
         error_msg = result.get("msg", "Unknown error") if result else "No response"
-        logging.error(f"Failed to {operation}: {error_msg}")
-        return False
+        raise Exception(f"Failed to {operation}: {error_msg}")
