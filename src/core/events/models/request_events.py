@@ -21,6 +21,7 @@ class ViewDirectoryData(BaseModel):
 class ErrorData(BaseModel):
     """Error data model"""
     error: Optional[str] = None
+    affected_message_id: Optional[str] = None
 
 class RequestEvent(BaseModel):
     """Request event model"""

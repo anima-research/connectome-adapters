@@ -39,7 +39,7 @@ class RequestEventBuilder:
         elif "directories" in data:
             validated_data = ViewDirectoryData(directories=data["directories"], files=data["files"])
         elif "error" in data:
-            validated_data = ErrorData(error=data["error"])
+            validated_data = ErrorData(error=data["error"], affected_message_id=data["affected_message_id"])
 
         return RequestEvent(
             adapter_type=self.adapter_type,

@@ -197,6 +197,8 @@ class SocketIOServer:
                     self.event_queue.task_done()
                     continue
 
+                logging.info(f"Processing event: {event.request_id}")
+
                 internal_request_id = None
                 if "internal_request_id" in event.data:
                     internal_request_id = event.data["internal_request_id"]
@@ -217,6 +219,7 @@ class SocketIOServer:
                     data["files"] = result["files"]
                 elif "error" in result:
                     data["error"] = result["error"]
+                    data["affected_message_id"] = event.data.get("data", {}).get("message_id", None)
 
                 await self.sio.emit(
                     status,

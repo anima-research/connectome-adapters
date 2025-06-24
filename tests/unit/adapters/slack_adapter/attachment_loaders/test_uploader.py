@@ -3,6 +3,8 @@ import os
 import pytest
 
 from unittest.mock import patch, MagicMock, AsyncMock
+
+import src.core.utils.attachment_loading
 from src.adapters.slack_adapter.attachment_loaders.uploader import Uploader
 from src.core.events.models.outgoing_events import OutgoingAttachmentInfo, SendMessageData
 
