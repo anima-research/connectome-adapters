@@ -32,7 +32,8 @@ class TestUserBuilder:
     def conversation_info(self):
         """Create a conversation info object"""
         return ConversationInfo(
-            conversation_id="T12345/C67890",
+            platform_conversation_id="T123/C456",
+            conversation_id="slack_F0OIohoDYwVnEyYccO7j",
             conversation_type="channel"
         )
 

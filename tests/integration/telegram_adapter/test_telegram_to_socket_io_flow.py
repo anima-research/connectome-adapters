@@ -55,21 +55,27 @@ class TestTelegramToSocketIOFlowIntegration:
         return adapter
 
     @pytest.fixture
-    def setup_conversation(self, adapter):
+    def standard_conversation_id(self):
+        """Setup a test conversation info"""
+        return "telegram_s6jg4fmrGB46NvIx9nb3"
+
+    @pytest.fixture
+    def setup_conversation(self, adapter, standard_conversation_id):
         """Setup a test conversation"""
         def _setup():
-            adapter.conversation_manager.conversations["456"] = ConversationInfo(
-                conversation_id="456",
+            adapter.conversation_manager.conversations[standard_conversation_id] = ConversationInfo(
+                platform_conversation_id="456",
+                conversation_id=standard_conversation_id,
                 conversation_type="private"
             )
-            return adapter.conversation_manager.conversations["456"]
+            return adapter.conversation_manager.conversations[standard_conversation_id]
         return _setup
 
     @pytest.fixture
-    def setup_conversation_known_member(self, adapter):
+    def setup_conversation_known_member(self, adapter, standard_conversation_id):
         """Setup a test conversation with a user"""
         def _setup():
-            adapter.conversation_manager.conversations["456"].known_members = {
+            adapter.conversation_manager.conversations[standard_conversation_id].known_members = {
                 "456": {
                     "user_id": "456",
                     "username": "test_user",
@@ -77,16 +83,16 @@ class TestTelegramToSocketIOFlowIntegration:
                     "last_name": "User"
                 }
             }
-            return adapter.conversation_manager.conversations["456"]
+            return adapter.conversation_manager.conversations[standard_conversation_id]
         return _setup
 
     @pytest.fixture
-    def setup_message(self, adapter):
+    def setup_message(self, adapter, standard_conversation_id):
         """Setup a test message in the cache"""
         async def _setup(message_id="123", reactions=None, is_pinned=False):
             cached_msg = await adapter.conversation_manager.message_cache.add_message({
                 "message_id": message_id,
-                "conversation_id": "456",
+                "conversation_id": standard_conversation_id,
                 "text": "Test message",
                 "timestamp": int(datetime.now().timestamp()),
                 "sender_id": "456",
@@ -227,7 +233,8 @@ class TestTelegramToSocketIOFlowIntegration:
     async def test_receive_message_flow(self,
                                         adapter,
                                         telethon_client_mock,
-                                        create_telethon_event):
+                                        create_telethon_event,
+                                        standard_conversation_id):
         """Test flow from Telegram new_message to socket.io message_received"""
         event, user = create_telethon_event("new_message")
         telethon_client_mock.get_entity.return_value = user
@@ -247,13 +254,13 @@ class TestTelegramToSocketIOFlowIntegration:
         message_event = message_events[0]
         assert message_event["adapter_type"] == "telegram"
         assert message_event["event_type"] == "message_received"
-        assert message_event["data"]["conversation_id"] == "456"
+        assert message_event["data"]["conversation_id"] == standard_conversation_id
         assert message_event["data"]["message_id"] == "123"
         assert message_event["data"]["text"] == "Test message"
 
-        assert "456" in adapter.conversation_manager.message_cache.messages
-        assert "123" in adapter.conversation_manager.message_cache.messages["456"]
-        assert adapter.conversation_manager.message_cache.messages["456"]["123"].text == "Test message"
+        assert standard_conversation_id in adapter.conversation_manager.message_cache.messages
+        assert "123" in adapter.conversation_manager.message_cache.messages[standard_conversation_id]
+        assert adapter.conversation_manager.message_cache.messages[standard_conversation_id]["123"].text == "Test message"
 
     @pytest.mark.asyncio
     async def test_edit_message_flow(self,
@@ -262,7 +269,8 @@ class TestTelegramToSocketIOFlowIntegration:
                                      setup_conversation,
                                      setup_conversation_known_member,
                                      setup_message,
-                                     create_telethon_event):
+                                     create_telethon_event,
+                                     standard_conversation_id):
         """Test flow from Telegram edited_message to internal event"""
         setup_conversation()
         setup_conversation_known_member()
@@ -286,11 +294,11 @@ class TestTelegramToSocketIOFlowIntegration:
         updated_event = updated_events[0]
         assert updated_event["adapter_type"] == "telegram"
         assert updated_event["event_type"] == "message_updated"
-        assert updated_event["data"]["conversation_id"] == "456"
+        assert updated_event["data"]["conversation_id"] == standard_conversation_id
         assert updated_event["data"]["message_id"] == "123"
         assert updated_event["data"]["new_text"] == "Edited message text"
 
-        assert adapter.conversation_manager.message_cache.messages["456"]["123"].text == "Edited message text"
+        assert adapter.conversation_manager.message_cache.messages[standard_conversation_id]["123"].text == "Edited message text"
 
     @pytest.mark.asyncio
     async def test_delete_message_flow(self,
@@ -298,7 +306,8 @@ class TestTelegramToSocketIOFlowIntegration:
                                        setup_conversation,
                                        setup_conversation_known_member,
                                        setup_message,
-                                       create_telethon_event):
+                                       create_telethon_event,
+                                       standard_conversation_id):
         """Test flow from Telegram deleted_message to internal event"""
         setup_conversation()
         setup_conversation_known_member()
@@ -317,18 +326,19 @@ class TestTelegramToSocketIOFlowIntegration:
         for event_data in result:
             assert event_data["adapter_type"] == "telegram"
             assert event_data["event_type"] == "message_deleted"
-            assert event_data["data"]["conversation_id"] == "456"
+            assert event_data["data"]["conversation_id"] == standard_conversation_id
             assert event_data["data"]["message_id"] in ["123", "456"]
 
-        assert "123" not in adapter.conversation_manager.message_cache.messages.get("456", {})
-        assert "456" not in adapter.conversation_manager.message_cache.messages.get("456", {})
+        assert "123" not in adapter.conversation_manager.message_cache.messages.get(standard_conversation_id, {})
+        assert "456" not in adapter.conversation_manager.message_cache.messages.get(standard_conversation_id, {})
 
     @pytest.mark.asyncio
     async def test_message_pinned_flow(self, adapter,
                                        setup_conversation,
                                        setup_conversation_known_member,
                                        setup_message,
-                                       create_pin_action_event):
+                                       create_pin_action_event,
+                                       standard_conversation_id):
         """Test flow from Telegram pin action to internal event"""
         setup_conversation()
         setup_conversation_known_member()
@@ -349,23 +359,24 @@ class TestTelegramToSocketIOFlowIntegration:
         pin_event = pin_events[0]
         assert pin_event["adapter_type"] == "telegram"
         assert pin_event["event_type"] == "message_pinned"
-        assert pin_event["data"]["conversation_id"] == "456"
+        assert pin_event["data"]["conversation_id"] == standard_conversation_id
         assert pin_event["data"]["message_id"] == "123"
 
-        assert adapter.conversation_manager.message_cache.messages["456"]["123"].is_pinned is True
-        assert "123" in adapter.conversation_manager.conversations["456"].pinned_messages
+        assert adapter.conversation_manager.message_cache.messages[standard_conversation_id]["123"].is_pinned is True
+        assert "123" in adapter.conversation_manager.conversations[standard_conversation_id].pinned_messages
 
     @pytest.mark.asyncio
     async def test_message_unpinned_flow(self, adapter,
                                          setup_conversation,
                                          setup_conversation_known_member,
                                          setup_message,
-                                         create_unpin_action_event):
+                                         create_unpin_action_event,
+                                         standard_conversation_id):
         """Test flow from Telegram unpin action to internal event"""
         setup_conversation()
         setup_conversation_known_member()
         await setup_message(is_pinned=True)
-        adapter.conversation_manager.conversations["456"].pinned_messages.add("123")
+        adapter.conversation_manager.conversations[standard_conversation_id].pinned_messages.add("123")
 
         event = create_unpin_action_event()
         result = await adapter.incoming_events_processor.process_event({
@@ -382,11 +393,11 @@ class TestTelegramToSocketIOFlowIntegration:
         unpin_event = unpin_events[0]
         assert unpin_event["adapter_type"] == "telegram"
         assert unpin_event["event_type"] == "message_unpinned"
-        assert unpin_event["data"]["conversation_id"] == "456"
+        assert unpin_event["data"]["conversation_id"] == standard_conversation_id
         assert unpin_event["data"]["message_id"] == "123"
 
-        assert adapter.conversation_manager.message_cache.messages["456"]["123"].is_pinned is False
-        assert "123" not in adapter.conversation_manager.conversations["456"].pinned_messages
+        assert adapter.conversation_manager.message_cache.messages[standard_conversation_id]["123"].is_pinned is False
+        assert "123" not in adapter.conversation_manager.conversations[standard_conversation_id].pinned_messages
 
     @pytest.mark.asyncio
     async def test_reaction_added_flow(self,
@@ -395,7 +406,8 @@ class TestTelegramToSocketIOFlowIntegration:
                                        setup_conversation,
                                        setup_conversation_known_member,
                                        setup_message,
-                                       create_telethon_event):
+                                       create_telethon_event,
+                                       standard_conversation_id):
         """Test flow from Telegram edited_message with reactions to socket.io reaction_added"""
         setup_conversation()
         setup_conversation_known_member()
@@ -423,11 +435,11 @@ class TestTelegramToSocketIOFlowIntegration:
         event_data = reaction_events[0]
         assert event_data["adapter_type"] == "telegram"
         assert event_data["event_type"] == "reaction_added"
-        assert event_data["data"]["conversation_id"] == "456"
+        assert event_data["data"]["conversation_id"] == standard_conversation_id
         assert event_data["data"]["message_id"] == "123"
         assert event_data["data"]["emoji"] == "thumbs_up"
 
-        cached_message = adapter.conversation_manager.message_cache.messages["456"]["123"]
+        cached_message = adapter.conversation_manager.message_cache.messages[standard_conversation_id]["123"]
         assert "thumbs_up" in cached_message.reactions
         assert cached_message.reactions["thumbs_up"] == 1
 
@@ -438,7 +450,8 @@ class TestTelegramToSocketIOFlowIntegration:
                                          setup_conversation,
                                          setup_conversation_known_member,
                                          setup_message,
-                                         create_telethon_event):
+                                         create_telethon_event,
+                                         standard_conversation_id):
         """Test flow from Telegram edited_message with removed reactions to socket.io reaction_removed"""
         setup_conversation()
         setup_conversation_known_member()
@@ -466,10 +479,10 @@ class TestTelegramToSocketIOFlowIntegration:
         event_data = reaction_events[0]
         assert event_data["adapter_type"] == "telegram"
         assert event_data["event_type"] == "reaction_removed"
-        assert event_data["data"]["conversation_id"] == "456"
+        assert event_data["data"]["conversation_id"] == standard_conversation_id
         assert event_data["data"]["message_id"] == "123"
         assert event_data["data"]["emoji"] == "red_heart"
 
-        cached_message = adapter.conversation_manager.message_cache.messages["456"]["123"]
+        cached_message = adapter.conversation_manager.message_cache.messages[standard_conversation_id]["123"]
         assert "thumbs_up" in cached_message.reactions
         assert "red_heart" not in cached_message.reactions

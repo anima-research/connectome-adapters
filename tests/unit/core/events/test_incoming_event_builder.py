@@ -71,13 +71,19 @@ class TestIncomingEventBuilder:
 
     def test_conversation_started(self, event_builder):
         """Test conversation_started event creation."""
-        delta = {"conversation_id": "conv_456"}
+        delta = {
+            "conversation_id": "conv_456",
+            "conversation_name": "slackchannel",
+            "server_name": "slackteam"
+        }
 
         event = event_builder.conversation_started(delta)
 
         assert event["adapter_type"] == event_builder.adapter_type
         assert event["event_type"] == "conversation_started"
+        assert event["data"]["server_name"] == delta["server_name"]
         assert event["data"]["conversation_id"] == delta["conversation_id"]
+        assert event["data"]["conversation_name"] == delta["conversation_name"]
         assert event["data"]["adapter_name"] == event_builder.adapter_name
         assert event["data"]["adapter_id"] == event_builder.adapter_id
 

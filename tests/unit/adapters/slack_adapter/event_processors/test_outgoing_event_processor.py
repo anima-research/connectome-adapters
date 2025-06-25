@@ -4,12 +4,28 @@ import pytest
 
 from unittest.mock import AsyncMock, MagicMock, patch, call
 from src.adapters.slack_adapter.attachment_loaders.uploader import Uploader
+from src.adapters.slack_adapter.conversation.data_classes import ConversationInfo
 from src.adapters.slack_adapter.event_processors.outgoing_event_processor import OutgoingEventProcessor
 from src.adapters.slack_adapter.event_processors.history_fetcher import HistoryFetcher
 from src.core.utils.emoji_converter import EmojiConverter
 
 class TestOutgoingEventProcessor:
     """Tests for the Slack OutgoingEventProcessor class"""
+
+    @pytest.fixture
+    def standard_conversation_id(self):
+        """Create a mock standard conversation ID"""
+        return "slack_F0OIohoDYwVnEyYccO7j"
+
+    @pytest.fixture
+    def conversation_info_mock(self, standard_conversation_id):
+        """Create a mock ConversationInfo"""
+        return ConversationInfo(
+            platform_conversation_id="T123/C456",
+            conversation_id=standard_conversation_id,
+            conversation_type="channel",
+            conversation_name=None
+        )
 
     @pytest.fixture
     def slack_client_mock(self):
@@ -23,10 +39,10 @@ class TestOutgoingEventProcessor:
         return client
 
     @pytest.fixture
-    def conversation_manager_mock(self):
+    def conversation_manager_mock(self, conversation_info_mock):
         """Create a mocked conversation manager"""
         manager = AsyncMock()
-        manager.get_conversation = MagicMock()
+        manager.get_conversation = MagicMock(return_value=conversation_info_mock)
         manager.get_conversation_member = MagicMock()
         return manager
 
@@ -71,7 +87,10 @@ class TestOutgoingEventProcessor:
         """Tests for the send_message method"""
 
         @pytest.mark.asyncio
-        async def test_send_message_success(self, processor, slack_client_mock):
+        async def test_send_message_success(self,
+                                            processor,
+                                            slack_client_mock,
+                                            standard_conversation_id):
             """Test sending a simple message successfully"""
             slack_client_mock.chat_postMessage.return_value = {
                 "ok": True,
@@ -81,7 +100,7 @@ class TestOutgoingEventProcessor:
             response = await processor.process_event({
                 "event_type": "send_message",
                 "data": {
-                    "conversation_id": "T12345/C123456789",
+                    "conversation_id": standard_conversation_id,
                     "text": "Hello, world!"
                 }
             })
@@ -90,17 +109,20 @@ class TestOutgoingEventProcessor:
             assert response["message_ids"] == ["1662031200.123456"]
 
             processor.rate_limiter.limit_request.assert_called_once_with(
-                "message", "T12345/C123456789"
+                "message", standard_conversation_id
             )
             slack_client_mock.chat_postMessage.assert_called_once_with(
-                channel="C123456789",
+                channel="C456",
                 text="Hello, world!",
                 unfurl_links=False,
                 unfurl_media=False
             )
 
         @pytest.mark.asyncio
-        async def test_send_message_long_text(self, processor, slack_client_mock):
+        async def test_send_message_long_text(self,
+                                              processor,
+                                              slack_client_mock,
+                                              standard_conversation_id):
             """Test sending a message with text longer than max length"""
             slack_client_mock.chat_postMessage.side_effect = [
                 {"ok": True, "ts": "1662031200.123456"},
@@ -111,7 +133,7 @@ class TestOutgoingEventProcessor:
                 response = await processor.process_event({
                     "event_type": "send_message",
                     "data": {
-                        "conversation_id": "T12345/C123456789",
+                        "conversation_id": standard_conversation_id,
                         "text": "This is a very long message " * 100  # Very long message
                     }
                 })
@@ -121,19 +143,22 @@ class TestOutgoingEventProcessor:
 
                 assert slack_client_mock.chat_postMessage.call_count == 2
                 slack_client_mock.chat_postMessage.assert_has_calls([
-                    call(channel="C123456789", text="Part 1", unfurl_links=False, unfurl_media=False),
-                    call(channel="C123456789", text="Part 2", unfurl_links=False, unfurl_media=False)
+                    call(channel="C456", text="Part 1", unfurl_links=False, unfurl_media=False),
+                    call(channel="C456", text="Part 2", unfurl_links=False, unfurl_media=False)
                 ])
 
         @pytest.mark.asyncio
-        async def test_send_message_with_attachments(self, processor, slack_client_mock):
+        async def test_send_message_with_attachments(self,
+                                                     processor,
+                                                     slack_client_mock,
+                                                     standard_conversation_id):
             """Test sending a message with attachments"""
             slack_client_mock.chat_postMessage.return_value = {"ok": True, "ts": "1662031200.123456"}
 
             event_data = {
                 "event_type": "send_message",
                 "data": {
-                    "conversation_id": "T12345/C123456789",
+                    "conversation_id": standard_conversation_id,
                     "text": "Message with attachments",
                     "attachments": [{
                         "file_name": "file1.txt",
@@ -148,12 +173,14 @@ class TestOutgoingEventProcessor:
             processor.uploader.upload_attachments.assert_called_once()
 
         @pytest.mark.asyncio
-        async def test_handle_send_message_missing_fields(self, processor):
+        async def test_handle_send_message_missing_fields(self,
+                                                          processor,
+                                                          standard_conversation_id):
             """Test handling missing fields in send message request"""
             # Missing 'text' field
             response = await processor.process_event({
                 "event_type": "send_message",
-                "data": {"conversation_id": "T12345/C123456789"}
+                "data": {"conversation_id": standard_conversation_id}
             })
             assert response["request_completed"] is False
 
@@ -168,13 +195,16 @@ class TestOutgoingEventProcessor:
         """Tests for the edit_message method"""
 
         @pytest.mark.asyncio
-        async def test_edit_message_success(self, processor, slack_client_mock):
+        async def test_edit_message_success(self,
+                                            processor,
+                                            slack_client_mock,
+                                            standard_conversation_id):
             """Test successfully editing a message"""
             slack_client_mock.chat_update.return_value = {"ok": True}
             response = await processor.process_event({
                 "event_type": "edit_message",
                 "data": {
-                    "conversation_id": "T12345/C123456789",
+                    "conversation_id": standard_conversation_id,
                     "message_id": "1662031200.123456",
                     "text": "Updated text"
                 }
@@ -182,22 +212,24 @@ class TestOutgoingEventProcessor:
 
             assert response["request_completed"] is True
             processor.rate_limiter.limit_request.assert_called_once_with(
-                "edit_message", "T12345/C123456789"
+                "edit_message", standard_conversation_id
             )
             slack_client_mock.chat_update.assert_called_once_with(
-                channel="C123456789",
+                channel="C456",
                 ts="1662031200.123456",
                 text="Updated text"
             )
 
         @pytest.mark.asyncio
-        async def test_handle_edit_message_missing_fields(self, processor):
+        async def test_handle_edit_message_missing_fields(self,
+                                                          processor,
+                                                          standard_conversation_id):
             """Test handling missing fields in edit message request"""
             # Missing 'text' field
             response = await processor.process_event({
                 "event_type": "edit_message",
                 "data": {
-                    "conversation_id": "T12345/C123456789",
+                    "conversation_id": standard_conversation_id,
                     "message_id": "1662031200.123456"
                 }
             })
@@ -207,7 +239,7 @@ class TestOutgoingEventProcessor:
             response = await processor.process_event({
                 "event_type": "edit_message",
                 "data": {
-                    "conversation_id": "T12345/C123456789",
+                    "conversation_id": standard_conversation_id,
                     "text": "Updated text"
                 }
             })
@@ -228,33 +260,38 @@ class TestOutgoingEventProcessor:
 
         @pytest.mark.asyncio
         @pytest.mark.filterwarnings("ignore::RuntimeWarning")
-        async def test_delete_message_success(self, processor, slack_client_mock):
+        async def test_delete_message_success(self,
+                                              processor,
+                                              slack_client_mock,
+                                              standard_conversation_id):
             """Test successfully deleting a message"""
             slack_client_mock.chat_delete.return_value = {"ok": True}
             response = await processor.process_event({
                 "event_type": "delete_message",
                 "data": {
-                    "conversation_id": "T12345/C123456789",
+                    "conversation_id": standard_conversation_id,
                     "message_id": "1662031200.123456"
                 }
             })
 
             assert response["request_completed"] is True
             processor.rate_limiter.limit_request.assert_called_once_with(
-                "delete_message", "T12345/C123456789"
+                "delete_message", standard_conversation_id
             )
             slack_client_mock.chat_delete.assert_called_once_with(
-                channel="C123456789",
+                channel="C456",
                 ts="1662031200.123456"
             )
 
         @pytest.mark.asyncio
-        async def test_handle_delete_message_missing_fields(self, processor):
+        async def test_handle_delete_message_missing_fields(self,
+                                                            processor,
+                                                            standard_conversation_id):
             """Test handling missing fields in delete message request"""
             # Missing 'message_id' field
             response = await processor.process_event({
                 "event_type": "delete_message",
-                "data": {"conversation_id": "T12345/C123456789"}
+                "data": {"conversation_id": standard_conversation_id}
             })
             assert response["request_completed"] is False
 
@@ -269,7 +306,10 @@ class TestOutgoingEventProcessor:
         """Tests for the reaction-related methods"""
 
         @pytest.mark.asyncio
-        async def test_add_reaction_success(self, processor, slack_client_mock):
+        async def test_add_reaction_success(self,
+                                            processor,
+                                            slack_client_mock,
+                                            standard_conversation_id):
             """Test successfully adding a reaction"""
             slack_client_mock.reactions_add.return_value = {"ok": True}
 
@@ -277,7 +317,7 @@ class TestOutgoingEventProcessor:
                 response = await processor.process_event({
                     "event_type": "add_reaction",
                     "data": {
-                        "conversation_id": "T12345/C123456789",
+                        "conversation_id": standard_conversation_id,
                         "message_id": "1662031200.123456",
                         "emoji": "thumbs_up"
                     }
@@ -285,16 +325,19 @@ class TestOutgoingEventProcessor:
 
                 assert response["request_completed"] is True
                 processor.rate_limiter.limit_request.assert_called_once_with(
-                    "add_reaction", "T12345/C123456789"
+                    "add_reaction", standard_conversation_id
                 )
                 slack_client_mock.reactions_add.assert_called_once_with(
-                    channel="C123456789",
+                    channel="C456",
                     timestamp="1662031200.123456",
                     name="+1"  # Using mock converter's behavior
                 )
 
         @pytest.mark.asyncio
-        async def test_remove_reaction_success(self, processor, slack_client_mock):
+        async def test_remove_reaction_success(self,
+                                               processor,
+                                               slack_client_mock,
+                                               standard_conversation_id):
             """Test successfully removing a reaction"""
             slack_client_mock.reactions_remove.return_value = {"ok": True}
 
@@ -302,7 +345,7 @@ class TestOutgoingEventProcessor:
                 response = await processor.process_event({
                     "event_type": "remove_reaction",
                     "data": {
-                        "conversation_id": "T12345/C123456789",
+                        "conversation_id": standard_conversation_id,
                         "message_id": "1662031200.123456",
                         "emoji": "thumbs_up"
                     }
@@ -310,10 +353,10 @@ class TestOutgoingEventProcessor:
 
                 assert response["request_completed"] is True
                 processor.rate_limiter.limit_request.assert_called_once_with(
-                    "remove_reaction", "T12345/C123456789"
+                    "remove_reaction", standard_conversation_id
                 )
                 slack_client_mock.reactions_remove.assert_called_once_with(
-                    channel="C123456789",
+                    channel="C456",
                     timestamp="1662031200.123456",
                     name="+1"  # Using mock converter's behavior
                 )
@@ -322,34 +365,39 @@ class TestOutgoingEventProcessor:
         """Tests for the pin/unpin message methods"""
 
         @pytest.mark.asyncio
-        async def test_pin_message_success(self, processor, slack_client_mock):
+        async def test_pin_message_success(self,
+                                           processor,
+                                           slack_client_mock,
+                                           standard_conversation_id):
             """Test successfully pinning a message"""
             slack_client_mock.pins_add.return_value = {"ok": True}
 
             response = await processor.process_event({
                 "event_type": "pin_message",
                 "data": {
-                    "conversation_id": "T12345/C123456789",
+                    "conversation_id": standard_conversation_id,
                     "message_id": "1662031200.123456"
                 }
             })
 
             assert response["request_completed"] is True
             processor.rate_limiter.limit_request.assert_called_once_with(
-                "pin_message", "T12345/C123456789"
+                "pin_message", standard_conversation_id
             )
             slack_client_mock.pins_add.assert_called_once_with(
-                channel="C123456789",
+                channel="C456",
                 timestamp="1662031200.123456"
             )
 
         @pytest.mark.asyncio
-        async def test_pin_message_missing_fields(self, processor):
+        async def test_pin_message_missing_fields(self,
+                                                  processor,
+                                                  standard_conversation_id):
             """Test handling missing fields in pin message request"""
             # Missing 'message_id' field
             response = await processor.process_event({
                 "event_type": "pin_message",
-                "data": {"conversation_id": "T12345/C123456789"}
+                "data": {"conversation_id": standard_conversation_id}
             })
             assert response["request_completed"] is False
 
@@ -361,34 +409,39 @@ class TestOutgoingEventProcessor:
             assert response["request_completed"] is False
 
         @pytest.mark.asyncio
-        async def test_unpin_message_success(self, processor, slack_client_mock):
+        async def test_unpin_message_success(self,
+                                             processor,
+                                             slack_client_mock,
+                                             standard_conversation_id):
             """Test successfully unpinning a message"""
             slack_client_mock.pins_remove.return_value = {"ok": True}
 
             response = await processor.process_event({
                 "event_type": "unpin_message",
                 "data": {
-                    "conversation_id": "T12345/C123456789",
+                    "conversation_id": standard_conversation_id,
                     "message_id": "1662031200.123456"
                 }
             })
 
             assert response["request_completed"] is True
             processor.rate_limiter.limit_request.assert_called_once_with(
-                "unpin_message", "T12345/C123456789"
+                "unpin_message", standard_conversation_id
             )
             slack_client_mock.pins_remove.assert_called_once_with(
-                channel="C123456789",
+                channel="C456",
                 timestamp="1662031200.123456"
             )
 
         @pytest.mark.asyncio
-        async def test_unpin_message_missing_fields(self, processor):
+        async def test_unpin_message_missing_fields(self,
+                                                    processor,
+                                                    standard_conversation_id):
             """Test handling missing fields in unpin message request"""
             # Missing 'message_id' field
             response = await processor.process_event({
                 "event_type": "unpin_message",
-                "data": {"conversation_id": "T12345/C123456789"}
+                "data": {"conversation_id": standard_conversation_id}
             })
             assert response["request_completed"] is False
 
@@ -404,13 +457,15 @@ class TestOutgoingEventProcessor:
 
         @pytest.mark.asyncio
         @pytest.mark.filterwarnings("ignore::RuntimeWarning")
-        async def test_fetch_history_before(self, processor):
+        async def test_fetch_history_before(self,
+                                            processor,
+                                            standard_conversation_id):
             """Test fetching history with 'before' parameter"""
             with patch.object(HistoryFetcher, "fetch", return_value=[{"message": "test"}]):
                 response = await processor.process_event({
                     "event_type": "fetch_history",
                     "data": {
-                        "conversation_id": "T12345/C123456789",
+                        "conversation_id": standard_conversation_id,
                         "before": 1662031200000,  # millisecond timestamp
                         "limit": 10
                     }
@@ -419,31 +474,33 @@ class TestOutgoingEventProcessor:
 
         @pytest.mark.asyncio
         @pytest.mark.filterwarnings("ignore::RuntimeWarning")
-        async def test_fetch_history_after(self, processor):
+        async def test_fetch_history_after(self,
+                                           processor,
+                                           standard_conversation_id):
             """Test fetching history with 'after' parameter"""
             with patch.object(HistoryFetcher, "fetch", return_value=[{"message": "test"}]):
                 response = await processor.process_event({
                     "event_type": "fetch_history",
                     "data": {
-                        "conversation_id": "T12345/C123456789",
+                        "conversation_id": standard_conversation_id,
                         "after": 1662031200000,  # millisecond timestamp
                         "limit": 10
                     }
                 })
-
                 assert response["request_completed"] is True
 
         @pytest.mark.asyncio
-        async def test_fetch_history_missing_parameters(self, processor):
+        async def test_fetch_history_missing_parameters(self,
+                                                        processor,
+                                                        standard_conversation_id):
             """Test fetching history with missing before/after parameters"""
             response = await processor.process_event({
                 "event_type": "fetch_history",
                 "data": {
-                    "conversation_id": "T12345/C123456789",
+                    "conversation_id": standard_conversation_id,
                     "limit": 10
                 }
             })
-
             assert response["request_completed"] is False
 
         @pytest.mark.asyncio
@@ -456,5 +513,4 @@ class TestOutgoingEventProcessor:
                     "limit": 10
                 }
             })
-
             assert response["request_completed"] is False

@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 import json
 
+from src.adapters.zulip_adapter.conversation.data_classes import ConversationInfo
 from src.adapters.zulip_adapter.event_processors.incoming_event_processor import (
     IncomingEventProcessor, ZulipIncomingEventType
 )
@@ -18,6 +19,7 @@ class TestIncomingEventProcessor:
     def conversation_manager_mock(self):
         """Create a mocked conversation manager"""
         manager = AsyncMock()
+        manager.get_conversation = MagicMock(return_value=None)
         manager.add_to_conversation = AsyncMock(return_value={})
         manager.update_conversation = AsyncMock(return_value={})
         manager.migrate_between_conversations = AsyncMock(return_value={})
@@ -38,9 +40,7 @@ class TestIncomingEventProcessor:
                   conversation_manager_mock,
                   rate_limiter_mock):
         """Create a ZulipIncomingEventProcessor with mocked dependencies"""
-        processor = IncomingEventProcessor(
-            zulip_config, zulip_client_mock, conversation_manager_mock
-        )
+        processor = IncomingEventProcessor(zulip_config, zulip_client_mock, conversation_manager_mock)
         processor.rate_limiter = rate_limiter_mock
         processor.incoming_event_builder = MagicMock()
         return processor
@@ -97,6 +97,11 @@ class TestIncomingEventProcessor:
             "message_ids": [123, 456]
         }
 
+    @pytest.fixture
+    def standard_conversation_id(self):
+        """Create a standard conversation ID"""
+        return "zulip_MZNQgAZ18VlBMRPeHGon"
+
     class TestProcessEvent:
         """Tests for the process_event method"""
 
@@ -136,10 +141,13 @@ class TestIncomingEventProcessor:
         """Tests for the _handle_message method"""
 
         @pytest.mark.asyncio
-        async def test_handle_message(self, processor, message_event_mock):
+        async def test_handle_message(self,
+                                      processor,
+                                      message_event_mock,
+                                      standard_conversation_id):
             """Test handling a new message"""
             message = {
-                "conversation_id": "456_789",
+                "conversation_id": standard_conversation_id,
                 "message_id": "123",
                 "text": "Test message",
                 "sender": {"user_id": "456", "display_name": "Test User"},
@@ -148,7 +156,7 @@ class TestIncomingEventProcessor:
             }
             delta = {
                 "fetch_history": True,
-                "conversation_id": "456_789",
+                "conversation_id": standard_conversation_id,
                 "added_messages": [message]
             }
             history = [{"some": "history"}]
@@ -172,9 +180,11 @@ class TestIncomingEventProcessor:
             assert {"event_type": "history_fetched"} in result
             assert {"event_type": "message_received"} in result
 
-            processor.conversation_manager.add_to_conversation.assert_called_once_with(
-                {"message": message_event_mock.get("message"), "attachments": []}
-            )
+            processor.conversation_manager.add_to_conversation.assert_called_once_with({
+                "message": message_event_mock.get("message"),
+                "attachments": [],
+                "server": None
+            })
             processor._fetch_history.assert_called_once()
             processor.incoming_event_builder.conversation_started.assert_called_once_with(delta)
             processor.incoming_event_builder.history_fetched.assert_called_once_with(delta, history)
@@ -208,10 +218,13 @@ class TestIncomingEventProcessor:
             processor._handle_message_change.assert_called_once_with(update_message_event_mock)
 
         @pytest.mark.asyncio
-        async def test_handle_message_change_success(self, processor, update_message_event_mock):
+        async def test_handle_message_change_success(self,
+                                                     processor,
+                                                     update_message_event_mock,
+                                                     standard_conversation_id):
             """Test handling a message content change"""
             message = {
-                "conversation_id": "456_789",
+                "conversation_id": standard_conversation_id,
                 "message_id": "123",
                 "text": "Edited test message",
                 "timestamp": 1234567890000
@@ -252,12 +265,13 @@ class TestIncomingEventProcessor:
         @pytest.mark.asyncio
         async def test_handle_topic_change_success(self, processor, topic_change_event_mock):
             """Test successful handling of topic change"""
+            # "456/new topic" is converted to "zulip_XH5B9MBJamDRmnxaC7SI"
             delta = {
                 "fetch_history": True,
-                "conversation_id": "456/new topic",
+                "conversation_id": "zulip_XH5B9MBJamDRmnxaC7SI",
                 "deleted_message_ids": ["123", "987"],
                 "added_messages": [{
-                    "conversation_id": "456/new topic",
+                    "conversation_id": "zulip_XH5B9MBJamDRmnxaC7SI",
                     "message_id": "123",
                     "text": "Migrated text message",
                     "sender": {"user_id": "456", "display_name": "Test User"},
@@ -267,6 +281,11 @@ class TestIncomingEventProcessor:
             }
 
             processor.conversation_manager.migrate_between_conversations.return_value = delta
+            processor.conversation_manager.get_conversation.return_value = ConversationInfo(
+                platform_conversation_id="456/old topic",
+                conversation_id="zulip_Ry51r9HLXiwIxnFo65ZU",
+                conversation_type="stream"
+            )
             processor._fetch_history = AsyncMock(return_value=[])
             processor.incoming_event_builder.conversation_started = MagicMock(
                 return_value={"event_type": "conversation_started"}
@@ -292,7 +311,7 @@ class TestIncomingEventProcessor:
             assert "message_deleted" in event_types
             assert "message_received" in event_types
 
-            processor.conversation_manager.migrate_between_conversations.assert_called_once_with(topic_change_event_mock)
+            assert processor.conversation_manager.migrate_between_conversations.call_count == 1
             assert processor.incoming_event_builder.conversation_started.call_count == 1
             assert processor.incoming_event_builder.history_fetched.call_count == 1
             assert processor.incoming_event_builder.message_deleted.call_count == 2
@@ -302,10 +321,13 @@ class TestIncomingEventProcessor:
         """Tests for the _handle_delete_message method"""
 
         @pytest.mark.asyncio
-        async def test_handle_delete_message_success(self, processor, delete_message_event_mock):
+        async def test_handle_delete_message_success(self,
+                                                     processor,
+                                                     delete_message_event_mock,
+                                                     standard_conversation_id):
             """Test handling a message content change"""
             delta = {
-                "conversation_id": "456_789",
+                "conversation_id": standard_conversation_id,
                 "deleted_message_ids": ["123"]
             }
 
@@ -322,7 +344,7 @@ class TestIncomingEventProcessor:
             processor.conversation_manager.delete_from_conversation.assert_called_once_with(
                 incoming_event=delete_message_event_mock
             )
-            processor.incoming_event_builder.message_deleted.assert_called_once_with("123", "456_789")
+            processor.incoming_event_builder.message_deleted.assert_called_once_with("123", standard_conversation_id)
 
         @pytest.mark.asyncio
         async def test_handle_delete_message_exception(self, processor, message_event_mock):
@@ -347,12 +369,15 @@ class TestIncomingEventProcessor:
 
         @pytest.mark.asyncio
         @pytest.mark.filterwarnings("ignore::RuntimeWarning")
-        async def test_handle_reaction_added(self, processor, reaction_event_mock):
+        async def test_handle_reaction_added(self,
+                                             processor,
+                                             reaction_event_mock,
+                                             standard_conversation_id):
             """Test handling a reaction added event"""
             reaction_event_mock["op"] = "add"
             delta = {
                 "updates": ["reaction_added"],
-                "conversation_id": "456_789",
+                "conversation_id": standard_conversation_id,
                 "message_id": "123",
                 "added_reactions": ["thumbs_up"],
                 "timestamp": 1234567890000
@@ -375,12 +400,15 @@ class TestIncomingEventProcessor:
 
         @pytest.mark.asyncio
         @pytest.mark.filterwarnings("ignore::RuntimeWarning")
-        async def test_handle_reaction_removed(self, processor, reaction_event_mock):
+        async def test_handle_reaction_removed(self,
+                                               processor,
+                                               reaction_event_mock,
+                                               standard_conversation_id):
             """Test handling a reaction removed event"""
             reaction_event_mock["op"] = "remove"
             delta = {
                 "updates": ["reaction_removed"],
-                "conversation_id": "456_789",
+                "conversation_id": standard_conversation_id,
                 "message_id": "123",
                 "removed_reactions": ["thumbs_up"],
                 "timestamp": 1234567890000

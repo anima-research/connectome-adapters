@@ -51,7 +51,7 @@ class TestHistoryFetcher:
             "ts": "1609502400.000123",
             "text": "Message with attachment",
             "user": "U444555666",
-            "team": "T123456",
+            "team": "T123",
             "files": [
                 {
                     "id": "F987654",
@@ -71,7 +71,7 @@ class TestHistoryFetcher:
             "ts": "1609504200.000456",
             "text": "This is a reply",
             "user": "U777888999",
-            "team": "T123456",
+            "team": "T123",
             "thread_ts": "1609502400.000123"
         }
 
@@ -112,15 +112,21 @@ class TestHistoryFetcher:
         ]
 
     @pytest.fixture
+    def standard_conversation_id(self):
+        """Create a mock standard conversation ID"""
+        return "slack_F0OIohoDYwVnEyYccO7j"
+
+    @pytest.fixture
     def mock_formatted_messages(self,
                                 mock_slack_message_with_attachment,
                                 mock_slack_message_reply,
-                                mock_attachments):
+                                mock_attachments,
+                                standard_conversation_id):
         """Create mock formatted message data"""
         return [
             {
                 "message_id": mock_slack_message_with_attachment["ts"],
-                "conversation_id": "T123456/C987654321",
+                "conversation_id": standard_conversation_id,
                 "sender": {
                     "user_id": mock_slack_message_with_attachment["user"],
                     "display_name": "Cool User"
@@ -134,7 +140,7 @@ class TestHistoryFetcher:
             },
             {
                 "message_id": mock_slack_message_reply["ts"],
-                "conversation_id": "T123456/C987654321",
+                "conversation_id": standard_conversation_id,
                 "sender": {
                     "user_id": mock_slack_message_reply["user"],
                     "display_name": "User Two"
@@ -149,12 +155,12 @@ class TestHistoryFetcher:
         ]
 
     @pytest.fixture
-    def mock_cached_messages(self):
+    def mock_cached_messages(self, standard_conversation_id):
         """Create mock cached message data"""
         return [
             {
                 "message_id": "1609502400.000123",
-                "conversation_id": "T123456/C987654321",
+                "conversation_id": standard_conversation_id,
                 "sender": {
                     "user_id": "U444555666",
                     "display_name": "Cool User"
@@ -176,12 +182,14 @@ class TestHistoryFetcher:
                         mock_slack_history_response,
                         mock_formatted_messages,
                         mock_attachments,
-                        mock_user_info_response):
+                        mock_user_info_response,
+                        standard_conversation_id):
         """Create a HistoryFetcher instance"""
         def _create(conversation_id, anchor=None, before=None, after=None, history_limit=None):
-            if conversation_id == "T123456/C987654321":
+            if conversation_id == standard_conversation_id:
                 conversation_manager_mock.get_conversation.return_value = ConversationInfo(
-                    conversation_id="T123456/C987654321",
+                    platform_conversation_id="T123/C456",
+                    conversation_id=standard_conversation_id,
                     conversation_type="channel"
                 )
             else:
@@ -223,13 +231,14 @@ class TestHistoryFetcher:
     async def test_fetch_with_anchor(self,
                                      history_fetcher,
                                      slack_client_mock,
-                                     mock_attachments):
+                                     mock_attachments,
+                                     standard_conversation_id):
         """Test fetching history with an anchor"""
-        fetcher = history_fetcher("T123456/C987654321", anchor="1609504300.000789")
+        fetcher = history_fetcher(standard_conversation_id, anchor="1609504300.000789")
         history = await fetcher.fetch()
 
         slack_client_mock.conversations_history.assert_called_with(
-            channel="C987654321",
+            channel="C456",
             limit=10,
             latest="1609504300.000789",
             inclusive=False
@@ -237,7 +246,7 @@ class TestHistoryFetcher:
 
         assert len(history) == 2
         assert history[0]["message_id"] == "1609502400.000123"
-        assert history[0]["conversation_id"] == "T123456/C987654321"
+        assert history[0]["conversation_id"] == standard_conversation_id
         assert history[0]["sender"]["user_id"] == "U444555666"
         assert history[0]["text"] == "Message with attachment"
         assert history[0]["attachments"] == mock_attachments
@@ -247,15 +256,15 @@ class TestHistoryFetcher:
         assert history[1]["timestamp"] == 1609504200
 
     @pytest.mark.asyncio
-    async def test_fetch_with_before(self, history_fetcher, slack_client_mock):
+    async def test_fetch_with_before(self, history_fetcher, slack_client_mock, standard_conversation_id):
         """Test fetching history with before timestamp"""
         before_timestamp = 1609504300  # After both test messages
-        fetcher = history_fetcher("T123456/C987654321", before=before_timestamp)
+        fetcher = history_fetcher(standard_conversation_id, before=before_timestamp)
         history = await fetcher.fetch()
 
         # Check API call parameters
         slack_client_mock.conversations_history.assert_called_with(
-            channel="C987654321",
+            channel="C456",
             limit=10,
             latest="1609504300.000000",
             inclusive=False
@@ -265,15 +274,15 @@ class TestHistoryFetcher:
         assert len(history) == 2
 
     @pytest.mark.asyncio
-    async def test_fetch_with_after(self, history_fetcher, slack_client_mock):
+    async def test_fetch_with_after(self, history_fetcher, slack_client_mock, standard_conversation_id):
         """Test fetching history with after timestamp"""
         after_timestamp = 1609501000  # Before both test messages
-        fetcher = history_fetcher("T123456/C987654321", after=after_timestamp)
+        fetcher = history_fetcher(standard_conversation_id, after=after_timestamp)
         history = await fetcher.fetch()
 
         # Check API call parameters
         slack_client_mock.conversations_history.assert_called_with(
-            channel="C987654321",
+            channel="C456",
             limit=10,
             oldest="1609501000.000000",
             inclusive=False
@@ -289,9 +298,9 @@ class TestHistoryFetcher:
         assert await fetcher.fetch() == []
 
     @pytest.mark.asyncio
-    async def test_fetch_from_cache(self, history_fetcher, mock_cached_messages):
+    async def test_fetch_from_cache(self, history_fetcher, mock_cached_messages, standard_conversation_id):
         """Test fetching from cache"""
-        fetcher = history_fetcher("T123456/C987654321", before=1609502500)
+        fetcher = history_fetcher(standard_conversation_id, before=1609502500)
         fetcher.conversation_manager.get_conversation_cache.return_value = mock_cached_messages
         fetcher.cache_fetched_history = True
 
@@ -309,9 +318,10 @@ class TestHistoryFetcher:
                                                     history_fetcher,
                                                     mock_slack_message_with_attachment,
                                                     mock_slack_message_reply,
-                                                    mock_formatted_messages):
+                                                    mock_formatted_messages,
+                                                    standard_conversation_id):
         """Test parsing fetched history with caching enabled"""
-        fetcher = history_fetcher("T123456/C987654321")
+        fetcher = history_fetcher(standard_conversation_id)
         fetcher.cache_fetched_history = True
 
         result = await fetcher._parse_fetched_history([
@@ -335,9 +345,10 @@ class TestHistoryFetcher:
     async def test_parse_fetched_history_without_cache(self,
                                                        history_fetcher,
                                                        mock_slack_message_with_attachment,
-                                                       mock_slack_message_reply):
+                                                       mock_slack_message_reply,
+                                                       standard_conversation_id):
         """Test parsing fetched history without caching"""
-        fetcher = history_fetcher("T123456/C987654321")
+        fetcher = history_fetcher(standard_conversation_id)
         fetcher.cache_fetched_history = False
 
         with patch.object(fetcher, "_format_not_cached_message") as mock_format:
@@ -363,9 +374,10 @@ class TestHistoryFetcher:
                                  history_fetcher,
                                  slack_client_mock,
                                  mock_user_info_response,
-                                 rate_limiter_mock):
+                                 rate_limiter_mock,
+                                 standard_conversation_id):
         """Test getting user info"""
-        fetcher = history_fetcher("T123456/C987654321")
+        fetcher = history_fetcher(standard_conversation_id)
         slack_client_mock.users_info.return_value = mock_user_info_response
 
         # First call - should fetch from API
@@ -388,9 +400,10 @@ class TestHistoryFetcher:
     def test_format_not_cached_message(self,
                                        history_fetcher,
                                        mock_slack_message_with_attachment,
-                                       mock_attachments):
+                                       mock_attachments,
+                                       standard_conversation_id):
         """Test formatting a message that isn't cached"""
-        fetcher = history_fetcher("T123456/C987654321")
+        fetcher = history_fetcher(standard_conversation_id)
         user_info = {"name": "Cool User"}
 
         result = fetcher._format_not_cached_message(
@@ -400,7 +413,7 @@ class TestHistoryFetcher:
         )
 
         assert result["message_id"] == "1609502400.000123"
-        assert result["conversation_id"] == "T123456/C987654321"
+        assert result["conversation_id"] == standard_conversation_id
         assert result["sender"]["user_id"] == "U444555666"
         assert result["sender"]["display_name"] == "Cool User"
         assert result["text"] == "Message with attachment"
@@ -409,9 +422,9 @@ class TestHistoryFetcher:
         assert result["attachments"] == mock_attachments
 
     @pytest.mark.asyncio
-    async def test_fetch_from_api_error_handling(self, history_fetcher):
+    async def test_fetch_from_api_error_handling(self, history_fetcher, standard_conversation_id):
         """Test error handling in _fetch_from_api"""
-        fetcher = history_fetcher("T123456/C987654321", before=1609504300)
+        fetcher = history_fetcher(standard_conversation_id, before=1609504300)
 
         with patch.object(fetcher, "_fetch_history_in_batches", side_effect=Exception("Test error")):
             assert await fetcher._fetch_from_api() == []

@@ -5,7 +5,7 @@ import logging
 import os
 
 from pydantic import BaseModel
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from src.adapters.slack_adapter.attachment_loaders.uploader import Uploader
 from src.adapters.slack_adapter.conversation.manager import Manager
@@ -40,7 +40,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
             Dictionary containing the status and message_ids
         """
         message_ids = []
-        channel_id = data.conversation_id.split("/")[-1]
+        channel_id = conversation_info.platform_conversation_id.split("/")[-1]
 
         for message in self._split_long_message(
             self._mention_users(conversation_info, data.mentions, data.text)
@@ -64,7 +64,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
             else:
                 raise Exception(f"Failed to send message: {response['error']}")
 
-        await self.uploader.upload_attachments(data)
+        await self.uploader.upload_attachments(conversation_info, data)
 
         logging.info(f"Message sent to {data.conversation_id} with attachments")
         return {"request_completed": True, "message_ids": message_ids}
@@ -79,7 +79,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         Returns:
             Dictionary containing the status
         """
-        channel_id = data.conversation_id.split("/")[-1]
+        channel_id = conversation_info.platform_conversation_id.split("/")[-1]
 
         await self.rate_limiter.limit_request("edit_message", data.conversation_id)
         response = await self.client.chat_update(
@@ -95,16 +95,17 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
 
         return {"request_completed": True}
 
-    async def _delete_message(self, data: BaseModel) -> Dict[str, Any]:
+    async def _delete_message(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
         """Delete a message
 
         Args:
+            conversation_info: Conversation info
             data: Event data containing conversation_id and message_id
 
         Returns:
             Dictionary containing the status
         """
-        channel_id = data.conversation_id.split("/")[-1]
+        channel_id = conversation_info.platform_conversation_id.split("/")[-1]
 
         await self.rate_limiter.limit_request("delete_message", data.conversation_id)
         response = await self.client.chat_delete(
@@ -119,16 +120,17 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
 
         return {"request_completed": True}
 
-    async def _add_reaction(self, data: BaseModel) -> Dict[str, Any]:
+    async def _add_reaction(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
         """Add a reaction to a message
 
         Args:
+            conversation_info: Conversation info
             data: Event data containing conversation_id, message_id, and emoji
 
         Returns:
             Dictionary containing the status
         """
-        channel_id = data.conversation_id.split("/")[-1]
+        channel_id = conversation_info.platform_conversation_id.split("/")[-1]
 
         await self.rate_limiter.limit_request("add_reaction", data.conversation_id)
         response = await self.client.reactions_add(
@@ -144,16 +146,17 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
 
         return {"request_completed": True}
 
-    async def _remove_reaction(self, data: BaseModel) -> Dict[str, Any]:
+    async def _remove_reaction(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
         """Remove a specific reaction from a message
 
         Args:
+            conversation_info: Conversation info
             data: Event data containing conversation_id, message_id, and emoji
 
         Returns:
             Dictionary containing the status
         """
-        channel_id = data.conversation_id.split("/")[-1]
+        channel_id = conversation_info.platform_conversation_id.split("/")[-1]
 
         await self.rate_limiter.limit_request("remove_reaction", data.conversation_id)
         response = await self.client.reactions_remove(
@@ -169,16 +172,17 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
 
         return {"request_completed": True}
 
-    async def _pin_message(self, data: BaseModel) -> Dict[str, Any]:
+    async def _pin_message(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
         """Pin a message
 
         Args:
+            conversation_info: Conversation info
             data: Event data containing conversation_id and message_id
 
         Returns:
             Dict[str, Any]: Dictionary containing the status
         """
-        channel_id = data.conversation_id.split("/")[-1]
+        channel_id = conversation_info.platform_conversation_id.split("/")[-1]
 
         await self.rate_limiter.limit_request("pin_message", data.conversation_id)
         response = await self.client.pins_add(channel=channel_id, timestamp=data.message_id)
@@ -190,16 +194,17 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
 
         return {"request_completed": True}
 
-    async def _unpin_message(self, data: BaseModel) -> Dict[str, Any]:
+    async def _unpin_message(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
         """Unpin a message
 
         Args:
+            conversation_info: Conversation info
             data: Event data containing conversation_id and message_id
 
         Returns:
             Dict[str, Any]: Dictionary containing the status
         """
-        channel_id = data.conversation_id.split("/")[-1]
+        channel_id = conversation_info.platform_conversation_id.split("/")[-1]
 
         await self.rate_limiter.limit_request("unpin_message", data.conversation_id)
         response = await self.client.pins_remove(channel=channel_id, timestamp=data.message_id)
@@ -210,17 +215,6 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         logging.info(f"Message {data.message_id} unpinned successfully")
 
         return {"request_completed": True}
-
-    def _conversation_should_exist(self) -> bool:
-        """Check if a conversation should exist before sending or editing a message
-
-        Returns:
-            bool: True if a conversation should exist, False otherwise
-
-        Note:
-            In Slack the existence of a conversation is mandatory.
-        """
-        return True
 
     def _adapter_specific_mention_all(self) -> str:
         """Mention all users in a conversation

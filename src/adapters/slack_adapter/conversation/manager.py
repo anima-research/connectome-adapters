@@ -37,7 +37,44 @@ class Manager(BaseManager):
         self.message_builder = MessageBuilder()
         self.thread_handler = ThreadHandler(self.message_cache)
 
-    async def _get_conversation_id(self, message: Any) -> Optional[str]:
+    async def update_metadata(self, event: Any) -> List[Dict[str, Any]]:
+        """Update the conversation metadata
+
+        Args:
+            event: Event object
+
+        Returns:
+            Dictionary with delta information
+        """
+        deltas = []
+        update_type = event.get("type", "")
+        team_id = event.get("team", "")
+        channel = event.get("channel", {})
+        platform_conversation_id = f"{event.get('team', '')}/{channel.get('id', '')}"
+
+        if update_type == "team_rename":
+            new_name = event.get("name", "")
+        else:
+            new_name = channel.get("name", "")
+
+        for conversation in self.conversations.values():
+            if update_type == "team_rename":
+                updated = self._update_server_metadata(conversation, team_id, new_name)
+            else:
+                updated = self._update_conversation_metadata(conversation, platform_conversation_id, new_name)
+
+            if updated:
+                deltas.append(
+                    ConversationDelta(
+                        conversation_id=conversation.conversation_id,
+                        conversation_name=conversation.conversation_name,
+                        server_name=conversation.server_name
+                    ).to_dict()
+                )
+
+        return deltas
+
+    async def _get_platform_conversation_id(self, message: Any) -> Optional[str]:
         """Get the conversation ID from a Slack message
 
         Args:
@@ -49,9 +86,8 @@ class Manager(BaseManager):
         if not message:
             return None
 
-        conversation_id = message.get("conversation_id", "")
-        if conversation_id:
-            return conversation_id
+        if "conversation_id" in message:
+            return message.get("conversation_id", None)
 
         team_id = message.get("team", "")
         channel_id = (
@@ -73,7 +109,11 @@ class Manager(BaseManager):
         Returns:
             Conversation ID as string, or None if not found
         """
-        return await self._get_conversation_id(message)
+        platform_conversation_id = await self._get_platform_conversation_id(message)
+        if not platform_conversation_id:
+            return None
+
+        return self._generate_deterministic_conversation_id(platform_conversation_id)
 
     async def _get_conversation_type(self, message: Any) -> str:
         """Get the conversation type from a Slack message
@@ -89,35 +129,47 @@ class Manager(BaseManager):
 
         return message.get("channel_type", "")
 
-    async def _get_conversation_name(self, message: Any) -> Optional[str]:
-        """Get the conversation name from a Slack message
+    async def _update_conversation_name(self, event: Any, conversation_info: Any) -> None:
+        """Update the conversation name
 
         Args:
-            message: Slack message object
+            event: Event object
+            conversation_info: Conversation info object
 
         Returns:
-            None because Slack doesn't have conversation names
+            Conversation name as string, or None if not found
         """
-        return None
+        if event.get("platform_conversation", None) and conversation_info.conversation_type in ["channel", "group"]:
+            conversation_info.conversation_name = event["platform_conversation"].get("name", None)
+            return
+
+        conversation_info.conversation_name = self._get_custom_conversation_name(conversation_info)
 
     def _create_conversation_info(self,
+                                  platform_conversation_id: str,
                                   conversation_id: str,
                                   conversation_type: str,
-                                  conversation_name: Optional[str] = None) -> ConversationInfo:
+                                  server: Optional[Any] = None) -> ConversationInfo:
         """Create a conversation info object
 
         Args:
+            platform_conversation_id: Platform conversation ID
             conversation_id: Conversation ID
             conversation_type: Conversation type
-            conversation_name: Conversation name
+            server: Server object
 
         Returns:
             Conversation info object
         """
+        server_id = server.get("id", None) if server else None
+        server_name = server.get("name", None) if server else None
+
         return ConversationInfo(
+            platform_conversation_id=platform_conversation_id,
             conversation_id=conversation_id,
             conversation_type=conversation_type,
-            conversation_name=conversation_name,
+            server_id=server_id,
+            server_name=server_name,
             just_started=True
         )
 
@@ -329,4 +381,10 @@ class Manager(BaseManager):
         Returns:
             Conversation info object or None if conversation not found
         """
-        return self.get_conversation(await self._get_conversation_id(event))
+        platform_conversation_id = await self._get_platform_conversation_id(event)
+        if not platform_conversation_id:
+            return None
+
+        return self.get_conversation(
+            self._generate_deterministic_conversation_id(platform_conversation_id)
+        )

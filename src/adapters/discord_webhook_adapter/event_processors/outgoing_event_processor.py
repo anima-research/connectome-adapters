@@ -150,10 +150,11 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         logging.info(f"Message {data.message_id} edited successfully")
         return {"request_completed": True}
 
-    async def _delete_message(self, data: BaseModel) -> Dict[str, Any]:
+    async def _delete_message(self, _: Any, data: BaseModel) -> Dict[str, Any]:
         """Delete a message
 
         Args:
+            conversation_info: Conversation info (not used in this adapter)
             data: Event data containing conversation_id and message_id
 
         Returns:
@@ -189,40 +190,36 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
 
     async def _check_api_response(self, response: Any) -> None:
         """Check the API response for errors"""
-        if response.status < 400:
-            return
-        raise Exception(f"Error processing webhook message: {await response.text()}")
+        if response.status >= 400:
+            raise Exception(f"Error processing webhook message: {await response.text()}")
 
     async def _handle_fetch_history_event(self, data: BaseModel) -> Dict[str, Any]:
         """Fetch history of a conversation. Not supported for webhooks adapter"""
         raise NotImplementedError("fetching history is not supported for webhooks adapter")
 
-    async def _add_reaction(self, data: BaseModel) -> Dict[str, Any]:
+    async def _add_reaction(self, _: Any, data: BaseModel) -> Dict[str, Any]:
         """Add a reaction to a message. Not supported for webhooks adapter"""
         raise NotImplementedError("adding reactions is not supported for webhooks adapter")
 
-    async def _remove_reaction(self, data: BaseModel) -> Dict[str, Any]:
+    async def _remove_reaction(self, _: Any, data: BaseModel) -> Dict[str, Any]:
         """Remove a reaction from a message. Not supported for webhooks adapter"""
         raise NotImplementedError("removing reactions is not supported for webhooks adapter")
 
-    async def _pin_message(self, data: BaseModel) -> Dict[str, Any]:
+    async def _pin_message(self, _: Any, data: BaseModel) -> Dict[str, Any]:
         """Pin a message. Not supported for webhooks adapter"""
         raise NotImplementedError("pinning messages is not supported for webhooks adapter")
 
-    async def _unpin_message(self, data: BaseModel) -> Dict[str, Any]:
+    async def _unpin_message(self, _: Any, data: BaseModel) -> Dict[str, Any]:
         """Unpin a message. Not supported for webhooks adapter"""
         raise NotImplementedError("unpinning messages is not supported for webhooks adapter")
 
-    def _conversation_should_exist(self) -> bool:
-        """Check if a conversation should exist before sending or editing a message
+    def _find_conversation(self, _: str) -> Any:
+        """Find a conversation by id
 
         Returns:
-            bool: True if a conversation should exist, False otherwise
-
-        Note:
-            In Discord webhook adapter the existence of a conversation is never checked.
+            None because we do not need to find a conversation for webhooks adapter
         """
-        return False
+        return None
 
     def _adapter_specific_mention_all(self) -> str:
         """Mention all users in a conversation"""

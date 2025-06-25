@@ -13,7 +13,7 @@ class TestReactionHandler:
         """Create a cached message with initial reactions"""
         cached_msg = CachedMessage(
             message_id="123",
-            conversation_id="T12345/C67890",
+            conversation_id="slack_F0OIohoDYwVnEyYccO7j",
             text="Test message",
             sender_id="U12345",
             sender_name="Test User",
@@ -29,7 +29,10 @@ class TestReactionHandler:
     @pytest.fixture
     def delta(self):
         """Create a ConversationDelta object"""
-        return ConversationDelta(conversation_id="T12345/C67890", message_id="123")
+        return ConversationDelta(
+            conversation_id="slack_F0OIohoDYwVnEyYccO7j",
+            message_id="123"
+        )
 
     def test_update_message_reactions_add(self, cached_message, delta):
         """Test updating delta when a reaction is added"""

@@ -68,16 +68,12 @@ class IncomingFileProcessor:
             max_retries: Maximum number of retries
             backoff_factor: Backoff factor
         """
-        team_id = event.get("team", None)
-        channel_id = event.get("channel", None)
         delay = initial_delay
 
         for _ in range(max_retries):
             try:
                 await asyncio.sleep(delay)
-                updated_info = await self._get_file_status(
-                    file_id, f"{team_id}/{channel_id}"
-                )
+                updated_info = await self._get_file_status(file_id)
 
                 if self._is_file_ready(updated_info):
                     await self._process_file(file_id)
@@ -95,12 +91,11 @@ class IncomingFileProcessor:
         except Exception as e:
             logging.error(f"Error processing file after max retries: {e}")
 
-    async def _get_file_status(self, file_id: str, conversation_id: str) -> Dict[str, Any]:
+    async def _get_file_status(self, file_id: str) -> Dict[str, Any]:
         """Get file status with rate limiting and caching
 
         Args:
             file_id: File ID
-            conversation_id: Conversation ID
 
         Returns:
             File info
@@ -110,7 +105,6 @@ class IncomingFileProcessor:
         if cache_entry and now - cache_entry["timestamp"] < 5:
             return cache_entry["info"]
 
-        await self.rate_limiter.limit_request("file_info", conversation_id)
         response = await self.client.files_info(file=file_id)
         self.status_cache[file_id] = {
             "info": response["file"],

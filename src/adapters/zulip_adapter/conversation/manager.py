@@ -11,7 +11,7 @@ from src.adapters.zulip_adapter.conversation.reaction_handler import ReactionHan
 from src.adapters.zulip_adapter.conversation.thread_handler import ThreadHandler
 from src.adapters.zulip_adapter.conversation.user_builder import UserBuilder
 
-from src.core.conversation.base_data_classes import ConversationDelta, ThreadInfo, UserInfo
+from src.core.conversation.base_data_classes import BaseConversationInfo, ConversationDelta, ThreadInfo, UserInfo
 from src.core.conversation.base_manager import BaseManager
 from src.core.cache.message_cache import CachedMessage
 from src.core.utils.config import Config
@@ -36,6 +36,22 @@ class Manager(BaseManager):
         self.message_builder = MessageBuilder()
         self.thread_handler = ThreadHandler(self.message_cache)
 
+    def get_conversation(self, conversation_id: str) -> Optional[BaseConversationInfo]:
+        """Get the conversation info for a given conversation ID
+
+        Args:
+            conversation_id: The ID of the conversation to get info for
+
+        Returns:
+            The conversation info for the given conversation ID, or None if it doesn't exist
+        """
+        adapter_type = self.config.get_setting("adapter", "adapter_type")
+
+        if conversation_id and not conversation_id.startswith(f"{adapter_type}_"):
+            conversation_id = self._generate_deterministic_conversation_id(conversation_id)
+
+        return self.conversations.get(conversation_id, None)
+
     async def migrate_between_conversations(self, event: Any) -> Dict[str, Any]:
         """Handle a supergroup that was migrated from a regular group
 
@@ -45,31 +61,45 @@ class Manager(BaseManager):
         Returns:
             Dictionary with delta information
         """
-        event.update({"type": "stream"})
+        message = event["message"]
+        message.update({"type": "stream"})
+        server = event["server"]
 
-        old_conversation = self.get_conversation(f"{event.get('stream_id', '')}/{event.get('orig_subject', '')}")
+        old_platform_conversation_id = f"{message.get('stream_id', '')}/{message.get('orig_subject', '')}"
+        old_conversation = self.get_conversation(
+            self._generate_deterministic_conversation_id(old_platform_conversation_id)
+        )
         new_conversation = await self._get_or_create_conversation_info(event)
 
         if not new_conversation:
             return {}
 
+        new_conversation.server_name = server.get("realm_name", None) if server else None
+        if not new_conversation.conversation_name:
+            await self._update_conversation_name(event, new_conversation)
+
         async with self._lock:
-            delta = self._create_conversation_delta(event, new_conversation)
-            messages = [str(id) for id in event.get("message_ids", [])]
+            delta = self._create_conversation_delta(message, new_conversation)
+            messages = [str(id) for id in message.get("message_ids", [])]
 
             if not old_conversation:
                 return delta.to_dict()
 
             for message_id in messages:
-                delta.deleted_message_ids.append(message_id)
-
                 old_cached_msg = await self.message_cache.get_message_by_id(
-                    old_conversation.conversation_id, message_id
+                    old_conversation.conversation_id,
+                    message_id
                 )
-                attachment_ids = old_cached_msg.attachments.copy() if old_cached_msg else set()
 
+                if not old_cached_msg:
+                    continue
+
+                delta.deleted_message_ids.append(message_id)
+                attachment_ids = old_cached_msg.attachments.copy()
                 await self.message_cache.migrate_message(
-                    old_conversation.conversation_id, new_conversation.conversation_id, message_id
+                    old_conversation.conversation_id,
+                    new_conversation.conversation_id,
+                    message_id
                 )
                 self.conversations[new_conversation.conversation_id].messages.add(str(message_id))
                 self.conversations[old_conversation.conversation_id].messages.discard(str(message_id))
@@ -103,7 +133,71 @@ class Manager(BaseManager):
 
         return delta.to_dict()
 
-    async def _get_conversation_id(self, message: Any) -> Optional[str]:
+    async def update_metadata(self, event: Any) -> List[Dict[str, Any]]:
+        """Update the conversation metadata
+
+        Args:
+            event: Event object
+
+        Returns:
+            List of delta information
+        """
+        if event.get("op", None) != "update" or event.get("property", None) != "name":
+            return []
+
+        deltas = []
+        new_name = event.get("value", None)
+        stream_id = None
+
+        if event.get("type", None) != "realm":
+            stream_id = str(event.get("stream_id", ""))
+
+        for conversation in self.conversations.values():
+            updated = False
+
+            if not stream_id:
+                conversation.server_name = new_name
+                updated = True
+            elif conversation.stream_id == stream_id and conversation.stream_name != new_name:
+                conversation.stream_name = new_name
+                conversation.set_stream_conversation_name()
+                updated = True
+
+            if updated:
+                deltas.append(
+                    ConversationDelta(
+                        conversation_id=conversation.conversation_id,
+                        conversation_name=conversation.conversation_name,
+                        server_name=conversation.server_name
+                    ).to_dict()
+                )
+
+        return deltas
+
+    async def _get_or_create_conversation_info(self, event: Any) -> Optional[BaseConversationInfo]:
+        """Get existing conversation info or create a new one
+
+        Args:
+            event: Event object
+
+        Returns:
+           Conversation info object or None if conversation can't be determined
+        """
+        conversation_info = await super()._get_or_create_conversation_info(event)
+
+        if conversation_info and conversation_info.conversation_type == "stream":
+            conversation_info.stream_id = str(event["message"].get("stream_id", None))
+
+            if "display_recipient" in event["message"]:
+                conversation_info.stream_name = event["message"].get("display_recipient")
+            else:
+                conversation_info.stream_name = event["message"].get("stream_name", None)
+
+            conversation_info.stream_topic = event["message"].get("subject", None)
+
+        return conversation_info
+
+    async def _get_platform_conversation_id(self, message: Any) -> Optional[str]:
         """Get the conversation ID from a Zulip message
 
         Args:
@@ -175,40 +269,43 @@ class Manager(BaseManager):
         """
         return message.get("type", None)
 
-    async def _get_conversation_name(self, message: Any) -> Optional[str]:
-        """Get the conversation name from a message
+    async def _update_conversation_name(self, _: Any, conversation_info: Any) -> None:
+        """Update the conversation name
 
         Args:
-            message: Zulip message object
+            event: Event object
+            conversation_info: Conversation info object
 
         Returns:
             Conversation name as string, or None if not found
         """
-        if message.get("type", None) == "stream":
-            return (
-                message.get("display_recipient", None) or
-                message.get("stream_name", None)
-            )
-        return None
+        if conversation_info.conversation_type == "stream":
+            conversation_info.set_stream_conversation_name()
+        else:
+            conversation_info.conversation_name = self._get_custom_conversation_name(conversation_info)
 
     def _create_conversation_info(self,
+                                  platform_conversation_id: str,
                                   conversation_id: str,
                                   conversation_type: str,
-                                  conversation_name: Optional[str] = None) -> ConversationInfo:
+                                  server: Optional[str] = None) -> ConversationInfo:
         """Create a conversation info object
 
         Args:
+            platform_conversation_id: Platform conversation ID
             conversation_id: Conversation ID
             conversation_type: Conversation type
-            conversation_name: Conversation name
+            server: Server object
 
         Returns:
             Conversation info object
         """
         return ConversationInfo(
+            platform_conversation_id=platform_conversation_id,
             conversation_id=conversation_id,
             conversation_type=conversation_type,
-            conversation_name=conversation_name,
+            server_id=None,
+            server_name=server.get("realm_name", None) if server else None,
             just_started=True
         )
 

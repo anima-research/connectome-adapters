@@ -40,16 +40,57 @@ class Manager(BaseManager):
         self.message_builder = MessageBuilder(self.config)
         self.thread_handler = ThreadHandler(self.message_cache)
 
-    async def _get_or_create_conversation_info(self, message: Any) -> Optional[ConversationInfo]:
+    async def update_metadata(self, event: Any) -> List[Dict[str, Any]]:
+        """Update the conversation metadata
+
+        Args:
+            event: Event object
+
+        Returns:
+            Dictionary with delta information
+        """
+        deltas = []
+        platform_conversation_id = await self._get_platform_conversation_id(await self._get_peer(event))
+        new_name = getattr(event.action, "title", None)
+
+        for conversation in self.conversations.values():
+            if self._update_conversation_metadata(conversation, platform_conversation_id, new_name):
+                deltas.append(
+                    ConversationDelta(
+                        conversation_id=conversation.conversation_id,
+                        conversation_name=conversation.conversation_name,
+                        server_name=conversation.server_name
+                    ).to_dict()
+                )
+
+        return deltas
+
+    async def _get_or_create_conversation_info(self, event: Any) -> Optional[ConversationInfo]:
         """Get existing conversation info or create a new one
 
         Args:
-            message: Message object
+            event: Event object
 
         Returns:
            Conversation info object or None if conversation can't be determined
         """
-        return await super()._get_or_create_conversation_info(await self._get_peer(message))
+        peer = await self._get_peer(event["message"])
+
+        platform_conversation_id = await self._get_platform_conversation_id(peer)
+        if not platform_conversation_id:
+            return None
+
+        conversation_id = self._generate_deterministic_conversation_id(platform_conversation_id)
+        if conversation_id in self.conversations:
+            return self.conversations[conversation_id]
+
+        self.conversations[conversation_id] = self._create_conversation_info(
+            platform_conversation_id=platform_conversation_id,
+            conversation_id=conversation_id,
+            conversation_type=await self._get_conversation_type(peer)
+        )
+
+        return self.conversations[conversation_id]
 
     async def _get_peer(self, message: Any) -> Any:
         """Get the peer from a Telethon message
@@ -64,8 +105,8 @@ class Manager(BaseManager):
             return None
         return getattr(message, "peer_id", None) or getattr(message, "peer")
 
-    async def _get_conversation_id(self, peer: Any) -> Optional[str]:
-        """Get the conversation ID from a Telethon message
+    async def _get_platform_conversation_id(self, peer: Any) -> Optional[str]:
+        """Get the platform conversation ID from a Telethon message
 
         Args:
             peer: Telethon peer (user, chat or channel) object
@@ -88,7 +129,11 @@ class Manager(BaseManager):
             return message.get("conversation_id", None)
 
         peer = await self._get_peer(message)
-        return await self._get_conversation_id(peer if peer else message)
+        platform_conversation_id = await self._get_platform_conversation_id(peer if peer else message)
+        if not platform_conversation_id:
+            return None
+
+        return self._generate_deterministic_conversation_id(platform_conversation_id)
 
     async def _get_conversation_type(self, peer: Any) -> Optional[str]:
         """Get the conversation type from a Telethon peer
@@ -107,35 +152,46 @@ class Manager(BaseManager):
 
         return None
 
-    async def _get_conversation_name(self, message: Any) -> Optional[str]:
-        """Get the conversation name from a message
+    async def _update_conversation_name(self, event: Any, conversation_info: Any) -> None:
+        """Update the conversation name
 
         Args:
-            message: Telethon message object
+            event: Event object
+            conversation_info: Conversation info object
 
         Returns:
-            None because Telegram does not care about conversation names
+            Conversation name as string, or None if not found
         """
-        return None
+        if event.get("platform_conversation", None):
+            if hasattr(event["platform_conversation"], "title"):
+                conversation_info.conversation_name = getattr(event["platform_conversation"], "title", None)
+                return
+
+        conversation_info.conversation_name = self._get_custom_conversation_name(conversation_info)
 
     def _create_conversation_info(self,
+                                  platform_conversation_id: str,
                                   conversation_id: str,
                                   conversation_type: str,
-                                  conversation_name: Optional[str] = None) -> ConversationInfo:
+                                  server: Optional[str] = None) -> ConversationInfo:
         """Create a conversation info object
 
         Args:
+            platform_conversation_id: Platform conversation ID
             conversation_id: Conversation ID
             conversation_type: Conversation type
             conversation_name: Conversation name
+            server: Server object
 
         Returns:
             Conversation info object
         """
         return ConversationInfo(
+            platform_conversation_id=platform_conversation_id,
             conversation_id=conversation_id,
             conversation_type=conversation_type,
-            conversation_name=conversation_name,
+            server_id=None,
+            server_name=None,
             just_started=True
         )
 
@@ -387,12 +443,15 @@ class Manager(BaseManager):
         Returns:
             Conversation info object or None if conversation not found
         """
-        conversation_id = (
+        platform_conversation_id = (
             event.get("conversation_id", None) or
-            await self._get_conversation_id(event["event"])
+            await self._get_platform_conversation_id(event["event"])
         )
+        if not platform_conversation_id:
+            return None
 
-        if conversation_id and conversation_id in self.conversations:
+        conversation_id = self._generate_deterministic_conversation_id(platform_conversation_id)
+        if conversation_id in self.conversations:
             return self.conversations[conversation_id]
 
         best_match = None

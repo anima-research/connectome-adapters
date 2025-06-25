@@ -79,5 +79,4 @@ socketio:
 
 ### Slack-specific features
 
-1) Conversation Mapping. In the Slack adapter, conversations are identified using `team_id/channel_id` for channels, direct messages and multi-person direct messages.
-2) Emoji Translation. Slack uses a different emoji format than most platforms. The adapter translates between Slack's string format and standard Unicode emojis that can be found in `emoji` library. Custom mapping file allows customization of emoji translations.
+1) Emoji Translation. Slack uses a different emoji format than most platforms. The adapter translates between Slack's string format and standard Unicode emojis that can be found in `emoji` library. Custom mapping file allows customization of emoji translations.

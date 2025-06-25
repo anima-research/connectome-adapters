@@ -62,9 +62,11 @@ class PinStatusUpdateData(BaseIncomingData):
     message_id: str
     conversation_id: str
 
-class ConversationStartedData(BaseIncomingData):
-    """Conversation started event data model"""
+class ConversationMetaData(BaseIncomingData):
+    """Conversation metadata model"""
     conversation_id: str
+    conversation_name: Optional[str] = None
+    server_name: Optional[str] = None
 
 class HistoryFetchedData(BaseIncomingData):
     """History fetched event data model"""
@@ -82,7 +84,12 @@ class BaseIncomingEvent(BaseModel):
 class ConversationStartedEvent(BaseIncomingEvent):
     """Conversation started event model"""
     event_type: str = "conversation_started"
-    data: ConversationStartedData
+    data: ConversationMetaData
+
+class ConversationUpdatedEvent(BaseIncomingEvent):
+    """Conversation updated event model"""
+    event_type: str = "conversation_updated"
+    data: ConversationMetaData
 
 class MessageReceivedEvent(BaseIncomingEvent):
     """Message received event model"""

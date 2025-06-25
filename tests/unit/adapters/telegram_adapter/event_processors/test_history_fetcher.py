@@ -51,10 +51,15 @@ class TestHistoryFetcher:
         return manager
 
     @pytest.fixture
-    def conversation_mock(self):
+    def standard_conversation_id(self):
+        """Create a standard conversation ID"""
+        return "telegram_NanjgbGidWdUm1AKb3g8"
+
+    @pytest.fixture
+    def conversation_mock(self, standard_conversation_id):
         """Create a mocked conversation"""
         conversation = MagicMock()
-        conversation.conversation_id = "123456789"
+        conversation.conversation_id = standard_conversation_id
         return conversation
 
     @pytest.fixture
@@ -67,7 +72,7 @@ class TestHistoryFetcher:
 
         # Set up from_id
         from_id = MagicMock()
-        from_id.user_id = 98765
+        from_id.user_id = 789
         msg.from_id = from_id
 
         # Set up media
@@ -84,7 +89,7 @@ class TestHistoryFetcher:
     def mock_telegram_user(self):
         """Create a mock Telegram user"""
         user = MagicMock()
-        user.id = 98765
+        user.id = 789
         user.username = "testuser"
         user.first_name = "Test"
         user.last_name = "User"
@@ -99,13 +104,13 @@ class TestHistoryFetcher:
         return history
 
     @pytest.fixture
-    def mock_formatted_message(self):
+    def mock_formatted_message(self, standard_conversation_id):
         """Create a mock formatted message"""
         return {
             "message_id": "1001",
-            "conversation_id": "123456789",
+            "conversation_id": standard_conversation_id,
             "sender": {
-                "user_id": "98765",
+                "user_id": "789",
                 "display_name": "@testuser"
             },
             "text": "Test message",
@@ -129,10 +134,11 @@ class TestHistoryFetcher:
                         conversation_manager_mock,
                         rate_limiter_mock,
                         downloader_mock,
-                        conversation_mock):
+                        conversation_mock,
+                        standard_conversation_id):
         """Create a HistoryFetcher instance"""
         def _create(conversation_id, anchor=None, before=None, after=None, history_limit=None):
-            if conversation_id == "123456789":
+            if conversation_id == standard_conversation_id:
                 conversation_manager_mock.get_conversation.return_value = conversation_mock
             else:
                 conversation_manager_mock.get_conversation.return_value = None
@@ -158,9 +164,10 @@ class TestHistoryFetcher:
     async def test_fetch_with_anchor(self,
                                      history_fetcher,
                                      mock_telegram_history,
-                                     mock_formatted_message):
+                                     mock_formatted_message,
+                                     standard_conversation_id):
         """Test fetching history with an anchor"""
-        fetcher = history_fetcher("123456789", anchor="newest")
+        fetcher = history_fetcher(standard_conversation_id, anchor="newest")
         fetcher._make_api_request.return_value = mock_telegram_history.messages
 
         fetcher.conversation_manager.add_to_conversation.return_value = {
@@ -171,15 +178,16 @@ class TestHistoryFetcher:
 
         assert len(history) == 1
         assert history[0]["message_id"] == "1001"
-        assert history[0]["conversation_id"] == "123456789"
+        assert history[0]["conversation_id"] == standard_conversation_id
 
     @pytest.mark.asyncio
     async def test_fetch_with_before(self,
                                      history_fetcher,
                                      mock_telegram_history,
-                                     mock_formatted_message):
+                                     mock_formatted_message,
+                                     standard_conversation_id):
         """Test fetching history with before timestamp"""
-        fetcher = history_fetcher("123456789", before=1627910000000)
+        fetcher = history_fetcher(standard_conversation_id, before=1627910000000)
         fetcher._make_api_request.return_value = mock_telegram_history.messages
         fetcher.conversation_manager.add_to_conversation.return_value = {
             "added_messages": [mock_formatted_message]
@@ -194,9 +202,10 @@ class TestHistoryFetcher:
     async def test_fetch_with_after(self,
                                     history_fetcher,
                                     mock_telegram_history,
-                                    mock_formatted_message):
+                                    mock_formatted_message,
+                                    standard_conversation_id):
         """Test fetching history with after timestamp"""
-        fetcher = history_fetcher("123456789", after=1627900000000)
+        fetcher = history_fetcher(standard_conversation_id, after=1627900000000)
 
         with patch.object(
             fetcher, "_fetch_history_in_batches", new_callable=AsyncMock
@@ -215,9 +224,9 @@ class TestHistoryFetcher:
             assert history[0]["timestamp"] > 1627900000000
 
     @pytest.mark.asyncio
-    async def test_fetch_history_in_batches(self, history_fetcher):
+    async def test_fetch_history_in_batches(self, history_fetcher, standard_conversation_id):
         """Test _fetch_history_in_batches method with detailed debugging"""
-        fetcher = history_fetcher("123456789", after=1627900000000)
+        fetcher = history_fetcher(standard_conversation_id, after=1627900000000)
 
         message2 = MagicMock()
         message2.id = 1002
@@ -242,13 +251,16 @@ class TestHistoryFetcher:
         fetcher._make_api_request = original_make_api_request
 
     @pytest.mark.asyncio
-    async def test_parse_fetched_history(self, history_fetcher, mock_telegram_message):
+    async def test_parse_fetched_history(self,
+                                         history_fetcher,
+                                         mock_telegram_message,
+                                         standard_conversation_id):
         """Test _parse_fetched_history method"""
-        fetcher = history_fetcher("123456789")
+        fetcher = history_fetcher(standard_conversation_id)
 
         user = MagicMock()
         user.username = "testuser"
-        fetcher.users = {98765: user}
+        fetcher.users = {789: user}
 
         result = await fetcher._parse_fetched_history(
             [mock_telegram_message],

@@ -46,18 +46,30 @@ class TestMessageBuilder:
         )
 
     @pytest.fixture
-    def mock_private_conversation(self):
+    def standard_private_conversation_id(self):
+        """Create a standard conversation ID"""
+        return "zulip_wWrMhAlqbPvWgzzVrBvL"
+
+    @pytest.fixture
+    def mock_private_conversation(self, standard_private_conversation_id):
         """Create a mock private conversation info"""
         return ConversationInfo(
-            conversation_id="123_456",
+            platform_conversation_id="123_456",
+            conversation_id=standard_private_conversation_id,
             conversation_type="private"
         )
 
     @pytest.fixture
-    def mock_stream_conversation(self):
+    def standard_stream_conversation_id(self):
+        """Create a standard conversation ID"""
+        return "zulip_dU5Ymp6wnpTzuHsCmFxV"
+
+    @pytest.fixture
+    def mock_stream_conversation(self, standard_stream_conversation_id):
         """Create a mock stream conversation info"""
         return ConversationInfo(
-            conversation_id="789/Test Topic",
+            platform_conversation_id="789/Test Topic",
+            conversation_id=standard_stream_conversation_id,
             conversation_type="stream"
         )
 
@@ -77,12 +89,13 @@ class TestMessageBuilder:
     def test_with_basic_info_private_message(self,
                                              builder,
                                              mock_zulip_message,
-                                             mock_private_conversation):
+                                             mock_private_conversation,
+                                             standard_private_conversation_id):
         """Test adding basic info from a private message"""
         result = builder.with_basic_info(mock_zulip_message, mock_private_conversation)
 
         assert builder.message_data["message_id"] == "123"
-        assert builder.message_data["conversation_id"] == "123_456"
+        assert builder.message_data["conversation_id"] == standard_private_conversation_id
         assert builder.message_data["timestamp"] == 1609502400
         assert builder.message_data["edit_timestamp"] is None
         assert builder.message_data["edited"] is False
@@ -91,12 +104,13 @@ class TestMessageBuilder:
     def test_with_basic_info_stream_message(self,
                                             builder,
                                             mock_zulip_stream_message,
-                                            mock_stream_conversation):
+                                            mock_stream_conversation,
+                                            standard_stream_conversation_id):
         """Test adding basic info from a stream message"""
         result = builder.with_basic_info(mock_zulip_stream_message, mock_stream_conversation)
 
         assert builder.message_data["message_id"] == "456"
-        assert builder.message_data["conversation_id"] == "789/Test Topic"
+        assert builder.message_data["conversation_id"] == standard_stream_conversation_id
         assert builder.message_data["timestamp"] == 1609502400
         assert builder.message_data["edit_timestamp"] is None
         assert builder.message_data["edited"] is False
@@ -126,11 +140,11 @@ class TestMessageBuilder:
         assert builder.message_data["text"] is None
         assert result is builder
 
-    def test_build(self, builder):
+    def test_build(self, builder, standard_private_conversation_id):
         """Test building the final message object"""
         builder.message_data = {
             "message_id": "123",
-            "conversation_id": "123_456",
+            "conversation_id": standard_private_conversation_id,
             "text": "Test message"
         }
 
@@ -138,14 +152,15 @@ class TestMessageBuilder:
 
         assert result is not builder.message_data  # Check it's a copy
         assert result["message_id"] == "123"
-        assert result["conversation_id"] == "123_456"
+        assert result["conversation_id"] == standard_private_conversation_id
         assert result["text"] == "Test message"
 
     def test_full_build_chain_private(self,
                                       builder,
                                       mock_zulip_message,
                                       mock_sender,
-                                      mock_private_conversation):
+                                      mock_private_conversation,
+                                      standard_private_conversation_id):
         """Test a complete builder chain for a private message"""
         result = builder.reset() \
             .with_basic_info(mock_zulip_message, mock_private_conversation) \
@@ -154,7 +169,7 @@ class TestMessageBuilder:
             .build()
 
         assert result["message_id"] == "123"
-        assert result["conversation_id"] == "123_456"
+        assert result["conversation_id"] == standard_private_conversation_id
         assert result["timestamp"] == 1609502400
         assert result["sender_id"] == "789"
         assert result["sender_name"] == "Test User"
@@ -165,7 +180,8 @@ class TestMessageBuilder:
                                       builder,
                                       mock_zulip_stream_message,
                                       mock_sender,
-                                      mock_stream_conversation):
+                                      mock_stream_conversation,
+                                      standard_stream_conversation_id):
         """Test a complete builder chain for a stream message"""
         result = builder.reset() \
             .with_basic_info(mock_zulip_stream_message, mock_stream_conversation) \
@@ -174,7 +190,7 @@ class TestMessageBuilder:
             .build()
 
         assert result["message_id"] == "456"
-        assert result["conversation_id"] == "789/Test Topic"
+        assert result["conversation_id"] == standard_stream_conversation_id
         assert result["timestamp"] == 1609502400
         assert result["sender_id"] == "789"
         assert result["sender_name"] == "Test User"

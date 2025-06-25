@@ -29,7 +29,8 @@ class TestUserBuilder:
     def conversation_info(self):
         """Create a conversation info object"""
         return ConversationInfo(
-            conversation_id="123456789",
+            platform_conversation_id="123456789",
+            conversation_id="discord_FeKw08M4keuw8e9gnsQZ",
             conversation_type="text_channel"
         )
 

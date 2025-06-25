@@ -1,3 +1,7 @@
+import random
+import string
+import time
+
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -60,8 +64,11 @@ class BaseConversationInfo:
     """Comprehensive information about a conversation"""
     # Core identifiers
     conversation_id: str
+    platform_conversation_id: str
     conversation_type: str  # depends on the adapter (for example, in Zulip it is either "private" or "stream")
     conversation_name: Optional[str] = None
+    server_id: Optional[str] = None
+    server_name: Optional[str] = None
 
     # Activity tracking
     created_at: datetime = None  # When we first saw this chat
@@ -87,6 +94,8 @@ class BaseConversationInfo:
 class ConversationDelta:
     """Changes in conversation state"""
     conversation_id: str
+    conversation_name: Optional[str] = None
+    server_name: Optional[str] = None
     message_id: Optional[str] = None
     fetch_history: bool = False
     history_fetching_in_progress: bool = False
@@ -102,6 +111,8 @@ class ConversationDelta:
         """Convert to dictionary for API responses"""
         result = {
             "conversation_id": self.conversation_id,
+            "conversation_name": self.conversation_name,
+            "server_name": self.server_name,
             "fetch_history": self.fetch_history
         }
 

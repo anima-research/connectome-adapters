@@ -100,12 +100,6 @@ socketio:
 
 ### Telegram-specific features
 
-1) Conversation Mapping. In the Telegram adapter, conversations are identified by:
-* For private chats: the peer ID (user ID)
-* For groups: the negative group ID
-* For channels: the negative channel ID with a -100 prefix
-* For supergroups: the negative supergroup ID with a -100 prefix
+1) Conversation Migrations. Telegram sometimes migrates groups to supergroups. The adapter does not track these migrations, however, it handles them anyway. Once the migration happens and the conversation continues, the adapter receives the first new message and retrieves the history that is sent to the connectome framework. After that, the old conversation will be removed from the adapter's cache as a result of standard cleanup process, while the new one will be maintained as usual.
 
-2) Conversation Migrations. Telegram sometimes migrates groups to supergroups. The adapter does not track these migrations, however, it handles them anyway. Once the migration happens and the conversation continues, the adapter receives the first new message and retrieves the history that is sent to the connectome framework. After that, the old conversation will be removed from the adapter's cache as a result of standard cleanup process, while the new one will be maintained as usual.
-
-3) Telegram's File Expiration Policy. Attachments from older messages (typically more than a few days old) may no longer be downloadable, even though the messages themselves are still visible in history.
+2) Telegram's File Expiration Policy. Attachments from older messages (typically more than a few days old) may no longer be downloadable, even though the messages themselves are still visible in history.

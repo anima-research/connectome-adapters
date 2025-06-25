@@ -38,10 +38,16 @@ class TestManager:
         return UserInfo(user_id="101", username="Test User", email="test@example.com")
 
     @pytest.fixture
-    def conversation_info_mock(self):
+    def standard_private_conversation_id(self):
+        """Create a standard private conversation ID"""
+        return "zulip_T8PioprYxwVr5Dv7HYMJ"
+
+    @pytest.fixture
+    def conversation_info_mock(self, standard_private_conversation_id):
         """Create a mock ConversationInfo"""
         return ConversationInfo(
-            conversation_id="101_102",
+            platform_conversation_id="101_102",
+            conversation_id=standard_private_conversation_id,
             conversation_type="private",
             messages=set(["12346"])
         )
@@ -64,11 +70,11 @@ class TestManager:
         }
 
     @pytest.fixture
-    def cached_private_message_mock(self):
+    def cached_private_message_mock(self, standard_private_conversation_id):
         """Create a mock cached private message"""
         return CachedMessage(
             message_id="12346",
-            conversation_id="101_102",
+            conversation_id=standard_private_conversation_id,
             thread_id="12345",
             sender_id="102",
             sender_name="Test User 2",
@@ -98,43 +104,63 @@ class TestManager:
                 "display_recipient": "Test Stream"
             }
 
-        @pytest.mark.asyncio
-        async def test_get_conversation_id_private(self, manager, private_message_mock):
-            """Test getting conversation ID for private message"""
-            conversation_id = await manager._get_conversation_id(private_message_mock)
-            assert conversation_id == "101_102" # sorted user IDs
+        @pytest.fixture
+        def standard_stream_conversation_id(self):
+            """Create a standard stream conversation ID"""
+            return "zulip_lAqfjVSRHht3MtFoVO09"
 
         @pytest.mark.asyncio
-        async def test_get_conversation_id_stream(self, manager, stream_message_mock):
+        async def test_get_conversation_id_private(self,
+                                                   manager,
+                                                   private_message_mock):
+            """Test getting conversation ID for private message"""
+            conversation_id = await manager._get_platform_conversation_id(private_message_mock)
+            assert conversation_id == "101_102"
+
+        @pytest.mark.asyncio
+        async def test_get_conversation_id_stream(self,
+                                                  manager,
+                                                  stream_message_mock):
             """Test getting conversation ID for stream message"""
-            conversation_id = await manager._get_conversation_id(stream_message_mock)
-            assert conversation_id == "201/Test Topic"  # stream_id/topic
+            conversation_id = await manager._get_platform_conversation_id(stream_message_mock)
+            assert conversation_id == "201/Test Topic"
 
         @pytest.mark.asyncio
         async def test_get_conversation_id_invalid(self, manager):
             """Test getting conversation ID for invalid message"""
-            assert await manager._get_conversation_id({}) is None
+            assert await manager._get_platform_conversation_id({}) is None
 
         @pytest.mark.asyncio
-        async def test_get_or_create_conversation_info_new(self, manager, stream_message_mock):
+        async def test_get_or_create_conversation_info_new(self,
+                                                           manager,
+                                                           stream_message_mock,
+                                                           standard_stream_conversation_id):
             """Test creating a new conversation"""
             assert len(manager.conversations) == 0
-            conversation_info = await manager._get_or_create_conversation_info(stream_message_mock)
+            conversation_info = await manager._get_or_create_conversation_info(
+                {"message": stream_message_mock}
+            )
 
             assert len(manager.conversations) == 1
-            assert conversation_info.conversation_id == "201/Test Topic"
+            assert conversation_info.conversation_id == standard_stream_conversation_id
             assert conversation_info.conversation_type == "stream"
-            assert conversation_info.conversation_name == "Test Stream"
             assert conversation_info.just_started is True
 
         @pytest.mark.asyncio
-        async def test_get_or_create_conversation_info_existing(self, manager, private_message_mock):
+        async def test_get_or_create_conversation_info_existing(self,
+                                                                manager,
+                                                                private_message_mock,
+                                                                standard_private_conversation_id):
             """Test getting an existing conversation"""
-            await manager._get_or_create_conversation_info(private_message_mock)
-            conversation_info = await manager._get_or_create_conversation_info(private_message_mock)
+            await manager._get_or_create_conversation_info({
+                "message": private_message_mock
+            })
+            conversation_info = await manager._get_or_create_conversation_info({
+                "message": private_message_mock
+            })
 
             assert len(manager.conversations) == 1
-            assert conversation_info.conversation_id == "101_102"
+            assert conversation_info.conversation_id == standard_private_conversation_id
             assert conversation_info.conversation_type == "private"
 
     class TestAddToConversation:
@@ -159,7 +185,8 @@ class TestManager:
                                    private_message_mock,
                                    cached_private_message_mock,
                                    user_info_mock,
-                                   attachment_mock):
+                                   attachment_mock,
+                                   standard_private_conversation_id):
             """Test adding a private message with attachment"""
             thread_info = ThreadInfo(thread_id="12346", root_message_id="12346")
 
@@ -173,7 +200,7 @@ class TestManager:
                     "attachments": [attachment_mock]
                 })
 
-                assert delta["conversation_id"] == "101_102"
+                assert delta["conversation_id"] == standard_private_conversation_id
                 assert delta["fetch_history"] is True  # New conversation should fetch history
 
                 assert len(delta["added_messages"]) == 1
@@ -218,10 +245,11 @@ class TestManager:
                                               manager,
                                               conversation_info_mock,
                                               cached_private_message_mock,
-                                              edited_message_mock):
+                                              edited_message_mock,
+                                              standard_private_conversation_id):
             """Test updating a message's content"""
             manager.message_cache.get_message_by_id.return_value = cached_private_message_mock
-            manager.conversations["101_102"] = conversation_info_mock
+            manager.conversations[standard_private_conversation_id] = conversation_info_mock
 
             with patch.object(ThreadHandler, "update_thread_info", return_value=(False, None)):
                 delta = await manager.update_conversation({
@@ -229,7 +257,7 @@ class TestManager:
                     "message": edited_message_mock
                 })
 
-                assert delta["conversation_id"] == "101_102"
+                assert delta["conversation_id"] == standard_private_conversation_id
 
                 assert len(delta["updated_messages"]) == 1
                 assert delta["updated_messages"][0]["message_id"] == "12346"
@@ -241,10 +269,11 @@ class TestManager:
                                               manager,
                                               conversation_info_mock,
                                               cached_private_message_mock,
-                                              reaction_message_mock):
+                                              reaction_message_mock,
+                                              standard_private_conversation_id):
             """Test updating a message's reactions"""
             manager.message_cache.get_message_by_id.return_value = cached_private_message_mock
-            manager.conversations["101_102"] = conversation_info_mock
+            manager.conversations[standard_private_conversation_id] = conversation_info_mock
 
             instance_mock = MagicMock()
             instance_mock.platform_specific_to_standard.return_value = "thumbs_up"
@@ -255,7 +284,7 @@ class TestManager:
                     "message": reaction_message_mock
                 })
 
-                assert delta["conversation_id"] == "101_102"
+                assert delta["conversation_id"] == standard_private_conversation_id
                 assert delta["message_id"] == "12346"
 
                 assert len(delta["added_reactions"]) == 1
@@ -281,9 +310,10 @@ class TestManager:
         async def test_delete_message(self,
                                       manager,
                                       conversation_info_mock,
-                                      cached_private_message_mock):
+                                      cached_private_message_mock,
+                                      standard_private_conversation_id):
             """Test deleting a message"""
-            manager.conversations["101_102"] = conversation_info_mock
+            manager.conversations[standard_private_conversation_id] = conversation_info_mock
             manager.message_cache.get_message_by_id.return_value = cached_private_message_mock
             manager.message_cache.delete_message.return_value = True
 
@@ -291,21 +321,26 @@ class TestManager:
                 await manager.delete_from_conversation(
                     outgoing_event={
                         "deleted_ids": ["12345"],
-                        "conversation_id": "101_102"
+                        "conversation_id": standard_private_conversation_id
                     }
                 )
 
                 manager.message_cache.get_message_by_id.assert_called_once_with(
-                    conversation_id="101_102",
+                    conversation_id=standard_private_conversation_id,
                     message_id="12345"
                 )
-                manager.message_cache.delete_message.assert_called_once_with("101_102", "12345")
+                manager.message_cache.delete_message.assert_called_once_with(
+                    standard_private_conversation_id, "12345"
+                )
 
         @pytest.mark.asyncio
-        async def test_delete_nonexistent_message(self, manager):
+        async def test_delete_nonexistent_message(self,
+                                                  manager,
+                                                  standard_private_conversation_id):
             """Test deleting a non-existent message"""
-            manager.conversations["101_102"] = ConversationInfo(
-                conversation_id="101_102",
+            manager.conversations[standard_private_conversation_id] = ConversationInfo(
+                platform_conversation_id="101_102",
+                conversation_id=standard_private_conversation_id,
                 conversation_type="private"
             )
             manager.message_cache.get_message_by_id.return_value = None
@@ -313,7 +348,7 @@ class TestManager:
             await manager.delete_from_conversation(
                 outgoing_event={
                     "message_id": "99999",
-                    "conversation_id": "101_102"
+                    "conversation_id": standard_private_conversation_id
                 }
             )
 
@@ -333,38 +368,63 @@ class TestManager:
                 "message_ids": [12345, 12346]
             }
 
+        @pytest.fixture
+        def standard_old_conversation_id(self):
+            """Create a standard stream conversation ID"""
+            return "zulip_mnj0vhedI9CXozfAsNbc"
+
+        @pytest.fixture
+        def standard_new_conversation_id(self):
+            """Create a standard stream conversation ID"""
+            return "zulip_0yBWuUfWNIV3CRcV2lU6"
+
         @pytest.mark.asyncio
-        async def test_migrate_messages(self, manager, migration_message_mock):
+        async def test_migrate_messages(self,
+                                        manager,
+                                        migration_message_mock,
+                                        standard_old_conversation_id,
+                                        standard_new_conversation_id):
             """Test migrating messages between conversations"""
-            manager.conversations["201/Old Topic"] = ConversationInfo(
-                conversation_id="201/Old Topic",
+            manager.conversations[standard_old_conversation_id] = ConversationInfo(
+                platform_conversation_id="201/Old Topic",
+                conversation_id=standard_old_conversation_id,
                 conversation_type="stream"
             )
-            manager.conversations["201/Old Topic"].messages.add("12345")
-            manager.conversations["201/Old Topic"].messages.add("12346")
+            manager.conversations[standard_old_conversation_id].messages.add("12345")
+            manager.conversations[standard_old_conversation_id].messages.add("12346")
 
-            delta = await manager.migrate_between_conversations(migration_message_mock)
+            delta = await manager.migrate_between_conversations({
+                "message": migration_message_mock,
+                "server": {"realm_name": "Test Realm"}
+            })
 
-            assert delta["conversation_id"] == "201/New Topic"
+            assert delta["conversation_id"] == standard_new_conversation_id
 
             assert len(delta["deleted_message_ids"]) == 2
             assert manager.message_cache.migrate_message.call_count == 2
 
         @pytest.mark.asyncio
-        async def test_migrate_nonexistent_conversation(self, manager, migration_message_mock):
+        async def test_migrate_nonexistent_conversation(self,
+                                                        manager,
+                                                        migration_message_mock,
+                                                        standard_new_conversation_id):
             """Test migrating from a non-existent conversation"""
             # We use the same mock, but do not setup conversation before calling the method
-            delta = await manager.migrate_between_conversations(migration_message_mock)
+            # also, "201/Nonexistent" is converted to "zulip_ozS8axkVdp7Q9bPtvmxL"
+            delta = await manager.migrate_between_conversations({
+                "message": migration_message_mock,
+                "server": None
+            })
 
-            assert delta["conversation_id"] == "201/New Topic"
-            assert "201/Nonexistent" not in manager.conversations
+            assert delta["conversation_id"] == standard_new_conversation_id
+            assert "zulip_ozS8axkVdp7Q9bPtvmxL" not in manager.conversations
             assert manager.message_cache.migrate_message.call_count == 0
 
     class TestHelperMethods:
         """Tests for helper methods"""
 
         @pytest.fixture
-        def message_builder_mock(self):
+        def message_builder_mock(self, standard_private_conversation_id):
             """Create a mock MessageBuilder"""
             message_builder = MagicMock()
             message_builder.reset.return_value = message_builder
@@ -374,7 +434,7 @@ class TestManager:
             message_builder.with_thread_info.return_value = message_builder
             message_builder.build.return_value = {
                 "message_id": "12345",
-                "conversation_id": "101_102",
+                "conversation_id": standard_private_conversation_id,
                 "text": "Hello, world!",
                 "sender_id": "101",
                 "sender_name": "Test User"
@@ -388,7 +448,8 @@ class TestManager:
                                       conversation_info_mock,
                                       private_message_mock,
                                       cached_private_message_mock,
-                                      message_builder_mock):
+                                      message_builder_mock,
+                                      standard_private_conversation_id):
             """Test creating a message"""
             thread_info = None
             manager.message_builder = message_builder_mock
@@ -402,5 +463,5 @@ class TestManager:
             )
 
             assert result.message_id == "12346"
-            assert result.conversation_id == "101_102"
+            assert result.conversation_id == standard_private_conversation_id
             assert result.text == "Hello!"

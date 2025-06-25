@@ -80,8 +80,6 @@ socketio:
 
 ### Zulip-specific features
 
-1) Conversation Mapping. In the Zulip adapter, conversations are identified using `stream_id/topic_name` for topic conversations in streams and the combination of all users IDs for private conversations (for example, `123_456`).
-
-2) Topic Migrations. Zulip allows moving messages between topics, so the adapter tracks these topic migrations. When a message or group of messages is moved to a different topic, the adapter detects this change and emits relevant events. It handles three distinct scenarios when messages are moved between topics:
-* Migration to a New Topic. When messages are moved to a previously non-existent topic, the adapter sends a `conversation_started` event for the new topic and fetches history for the new topic to establish context. It also emits `message_deleted` events for all moved messages in the original topic.
-* Migration Between Existing Topics. When messages are moved between two topics that both already exist, the adapter emits `message_deleted` events for the moved messages in the source topic and `message_received` events for the moved messages in the destination topic. No conversation_started event is needed since both topics are known.
+1) Topic Migrations. Zulip allows moving messages between topics, so the adapter tracks these topic migrations. When a message or group of messages is moved to a different topic, the adapter detects this change and emits relevant events. It handles three distinct scenarios when messages are moved between topics:
+* Migration to a New Topic. When messages are moved to a previously non-existent topic, the adapter sends `conversation_started`, `history_fetched` events for the new topic. It also emits `message_deleted` events for all moved messages in the original topic.
+* Migration Between Existing Topics. When messages are moved between two topics that both already exist, the adapter emits `message_deleted` events for the moved messages in the source topic and `message_received` events for the moved messages in the destination topic. No additional events are needed since both topics are known.

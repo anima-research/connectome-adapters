@@ -28,7 +28,8 @@ class Client:
         try:
             result = self.client.register(
                 event_types=[
-                    "message", "reaction", "update_message", "delete_message"
+                    "message", "reaction", "update_message",
+                    "delete_message", "stream", "subscription", "realm"
                 ]
             )
 

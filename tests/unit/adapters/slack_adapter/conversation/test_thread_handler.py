@@ -16,7 +16,8 @@ class TestThreadHandler:
     def conversation_info(self):
         """Create a ConversationInfo instance for testing"""
         return ConversationInfo(
-            conversation_id="T12345/C67890",
+            platform_conversation_id="T123/C456",
+            conversation_id="slack_F0OIohoDYwVnEyYccO7j",
             conversation_type="channel"
         )
 
@@ -36,7 +37,7 @@ class TestThreadHandler:
         """Create a CachedMessage instance for testing"""
         return CachedMessage(
             message_id="1609502600.789012",
-            conversation_id="T12345/C67890",
+            conversation_id="slack_F0OIohoDYwVnEyYccO7j",
             thread_id=None,
             sender_id="U12345678",
             sender_name="Slack User",
@@ -61,8 +62,8 @@ class TestThreadHandler:
             "thread_ts": "1609502400.123456",
             "text": "Hello, this is a reply",
             "user": "U12345678",
-            "team": "T12345",
-            "channel": "C67890",
+            "team": "T123",
+            "channel": "C456",
             "type": "message"
         }
 
@@ -73,8 +74,8 @@ class TestThreadHandler:
             "ts": "1609502600.789032",
             "text": "Hello, this is not a reply",
             "user": "U12345678",
-            "team": "T12345",
-            "channel": "C67890",
+            "team": "T123",
+            "channel": "C456",
             "type": "message"
         }
 

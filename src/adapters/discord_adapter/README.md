@@ -45,6 +45,15 @@ The Discord client implementation connects to Discord's real-time gateway API an
     @self.bot.event
     async def on_raw_reaction_remove(payload):
         ...
+    @self.bot.event
+    async def on_guild_channel_update(_, after):
+        ...
+    @self.bot.event
+    async def on_thread_update(_, after):
+        ...
+    @self.bot.event
+    async def on_guild_update(before, after):
+        ...
 ```
 
 ### Configuration
@@ -93,7 +102,3 @@ socketio:
   port: 8082                          # Socket.IO server port on which the adapter is running
   cors_allowed_origins: "*"           # CORS allowed origins
 ```
-
-### Discord specific features
-
-1) Conversation Mapping. In the Discord adapter, conversations are identified and tracked using a composite ID formed from both the guild (server) ID and the channel ID: `guild_id/channel_id`. This format is used for channels and direct messages.

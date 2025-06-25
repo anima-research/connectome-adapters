@@ -6,6 +6,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 
 import src.core.utils.attachment_loading
 from src.adapters.slack_adapter.attachment_loaders.uploader import Uploader
+from src.adapters.slack_adapter.conversation.data_classes import ConversationInfo
 from src.core.events.models.outgoing_events import OutgoingAttachmentInfo, SendMessageData
 
 class TestUploader:
@@ -52,13 +53,22 @@ class TestUploader:
             ]
         )
 
+    @pytest.fixture
+    def sample_conversation_info(self):
+        """Create sample conversation info"""
+        return ConversationInfo(
+            conversation_id="slack_F0OIohoDYwVnEyYccO7j",
+            platform_conversation_id="T123/C456",
+            conversation_type="channel"
+        )
+
     @pytest.mark.asyncio
-    async def test_upload_file_success(self, uploader, sample_send_message_data):
+    async def test_upload_file_success(self, uploader, sample_send_message_data, sample_conversation_info):
         """Test successful file upload"""
         with patch("os.path.exists", return_value=True):
             with patch("src.adapters.slack_adapter.attachment_loaders.uploader.move_attachment") as mock_move:
                 with patch("src.adapters.slack_adapter.attachment_loaders.uploader.create_attachment_dir") as mock_create_dir:
-                    await uploader.upload_attachments(sample_send_message_data)
+                    await uploader.upload_attachments(sample_conversation_info, sample_send_message_data)
 
                     uploader.client.files_upload_v2.assert_called_once_with(
                         file="test_attachments/tmp_uploads/test.txt",
@@ -68,7 +78,7 @@ class TestUploader:
                     assert mock_move.called
 
     @pytest.mark.asyncio
-    async def test_upload_file_api_error(self, uploader, sample_send_message_data):
+    async def test_upload_file_api_error(self, uploader, sample_send_message_data, sample_conversation_info):
         """Test handling API errors"""
         uploader.client.files_upload_v2.return_value = {
             "ok": False,
@@ -77,23 +87,23 @@ class TestUploader:
 
         with patch("os.path.exists", return_value=True):
             with patch.object(logging, "error"):
-                await uploader.upload_attachments(sample_send_message_data)
+                await uploader.upload_attachments(sample_conversation_info, sample_send_message_data)
                 assert uploader.client.files_upload_v2.called
 
     @pytest.mark.asyncio
-    async def test_upload_file_exception(self, uploader, sample_send_message_data):
+    async def test_upload_file_exception(self, uploader, sample_send_message_data, sample_conversation_info):
         """Test handling exceptions during upload"""
         uploader.client.files_upload_v2.side_effect = Exception("Network error")
 
         with patch("os.path.exists", return_value=True):
             with patch.object(logging, "error") as mock_log:
-                await uploader.upload_attachments(sample_send_message_data)
+                await uploader.upload_attachments(sample_conversation_info, sample_send_message_data)
 
                 assert mock_log.called
                 assert "Error uploading file" in mock_log.call_args[0][0]
 
     @pytest.mark.asyncio
-    async def test_multiple_attachments(self, uploader, sample_send_message_data):
+    async def test_multiple_attachments(self, uploader, sample_send_message_data, sample_conversation_info):
         """Test uploading multiple attachments"""
         sample_send_message_data.attachments = [
             OutgoingAttachmentInfo(
@@ -109,7 +119,7 @@ class TestUploader:
         with patch("os.path.exists", return_value=True):
             with patch("src.adapters.slack_adapter.attachment_loaders.uploader.move_attachment"):
                 with patch("src.adapters.slack_adapter.attachment_loaders.uploader.create_attachment_dir"):
-                    await uploader.upload_attachments(sample_send_message_data)
+                    await uploader.upload_attachments(sample_conversation_info, sample_send_message_data)
 
                     assert uploader.client.files_upload_v2.call_count == 2
                     assert uploader.rate_limiter.limit_request.call_count == 2

@@ -124,7 +124,7 @@ class TestIncomingFileProcessor:
             "timestamp": time.time()
         }
 
-        result = await file_processor._get_file_status("F123456", "T123/C456")
+        result = await file_processor._get_file_status("F123456")
 
         assert result["id"] == "F123456"
         assert not file_processor.client.files_info.called
@@ -132,7 +132,7 @@ class TestIncomingFileProcessor:
     @pytest.mark.asyncio
     async def test_get_file_status_cache_miss(self, file_processor):
         """Test file status API call on cache miss"""
-        result = await file_processor._get_file_status("F123456", "T123/C456")
+        result = await file_processor._get_file_status("F123456")
 
         file_processor.client.files_info.assert_called_once_with(file="F123456")
         assert "F123456" in file_processor.status_cache
@@ -215,7 +215,7 @@ class TestIncomingFileProcessor:
             {"id": "F123456", "url_private_download": "https://example.com"}
         ]
 
-        async def get_status_side_effect(file_id, conv_id):
+        async def get_status_side_effect(file_id):
             return status_responses.pop(0)
 
         with patch.object(file_processor, "_get_file_status", side_effect=get_status_side_effect):

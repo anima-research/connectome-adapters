@@ -98,31 +98,46 @@ class TestSocketIOToZulipFlowIntegration:
         return adapter
 
     @pytest.fixture
-    def setup_private_conversation(self, adapter):
+    def standard_private_conversation_id(self):
+        """Create a standard private conversation ID"""
+        return "zulip_T8PioprYxwVr5Dv7HYMJ"
+
+    @pytest.fixture
+    def setup_private_conversation(self, adapter, standard_private_conversation_id):
         """Setup a test private conversation"""
         def _setup():
             conversation = ConversationInfo(
-                conversation_id="101_102",
+                platform_conversation_id="101_102",
+                conversation_id=standard_private_conversation_id,
                 conversation_type="private",
                 known_members={
                     "101": UserInfo(user_id="101", username="Test User", email="test@example.com"),
                     "102": UserInfo(user_id="102", username="Bot User", email="bot@example.com")
                 }
             )
-            adapter.conversation_manager.conversations["101_102"] = conversation
+            adapter.conversation_manager.conversations[standard_private_conversation_id] = conversation
             return conversation
         return _setup
 
     @pytest.fixture
-    def setup_stream_conversation(self, adapter):
+    def standard_stream_conversation_id(self):
+        """Create a standard stream conversation ID"""
+        return "zulip_lAqfjVSRHht3MtFoVO09"
+
+    @pytest.fixture
+    def setup_stream_conversation(self, adapter, standard_stream_conversation_id):
         """Setup a test stream conversation"""
         def _setup():
             conversation = ConversationInfo(
-                conversation_id="201/Test Topic",
+                platform_conversation_id="201/Test Topic",
+                conversation_id=standard_stream_conversation_id,
                 conversation_type="stream",
-                conversation_name="Test Stream"
+                stream_id="201",
+                stream_name="Test Stream",
+                stream_topic="Test Topic",
+                conversation_name="Test Stream_Test Topic"
             )
-            adapter.conversation_manager.conversations["201/Test Topic"] = conversation
+            adapter.conversation_manager.conversations[standard_stream_conversation_id] = conversation
             return conversation
         return _setup
 
@@ -152,14 +167,18 @@ class TestSocketIOToZulipFlowIntegration:
     # =============== TEST METHODS ===============
 
     @pytest.mark.asyncio
-    async def test_send_private_message_flow(self, adapter, zulip_client_mock, setup_private_conversation):
+    async def test_send_private_message_flow(self,
+                                             adapter,
+                                             zulip_client_mock,
+                                             setup_private_conversation,
+                                             standard_private_conversation_id):
         """Test the complete flow from socket.io send_message to Zulip for private messages"""
         setup_private_conversation()
 
         response = await adapter.outgoing_events_processor.process_event({
             "event_type": "send_message",
             "data": {
-                "conversation_id": "101_102",
+                "conversation_id": standard_private_conversation_id,
                 "text": "Hello, world!"
             }
         })
@@ -174,14 +193,18 @@ class TestSocketIOToZulipFlowIntegration:
         })
 
     @pytest.mark.asyncio
-    async def test_send_stream_message_flow(self, adapter, zulip_client_mock, setup_stream_conversation):
+    async def test_send_stream_message_flow(self,
+                                            adapter,
+                                            zulip_client_mock,
+                                            setup_stream_conversation,
+                                            standard_stream_conversation_id):
         """Test the complete flow from socket.io send_message to Zulip for stream messages"""
         setup_stream_conversation()
 
         response = await adapter.outgoing_events_processor.process_event({
             "event_type": "send_message",
             "data": {
-                "conversation_id": "201/Test Topic",
+                "conversation_id": standard_stream_conversation_id,
                 "text": "Hello, stream!"
             }
         })
@@ -196,14 +219,18 @@ class TestSocketIOToZulipFlowIntegration:
         })
 
     @pytest.mark.asyncio
-    async def test_send_message_with_attachment_flow(self, adapter, zulip_client_mock, setup_private_conversation):
+    async def test_send_message_with_attachment_flow(self,
+                                                    adapter,
+                                                    zulip_client_mock,
+                                                    setup_private_conversation,
+                                                    standard_private_conversation_id):
         """Test sending a message with an attachment"""
         setup_private_conversation()
 
         response = await adapter.outgoing_events_processor.process_event({
             "event_type": "send_message",
             "data": {
-                "conversation_id": "101_102",
+                "conversation_id": standard_private_conversation_id,
                 "text": "See attachment",
                 "attachments": [
                     {
@@ -226,15 +253,20 @@ class TestSocketIOToZulipFlowIntegration:
         assert "/user_uploads/test.txt" in call_args["content"]
 
     @pytest.mark.asyncio
-    async def test_edit_message_flow(self, adapter, zulip_client_mock, setup_private_conversation, setup_message):
+    async def test_edit_message_flow(self,
+                                     adapter,
+                                     zulip_client_mock,
+                                     setup_private_conversation,
+                                     setup_message,
+                                     standard_private_conversation_id):
         """Test the complete flow from socket.io edit_message to Zulip call"""
         setup_private_conversation()
-        await setup_message("101_102")
+        await setup_message(standard_private_conversation_id)
 
         response = await adapter.outgoing_events_processor.process_event({
             "event_type": "edit_message",
             "data": {
-                "conversation_id": "101_102",
+                "conversation_id": standard_private_conversation_id,
                 "message_id": "12345",
                 "text": "Edited message content"
             }
@@ -247,15 +279,20 @@ class TestSocketIOToZulipFlowIntegration:
         })
 
     @pytest.mark.asyncio
-    async def test_delete_message_flow(self, adapter, zulip_client_mock, setup_private_conversation, setup_message):
+    async def test_delete_message_flow(self,
+                                       adapter,
+                                       zulip_client_mock,
+                                       setup_private_conversation,
+                                       setup_message,
+                                       standard_private_conversation_id):
         """Test the complete flow from socket.io delete_message to Zulip call"""
         setup_private_conversation()
-        await setup_message("101_102")
+        await setup_message(standard_private_conversation_id)
 
         response = await adapter.outgoing_events_processor.process_event({
             "event_type": "delete_message",
             "data": {
-                "conversation_id": "101_102",
+                "conversation_id": standard_private_conversation_id,
                 "message_id": "12345"
             }
         })
@@ -272,16 +309,17 @@ class TestSocketIOToZulipFlowIntegration:
                                      zulip_client_mock,
                                      emoji_converter_mock,
                                      setup_private_conversation,
-                                     setup_message):
+                                     setup_message,
+                                     standard_private_conversation_id):
         """Test the complete flow from socket.io add_reaction to Zulip call"""
         setup_private_conversation()
-        await setup_message("101_102")
+        await setup_message(standard_private_conversation_id)
 
         with patch.object(EmojiConverter, "get_instance", return_value=emoji_converter_mock):
             response = await adapter.outgoing_events_processor.process_event({
                 "event_type": "add_reaction",
                 "data": {
-                    "conversation_id": "101_102",
+                    "conversation_id": standard_private_conversation_id,
                     "message_id": "12345",
                     "emoji": "thumbs_up"
                 }
@@ -299,16 +337,17 @@ class TestSocketIOToZulipFlowIntegration:
                                         zulip_client_mock,
                                         emoji_converter_mock,
                                         setup_private_conversation,
-                                        setup_message):
+                                        setup_message,
+                                        standard_private_conversation_id):
         """Test the complete flow from socket.io remove_reaction to Zulip call"""
         setup_private_conversation()
-        await setup_message("101_102", reactions={"thumbs_up": 1})
+        await setup_message(standard_private_conversation_id, reactions={"thumbs_up": 1})
 
         with patch.object(EmojiConverter, "get_instance", return_value=emoji_converter_mock):
             response = await adapter.outgoing_events_processor.process_event({
                 "event_type": "remove_reaction",
                 "data": {
-                    "conversation_id": "101_102",
+                    "conversation_id": standard_private_conversation_id,
                     "message_id": "12345",
                     "emoji": "thumbs_up"
                 }

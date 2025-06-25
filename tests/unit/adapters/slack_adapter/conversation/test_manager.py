@@ -38,21 +38,27 @@ class TestManager:
         )
 
     @pytest.fixture
-    def conversation_info_mock(self):
+    def standard_conversation_id(self):
+        """Create a mock standard conversation ID"""
+        return "slack_F0OIohoDYwVnEyYccO7j"
+
+    @pytest.fixture
+    def conversation_info_mock(self, standard_conversation_id):
         """Create a mock ConversationInfo"""
         return ConversationInfo(
-            conversation_id="T12345678/C87654321",
+            platform_conversation_id="T123/C456",
+            conversation_id=standard_conversation_id,
             conversation_type="channel",
             conversation_name=None,
             messages=set(["1625176800.123456"])
         )
 
     @pytest.fixture
-    def cached_message_mock(self):
+    def cached_message_mock(self, standard_conversation_id):
         """Create a mock cached message"""
         return CachedMessage(
             message_id="1625176800.123456",
-            conversation_id="T12345678/C87654321",
+            conversation_id=standard_conversation_id,
             thread_id=None,
             sender_id="U12345678",
             sender_name="Slack User",
@@ -73,8 +79,8 @@ class TestManager:
             "ts": "1625176800.123456",
             "text": "Hello world!",
             "user": "U12345678",
-            "team": "T12345678",
-            "channel": "C87654321",
+            "team": "T123",
+            "channel": "C456",
             "channel_type": "channel",
             "event_ts": "1625176800.123456",
             "thread_ts": "1625176800.001456",
@@ -91,7 +97,7 @@ class TestManager:
                 "type": "message",
                 "text": "Hello world! (edited)",
                 "user": "U12345678",
-                "team": "T12345678",
+                "team": "T123",
                 "edited": {
                     "user": "U12345678",
                     "ts": "1625176900.000000"
@@ -104,10 +110,10 @@ class TestManager:
                 "user": "U12345678",
                 "ts": "1625176800.123456"
             },
-            "channel": "C87654321",
+            "channel": "C456",
             "ts": "1625176900.000001",
             "event_ts": "1625176900.000001",
-            "team": "T12345678"
+            "team": "T123"
         }
 
     @pytest.fixture
@@ -122,11 +128,11 @@ class TestManager:
                 "user": "U12345678",
                 "ts": "1625176800.123456"
             },
-            "channel": "C87654321",
+            "channel": "C456",
             "ts": "1625177000.000000",
             "deleted_ts": "1625176800.123456",
             "event_ts": "1625177000.000000",
-            "team": "T12345678"
+            "team": "T123"
         }
 
     @pytest.fixture
@@ -140,10 +146,10 @@ class TestManager:
                 "reaction": "fire",
                 "item": {
                     "type": "message",
-                    "channel": "C87654321",
+                    "channel": "C456",
                     "ts": "1625176800.123456"
                 },
-                "team": "T12345678"
+                "team": "T123"
             }
         }
 
@@ -163,10 +169,10 @@ class TestManager:
                         "ts": "1625176800.123456"
                     }
                 },
-                "channel": "C87654321",
+                "channel": "C456",
                 "event_ts": "1625177200.000000",
                 "ts": "1625177200.000000",
-                "team": "T12345678"
+                "team": "T123"
             }
         }
 
@@ -180,7 +186,7 @@ class TestManager:
                 "user": "U12345678",
                 "item": {
                     "type": "message",
-                    "channel": "C87654321",
+                    "channel": "C456",
                     "ts": "1625176800.123456",
                     "message": {
                         "type": "message",
@@ -189,10 +195,10 @@ class TestManager:
                         "ts": "1625176800.123456"
                     }
                 },
-                "channel": "C87654321",
+                "channel": "C456",
                 "event_ts": "1625177300.000000",
                 "ts": "1625177300.000000",
-                "team": "T12345678"
+                "team": "T123"
             }
         }
 
@@ -213,26 +219,17 @@ class TestManager:
         """Tests for conversation creation and identification"""
 
         @pytest.mark.asyncio
-        async def test_get_conversation_id(self, manager, mock_slack_message):
+        async def test_get_platform_conversation_id(self, manager, mock_slack_message):
             """Test getting conversation ID from a message"""
-            assert await manager._get_conversation_id(mock_slack_message) == "T12345678/C87654321"
+            assert await manager._get_platform_conversation_id(mock_slack_message) == "T123/C456"
 
         @pytest.mark.asyncio
-        async def test_get_conversation_id_from_conversation_id(self, manager):
-            """Test getting conversation ID when it's already in the message"""
-            message = {"conversation_id": "T12345678/C87654321"}
-
-            assert await manager._get_conversation_id(message) == "T12345678/C87654321"
-
-        @pytest.mark.asyncio
-        async def test_get_conversation_id_from_item(self, manager):
+        async def test_get_platform_conversation_id_from_item(self, manager):
             """Test getting conversation ID from an item object"""
-            message = {
-                "team": "T12345678",
-                "item": {"channel": "C87654321"}
-            }
-
-            assert await manager._get_conversation_id(message) == "T12345678/C87654321"
+            assert await manager._get_platform_conversation_id({
+                "team": "T123",
+                "item": {"channel": "C456"}
+            }) == "T123/C456"
 
         @pytest.mark.asyncio
         async def test_get_conversation_type(self, manager, mock_slack_message):
@@ -240,28 +237,39 @@ class TestManager:
             assert await manager._get_conversation_type(mock_slack_message) == "channel"
 
         @pytest.mark.asyncio
-        async def test_get_or_create_conversation_info_new(self, manager, mock_slack_message):
+        async def test_get_or_create_conversation_info_new(self,
+                                                           manager,
+                                                           mock_slack_message,
+                                                           standard_conversation_id):
             """Test creating a new conversation"""
             assert len(manager.conversations) == 0
-            conversation_info = await manager._get_or_create_conversation_info(mock_slack_message)
+            conversation_info = await manager._get_or_create_conversation_info(
+                {"message": mock_slack_message}
+            )
 
             assert len(manager.conversations) == 1
-            assert conversation_info.conversation_id == "T12345678/C87654321"
+            assert conversation_info.platform_conversation_id == "T123/C456"
+            assert conversation_info.conversation_id == standard_conversation_id
             assert conversation_info.conversation_type == "channel"
             assert conversation_info.just_started is True
 
         @pytest.mark.asyncio
-        async def test_get_or_create_conversation_info_existing(self, manager, mock_slack_message):
+        async def test_get_or_create_conversation_info_existing(self,
+                                                                manager,
+                                                                mock_slack_message,
+                                                                standard_conversation_id):
             """Test getting an existing conversation"""
-            manager.conversations["T12345678/C87654321"] = ConversationInfo(
-                conversation_id="T12345678/C87654321",
+            manager.conversations[standard_conversation_id] = ConversationInfo(
+                platform_conversation_id="T123/C456",
+                conversation_id=standard_conversation_id,
                 conversation_type="channel"
             )
-
-            conversation_info = await manager._get_or_create_conversation_info(mock_slack_message)
+            conversation_info = await manager._get_or_create_conversation_info(
+                {"message": mock_slack_message}
+            )
 
             assert len(manager.conversations) == 1
-            assert conversation_info.conversation_id == "T12345678/C87654321"
+            assert conversation_info.conversation_id == standard_conversation_id
             assert conversation_info.conversation_type == "channel"
 
     class TestAddToConversation:
@@ -272,7 +280,8 @@ class TestManager:
                                    manager,
                                    mock_slack_message,
                                    cached_message_mock,
-                                   attachment_mock):
+                                   attachment_mock,
+                                   standard_conversation_id):
             """Test adding a message with attachment"""
             with patch.object(manager, "_create_message", return_value=cached_message_mock), \
                  patch.object(manager, "_update_attachment", return_value=[attachment_mock]):
@@ -283,7 +292,7 @@ class TestManager:
                     "user": {"id": "U12345678", "name": "Slack User"}
                 })
 
-                assert delta["conversation_id"] == "T12345678/C87654321"
+                assert delta["conversation_id"] == standard_conversation_id
                 assert delta["fetch_history"] is True  # New conversation should fetch history
 
                 assert len(delta["added_messages"]) == 1
@@ -308,20 +317,21 @@ class TestManager:
 
         @pytest.mark.asyncio
         async def test_update_message_content(self,
-                                            manager,
-                                            conversation_info_mock,
-                                            cached_message_mock,
-                                            mock_slack_edited_message):
+                                              manager,
+                                              conversation_info_mock,
+                                              cached_message_mock,
+                                              mock_slack_edited_message,
+                                              standard_conversation_id):
             """Test updating a message's content"""
             manager.message_cache.get_message_by_id.return_value = cached_message_mock
-            manager.conversations["T12345678/C87654321"] = conversation_info_mock
+            manager.conversations[standard_conversation_id] = conversation_info_mock
 
             delta = await manager.update_conversation({
                 "event_type": SlackEventType.EDITED_MESSAGE,
                 "message": mock_slack_edited_message
             })
 
-            assert delta["conversation_id"] == "T12345678/C87654321"
+            assert delta["conversation_id"] == standard_conversation_id
             assert len(delta["updated_messages"]) == 1
             assert delta["updated_messages"][0]["message_id"] == "1625176800.123456"
             assert cached_message_mock.text == mock_slack_edited_message["message"]["text"]
@@ -331,15 +341,16 @@ class TestManager:
                                                manager,
                                                conversation_info_mock,
                                                cached_message_mock,
-                                               mock_slack_reaction_event):
+                                               mock_slack_reaction_event,
+                                               standard_conversation_id):
             """Test updating a message's reactions"""
             manager.message_cache.get_message_by_id.return_value = cached_message_mock
-            manager.conversations["T12345678/C87654321"] = conversation_info_mock
+            manager.conversations[standard_conversation_id] = conversation_info_mock
 
             with patch.object(ReactionHandler, "update_message_reactions") as mock_update_reactions:
                 delta = await manager.update_conversation(mock_slack_reaction_event)
 
-                assert delta["conversation_id"] == "T12345678/C87654321"
+                assert delta["conversation_id"] == standard_conversation_id
                 mock_update_reactions.assert_called_once()
 
         @pytest.mark.asyncio
@@ -347,14 +358,15 @@ class TestManager:
                                    manager,
                                    cached_message_mock,
                                    conversation_info_mock,
-                                   mock_slack_pin_event):
+                                   mock_slack_pin_event,
+                                   standard_conversation_id):
             """Test pinning a message"""
             manager.message_cache.get_message_by_id.return_value = cached_message_mock
-            manager.conversations["T12345678/C87654321"] = conversation_info_mock
+            manager.conversations[standard_conversation_id] = conversation_info_mock
 
             delta = await manager.update_conversation(mock_slack_pin_event)
 
-            assert delta["conversation_id"] == "T12345678/C87654321"
+            assert delta["conversation_id"] == standard_conversation_id
             assert cached_message_mock.is_pinned is True
             assert cached_message_mock.message_id in conversation_info_mock.pinned_messages
             assert len(delta["pinned_message_ids"]) == 1
@@ -365,16 +377,17 @@ class TestManager:
                                      manager,
                                      cached_message_mock,
                                      conversation_info_mock,
-                                     mock_slack_unpin_event):
+                                     mock_slack_unpin_event,
+                                     standard_conversation_id):
             """Test unpinning a message"""
             cached_message_mock.is_pinned = True
             conversation_info_mock.pinned_messages.add(cached_message_mock.message_id)
             manager.message_cache.get_message_by_id.return_value = cached_message_mock
-            manager.conversations["T12345678/C87654321"] = conversation_info_mock
+            manager.conversations[standard_conversation_id] = conversation_info_mock
 
             delta = await manager.update_conversation(mock_slack_unpin_event)
 
-            assert delta["conversation_id"] == "T12345678/C87654321"
+            assert delta["conversation_id"] == standard_conversation_id
             assert cached_message_mock.is_pinned is False
             assert cached_message_mock.message_id not in conversation_info_mock.pinned_messages
             assert len(delta["unpinned_message_ids"]) == 1
@@ -400,9 +413,10 @@ class TestManager:
                                       manager,
                                       conversation_info_mock,
                                       cached_message_mock,
-                                      mock_slack_deleted_message):
+                                      mock_slack_deleted_message,
+                                      standard_conversation_id):
             """Test deleting a message"""
-            manager.conversations["T12345678/C87654321"] = conversation_info_mock
+            manager.conversations[standard_conversation_id] = conversation_info_mock
             manager.message_cache.get_message_by_id.return_value = cached_message_mock
             manager.message_cache.delete_message.return_value = True
 
@@ -412,27 +426,28 @@ class TestManager:
                 )
 
                 manager.message_cache.get_message_by_id.assert_called_with(
-                    conversation_id="T12345678/C87654321",
+                    conversation_id=standard_conversation_id,
                     message_id="1625176800.123456"
                 )
                 manager.message_cache.delete_message.assert_called_with(
-                    "T12345678/C87654321", "1625176800.123456"
+                    standard_conversation_id, "1625176800.123456"
                 )
 
-                assert delta["conversation_id"] == "T12345678/C87654321"
+                assert delta["conversation_id"] == standard_conversation_id
                 assert "1625176800.123456" in delta["deleted_message_ids"]
 
     class TestAttachmentHandling:
         """Tests for attachment handling"""
 
         @pytest.mark.asyncio
-        async def test_update_attachment(self, manager, attachment_mock):
+        async def test_update_attachment(self, manager, attachment_mock, standard_conversation_id):
             """Test updating attachment info in conversation info"""
             attachment_mock["attachment_type"] = "document"
             attachment_mock["created_at"] = datetime.now()
 
             conversation_info = ConversationInfo(
-                conversation_id="T12345678/C87654321",
+                platform_conversation_id="T123/C456",
+                conversation_id=standard_conversation_id,
                 conversation_type="channel"
             )
 
@@ -454,5 +469,5 @@ class TestManager:
             assert "created_at" not in result[0]
             assert "F12345678" in conversation_info.attachments
             manager.attachment_cache.add_attachment.assert_called_once_with(
-                "T12345678/C87654321", attachment_mock
+                standard_conversation_id, attachment_mock
             )
