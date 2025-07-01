@@ -54,6 +54,16 @@ class BaseHistoryFetcher(ABC):
         if not self.conversation:
             return []
 
+        logging.info(
+            f"Fetching history for conversation {self.conversation.conversation_id} "\
+            f"(name [{self.conversation.conversation_name}]) "\
+            f"with following params: "\
+            f"anchor=[{self.anchor}], "\
+            f"before=[{self.before}], "\
+            f"after=[{self.after}], "\
+            f"history_limit=[{self.history_limit}]"
+        )
+
         if self.anchor:
             return await self._fetch_from_api()
 
