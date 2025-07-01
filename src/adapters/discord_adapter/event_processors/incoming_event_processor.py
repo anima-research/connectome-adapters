@@ -21,6 +21,8 @@ class DiscordIncomingEventType(str, Enum):
     ADDED_REACTION = "added_reaction"
     REMOVED_REACTION = "removed_reaction"
     FETCH_HISTORY = "fetch_history"
+    RENAMED_SERVER = "renamed_server"
+    RENAMED_CONVERSATION = "renamed_conversation"
 
 class IncomingEventProcessor(BaseIncomingEventProcessor):
     """Discord events processor"""
@@ -33,8 +35,7 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             client: Discord client instance
             conversation_manager: Conversation manager for tracking message history
         """
-        super().__init__(config, client)
-        self.conversation_manager = conversation_manager
+        super().__init__(config, client, conversation_manager)
         self.downloader = Downloader(self.config)
 
     def _get_event_handlers(self) -> Dict[str, Callable]:
@@ -49,7 +50,9 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             DiscordIncomingEventType.DELETED_MESSAGE: self._handle_deleted_message,
             DiscordIncomingEventType.ADDED_REACTION: self._handle_reaction,
             DiscordIncomingEventType.REMOVED_REACTION: self._handle_reaction,
-            DiscordIncomingEventType.FETCH_HISTORY: self._handle_fetch_history
+            DiscordIncomingEventType.FETCH_HISTORY: self._handle_fetch_history,
+            DiscordIncomingEventType.RENAMED_SERVER: self._handle_rename,
+            DiscordIncomingEventType.RENAMED_CONVERSATION: self._handle_rename
         }
 
     async def _handle_message(self, event: Any) -> List[Dict[str, Any]]:
@@ -70,7 +73,8 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
 
             delta = await self.conversation_manager.add_to_conversation({
                 "message": event,
-                "attachments": await self.downloader.download_attachment(event)
+                "attachments": await self.downloader.download_attachment(event),
+                "server": getattr(event, "guild", None)
             })
 
             if delta:

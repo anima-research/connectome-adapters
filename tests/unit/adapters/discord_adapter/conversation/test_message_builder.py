@@ -44,10 +44,16 @@ class TestMessageBuilder:
         )
 
     @pytest.fixture
-    def mock_conversation_info(self):
+    def standard_conversation_id(self):
+        """Create a standard conversation ID for testing"""
+        return "discord_FeKw08M4keuw8e9gnsQZ"
+
+    @pytest.fixture
+    def mock_conversation_info(self, standard_conversation_id):
         """Create a mock conversation info"""
         return ConversationInfo(
-            conversation_id="123456789",
+            platform_conversation_id="123456789",
+            conversation_id=standard_conversation_id,
             conversation_type="dm"
         )
 
@@ -64,12 +70,16 @@ class TestMessageBuilder:
         assert len(builder.message_data) == 0
         assert builder.reset() is builder  # Should return self for chaining
 
-    def test_with_basic_info(self, builder, mock_discord_message, mock_conversation_info):
+    def test_with_basic_info(self,
+                             builder,
+                             mock_discord_message,
+                             mock_conversation_info,
+                             standard_conversation_id):
         """Test adding basic info from a Discord message"""
         result = builder.with_basic_info(mock_discord_message, mock_conversation_info)
 
         assert builder.message_data["message_id"] == "123"
-        assert builder.message_data["conversation_id"] == "123456789"
+        assert builder.message_data["conversation_id"] == standard_conversation_id
         assert builder.message_data["timestamp"] == 1609502400  # 2021-01-01 12:00:00 UTC in seconds
         assert builder.message_data["is_direct_message"] is True
         assert builder.message_data["edit_timestamp"] is None
@@ -119,11 +129,11 @@ class TestMessageBuilder:
         assert "reply_to_message_id" not in builder.message_data
         assert result is builder
 
-    def test_build(self, builder):
+    def test_build(self, builder, standard_conversation_id):
         """Test building the final message object"""
         builder.message_data = {
             "message_id": "123456789",
-            "conversation_id": "987654321",
+            "conversation_id": standard_conversation_id,
             "text": "Test Discord message"
         }
 
@@ -131,7 +141,7 @@ class TestMessageBuilder:
 
         assert result is not builder.message_data  # Check it's a copy
         assert result["message_id"] == "123456789"
-        assert result["conversation_id"] == "987654321"
+        assert result["conversation_id"] == standard_conversation_id
         assert result["text"] == "Test Discord message"
 
     def test_full_build_chain(self,
@@ -139,7 +149,8 @@ class TestMessageBuilder:
                               mock_discord_message,
                               mock_sender,
                               mock_thread_info,
-                              mock_conversation_info):
+                              mock_conversation_info,
+                              standard_conversation_id):
         """Test a complete builder chain"""
         result = builder.reset() \
             .with_basic_info(mock_discord_message, mock_conversation_info) \
@@ -149,7 +160,7 @@ class TestMessageBuilder:
             .build()
 
         assert result["message_id"] == "123"
-        assert result["conversation_id"] == "123456789"
+        assert result["conversation_id"] == standard_conversation_id
         assert result["timestamp"] == 1609502400
         assert result["sender_id"] == "789123456"
         assert result["sender_name"] == "Discord User"

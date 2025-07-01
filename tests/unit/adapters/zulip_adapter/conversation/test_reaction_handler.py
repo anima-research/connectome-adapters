@@ -10,11 +10,16 @@ class TestReactionHandler:
     """Tests for the Zulip ReactionHandler class"""
 
     @pytest.fixture
-    def cached_message(self):
+    def standard_conversation_id(self):
+        """Create a standard conversation ID"""
+        return "zulip_wWrMhAlqbPvWgzzVrBvL"
+
+    @pytest.fixture
+    def cached_message(self, standard_conversation_id):
         """Create a cached message with initial reactions"""
         cached_msg = CachedMessage(
             message_id="123",
-            conversation_id="456",
+            conversation_id=standard_conversation_id,
             text="Test message",
             sender_id="789",
             sender_name="Test User",
@@ -28,9 +33,12 @@ class TestReactionHandler:
         return cached_msg
 
     @pytest.fixture
-    def delta(self):
+    def delta(self, standard_conversation_id):
         """Create a ConversationDelta object"""
-        return ConversationDelta(conversation_id="456", message_id="123")
+        return ConversationDelta(
+            conversation_id=standard_conversation_id,
+            message_id="123"
+        )
 
     def test_update_message_reactions_add(self, cached_message, delta):
         """Test updating delta when a reaction is added"""

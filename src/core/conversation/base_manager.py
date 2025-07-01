@@ -1,4 +1,6 @@
 import asyncio
+import base64
+import hashlib
 import os
 
 from abc import ABC, abstractmethod
@@ -22,12 +24,29 @@ class BaseManager(ABC):
             start_maintenance: Whether to start the maintenance loop
         """
         self.config = config
+        self.adapter_type = config.get_setting("adapter", "adapter_type")
         self.conversations: Dict[str, BaseConversationInfo] = {}
         self._lock = asyncio.Lock()
         self.message_cache = MessageCache(config, start_maintenance)
         self.attachment_cache = AttachmentCache(config, start_maintenance)
         self.message_builder = None # set by child class
         self.thread_handler = None # set by child class
+
+    async def conversation_exists(self, event: Any) -> bool:
+        """Check if a conversation exists for a given event
+
+        Args:
+            event: The platform event to check
+
+        Returns:
+            True if the conversation exists, False otherwise
+        """
+        platform_conversation_id = await self._get_platform_conversation_id(event)
+
+        if not platform_conversation_id:
+            return False
+
+        return self._generate_deterministic_conversation_id(platform_conversation_id) in self.conversations
 
     def get_conversation(self, conversation_id: str) -> Optional[BaseConversationInfo]:
         """Get the conversation info for a given conversation ID
@@ -112,7 +131,7 @@ class BaseManager(ABC):
             if not message:
                 return {}
 
-            conversation_info = await self._get_or_create_conversation_info(message)
+            conversation_info = await self._get_or_create_conversation_info(event)
             if not conversation_info:
                 return {}
 
@@ -126,6 +145,9 @@ class BaseManager(ABC):
             attachments = await self._update_attachment(conversation_info, attachments)
             for attachment in attachments:
                 cached_msg.attachments.add(attachment["attachment_id"])
+
+            if not conversation_info.conversation_name:
+                await self._update_conversation_name(event, conversation_info)
 
             delta = self._create_conversation_delta(event, conversation_info)
             delta.message_id = cached_msg.message_id
@@ -249,29 +271,69 @@ class BaseManager(ABC):
 
         return result
 
-    async def _get_or_create_conversation_info(self, message: Any) -> Optional[BaseConversationInfo]:
+    async def _get_or_create_conversation_info(self, event: Any) -> Optional[BaseConversationInfo]:
         """Get existing conversation info or create a new one
 
         Args:
-            message: Message object
+            event: Event object
 
         Returns:
            Conversation info object or None if conversation can't be determined
         """
-        conversation_id = await self._get_conversation_id(message)
-
-        if not conversation_id:
+        platform_conversation_id = await self._get_platform_conversation_id(event["message"])
+        if not platform_conversation_id:
             return None
+
+        conversation_id = self._generate_deterministic_conversation_id(platform_conversation_id)
         if conversation_id in self.conversations:
             return self.conversations[conversation_id]
 
         self.conversations[conversation_id] = self._create_conversation_info(
-            conversation_id,
-            await self._get_conversation_type(message),
-            await self._get_conversation_name(message)
+            platform_conversation_id=platform_conversation_id,
+            conversation_id=conversation_id,
+            conversation_type=await self._get_conversation_type(event["message"]),
+            server=event.get("server", None)
         )
 
         return self.conversations[conversation_id]
+
+    def _generate_deterministic_conversation_id(self, platform_id):
+        """Generate a deterministic standardized ID from platform-specific information.
+
+        Args:
+            platform_id: The platform's native conversation ID
+
+        Returns:
+            A deterministic standardized ID that will be the same each time
+            for the same input parameters if the platform_id exists
+        """
+        if platform_id.startswith(f"{self.adapter_type}_"):
+            return platform_id
+
+        hash_obj = hashlib.sha256(str(platform_id).encode("utf-8"))
+        hash_bytes = hash_obj.digest()
+        b64_id = base64.b64encode(hash_bytes[:15]).decode("ascii").rstrip("=")
+        alphanumeric_id = b64_id.replace("+", "A").replace("/", "B")
+
+        return f"{self.adapter_type}_{alphanumeric_id}"
+
+    def _get_custom_conversation_name(self, conversation_info: BaseConversationInfo) -> str:
+        """Get the custom conversation name
+
+        Args:
+            conversation_info: Conversation info object
+
+        Returns:
+            Custom conversation name
+        """
+        name = "DM"
+
+
+        for user in conversation_info.known_members.values():
+            if not user.is_bot:
+                name += f"_{user.display_name.replace(' ', '_')}"
+
+        return name
 
     def _get_mentions(self, delta: ConversationDelta, cached_msg: CachedMessage, message: Any) -> List[str]:
         """Get the mentions for a given cached message
@@ -301,7 +363,11 @@ class BaseManager(ABC):
         Returns:
             Conversation delta object
         """
-        delta = ConversationDelta(conversation_id=conversation_info.conversation_id)
+        delta = ConversationDelta(
+            conversation_id=conversation_info.conversation_id,
+            conversation_name=conversation_info.conversation_name,
+            server_name=conversation_info.server_name
+        )
 
         if conversation_info.just_started:
             delta.fetch_history = True
@@ -383,8 +449,52 @@ class BaseManager(ABC):
                 "mentions": mentions
             })
 
+    def _update_server_metadata(self,
+                                conversation: BaseConversationInfo,
+                                server_id: str,
+                                new_name: str) -> bool:
+        """Update the server metadata
+
+        Args:
+            conversation: ConversationInfo object
+            server_id: Server ID
+            new_name: New server name
+
+        Returns:
+            True if the server metadata was updated, False otherwise
+        """
+        if conversation.server_id != server_id:
+            return False
+        conversation.server_name = new_name
+        return True
+
+    def _update_conversation_metadata(self,
+                                      conversation: BaseConversationInfo,
+                                      platform_conversation_id: str,
+                                      new_name: str) -> bool:
+        """Update the conversation metadata
+
+        Args:
+            conversation: ConversationInfo object
+            platform_conversation_id: Platform conversation ID
+            new_name: New conversation name
+
+        Returns:
+            True if the conversation metadata was updated, False otherwise
+        """
+        if conversation.platform_conversation_id != platform_conversation_id or \
+           conversation.conversation_name == new_name:
+            return False
+        conversation.conversation_name = new_name
+        return True
+
     @abstractmethod
-    async def _get_conversation_id(self, message: Any) -> Optional[str]:
+    async def update_metadata(self, event: Any) -> Dict[str, Any]:
+        """Update the conversation metadata"""
+        raise NotImplementedError("Child classes must implement _update_metadata")
+
+    @abstractmethod
+    async def _get_platform_conversation_id(self, message: Any) -> Optional[str]:
         """Get the conversation ID from a message"""
         raise NotImplementedError("Child classes must implement get_conversation_id")
 
@@ -399,15 +509,16 @@ class BaseManager(ABC):
         raise NotImplementedError("Child classes must implement get_conversation_type")
 
     @abstractmethod
-    async def _get_conversation_name(self, message: Any) -> Optional[str]:
-        """Get the conversation name from a message"""
-        raise NotImplementedError("Child classes must implement get_conversation_name")
+    async def _update_conversation_name(self, event: Any, conversation_info: Any) -> None:
+        """Update the conversation name"""
+        raise NotImplementedError("Child classes must implement _update_conversation_name")
 
     @abstractmethod
     def _create_conversation_info(self,
+                                  platform_conversation_id: str,
                                   conversation_id: str,
                                   conversation_type: str,
-                                  conversation_name: Optional[str] = None) -> BaseConversationInfo:
+                                  server: Optional[Any] = None) -> BaseConversationInfo:
         """Create a conversation info object"""
         raise NotImplementedError("Child classes must implement create_conversation_info")
 

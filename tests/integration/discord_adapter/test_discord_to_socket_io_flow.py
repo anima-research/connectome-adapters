@@ -79,15 +79,21 @@ class TestDiscordToSocketIOFlowIntegration:
         return adapter
 
     @pytest.fixture
-    def setup_channel_conversation(self, adapter):
+    def standard_conversation_id(self):
+        """Standard conversation ID"""
+        return "discord_2SV7UT3h2SpMid0xZNcS"
+
+    @pytest.fixture
+    def setup_channel_conversation(self, adapter, standard_conversation_id):
         """Setup a test channel conversation"""
         def _setup():
             conversation = ConversationInfo(
-                conversation_id="987654321/123456789",
+                platform_conversation_id="987654321/123456789",
+                conversation_id=standard_conversation_id,
                 conversation_type="channel",
                 conversation_name="general"
             )
-            adapter.conversation_manager.conversations["987654321/123456789"] = conversation
+            adapter.conversation_manager.conversations[standard_conversation_id] = conversation
             return conversation
         return _setup
 
@@ -154,6 +160,7 @@ class TestDiscordToSocketIOFlowIntegration:
                 # Guild
                 guild = MagicMock(spec=discord.Guild)
                 guild.id = 987654321
+                guild.name = "Test Server"
                 message.guild = guild
 
             message.channel = channel
@@ -242,7 +249,10 @@ class TestDiscordToSocketIOFlowIntegration:
     # =============== TEST METHODS ===============
 
     @pytest.mark.asyncio
-    async def test_receive_message_with_attachment_flow(self, adapter, create_discord_event):
+    async def test_receive_message_with_attachment_flow(self,
+                                                        adapter,
+                                                        create_discord_event,
+                                                        standard_conversation_id):
         """Test flow from Discord message with attachment to socket.io event"""
         event = create_discord_event(
             event_type="new_message",
@@ -269,10 +279,10 @@ class TestDiscordToSocketIOFlowIntegration:
             assert "attachments" in result[2]["data"]
             assert len(result[2]["data"]["attachments"]) == 1
 
-            assert "987654321/123456789" in adapter.conversation_manager.conversations
-            assert len(adapter.conversation_manager.conversations["987654321/123456789"].messages) == 1
+            assert standard_conversation_id in adapter.conversation_manager.conversations
+            assert len(adapter.conversation_manager.conversations[standard_conversation_id].messages) == 1
 
-            conversation_messages = adapter.conversation_manager.message_cache.messages.get("987654321/123456789", {})
+            conversation_messages = adapter.conversation_manager.message_cache.messages.get(standard_conversation_id, {})
             assert len(conversation_messages) == 1
 
             cached_message = next(iter(conversation_messages.values()))
@@ -295,10 +305,11 @@ class TestDiscordToSocketIOFlowIntegration:
                                        adapter,
                                        setup_channel_conversation,
                                        setup_message,
-                                       create_discord_event):
+                                       create_discord_event,
+                                       standard_conversation_id):
         """Test flow from Discord edited message to socket.io event"""
         setup_channel_conversation()
-        await setup_message("987654321/123456789", message_id="111222333")
+        await setup_message(standard_conversation_id, message_id="111222333")
 
         event = create_discord_event(event_type="edited_message", message_type="channel")
         result = await adapter.incoming_events_processor.process_event(event)
@@ -307,11 +318,11 @@ class TestDiscordToSocketIOFlowIntegration:
         assert len(result) > 0, "Expected at least one event to be generated"
 
         assert result[0]["event_type"] == "message_updated"
-        assert result[0]["data"]["conversation_id"] == "987654321/123456789"
+        assert result[0]["data"]["conversation_id"] == standard_conversation_id
         assert result[0]["data"]["message_id"] == "111222333"
         assert result[0]["data"]["new_text"] == "Edited message content"
 
-        conversation_messages = adapter.conversation_manager.message_cache.messages.get("987654321/123456789", {})
+        conversation_messages = adapter.conversation_manager.message_cache.messages.get(standard_conversation_id, {})
         assert len(conversation_messages) == 1
 
         cached_message = next(iter(conversation_messages.values()))
@@ -322,10 +333,11 @@ class TestDiscordToSocketIOFlowIntegration:
                                     adapter,
                                     setup_channel_conversation,
                                     setup_message,
-                                    create_discord_event):
+                                    create_discord_event,
+                                    standard_conversation_id):
         """Test flow from Discord pin message to socket.io event"""
         setup_channel_conversation()
-        await setup_message("987654321/123456789", message_id="111222333", is_pinned=False)
+        await setup_message(standard_conversation_id, message_id="111222333", is_pinned=False)
 
         event = create_discord_event(event_type="edited_message", message_type="channel", is_pinned=True)
         result = await adapter.incoming_events_processor.process_event(event)
@@ -334,17 +346,17 @@ class TestDiscordToSocketIOFlowIntegration:
         assert len(result) == 2, "Expected two events to be generated: message update and pin"
 
         update_event = [e for e in result if e["event_type"] == "message_updated"][0]
-        assert update_event["data"]["conversation_id"] == "987654321/123456789"
+        assert update_event["data"]["conversation_id"] == standard_conversation_id
         assert update_event["data"]["message_id"] == "111222333"
 
         pin_event = [e for e in result if e["event_type"] == "message_pinned"][0]
-        assert pin_event["data"]["conversation_id"] == "987654321/123456789"
+        assert pin_event["data"]["conversation_id"] == standard_conversation_id
         assert pin_event["data"]["message_id"] == "111222333"
 
-        conversation = adapter.conversation_manager.conversations["987654321/123456789"]
+        conversation = adapter.conversation_manager.conversations[standard_conversation_id]
         assert "111222333" in conversation.pinned_messages
 
-        cached_message = adapter.conversation_manager.message_cache.messages["987654321/123456789"]["111222333"]
+        cached_message = adapter.conversation_manager.message_cache.messages[standard_conversation_id]["111222333"]
         assert cached_message.is_pinned is True
 
     @pytest.mark.asyncio
@@ -352,10 +364,11 @@ class TestDiscordToSocketIOFlowIntegration:
                                       adapter,
                                       setup_channel_conversation,
                                       setup_message,
-                                      create_discord_event):
+                                      create_discord_event,
+                                      standard_conversation_id):
         """Test flow from Discord unpin message to socket.io event"""
         setup_channel_conversation()
-        await setup_message("987654321/123456789", message_id="111222333", is_pinned=True)
+        await setup_message(standard_conversation_id, message_id="111222333", is_pinned=True)
 
         event = create_discord_event(event_type="edited_message", message_type="channel", is_pinned=False)
         result = await adapter.incoming_events_processor.process_event(event)
@@ -364,17 +377,17 @@ class TestDiscordToSocketIOFlowIntegration:
         assert len(result) == 2, "Expected two events to be generated: message update and unpin"
 
         update_event = [e for e in result if e["event_type"] == "message_updated"][0]
-        assert update_event["data"]["conversation_id"] == "987654321/123456789"
+        assert update_event["data"]["conversation_id"] == standard_conversation_id
         assert update_event["data"]["message_id"] == "111222333"
 
         unpin_event = [e for e in result if e["event_type"] == "message_unpinned"][0]
-        assert unpin_event["data"]["conversation_id"] == "987654321/123456789"
+        assert unpin_event["data"]["conversation_id"] == standard_conversation_id
         assert unpin_event["data"]["message_id"] == "111222333"
 
-        conversation = adapter.conversation_manager.conversations["987654321/123456789"]
+        conversation = adapter.conversation_manager.conversations[standard_conversation_id]
         assert "111222333" not in conversation.pinned_messages
 
-        cached_message = adapter.conversation_manager.message_cache.messages["987654321/123456789"]["111222333"]
+        cached_message = adapter.conversation_manager.message_cache.messages[standard_conversation_id]["111222333"]
         assert cached_message.is_pinned is False
 
     @pytest.mark.asyncio
@@ -382,10 +395,11 @@ class TestDiscordToSocketIOFlowIntegration:
                                         adapter,
                                         setup_channel_conversation,
                                         setup_message,
-                                        create_discord_event):
+                                        create_discord_event,
+                                        standard_conversation_id):
         """Test flow from Discord deleted message to socket.io event"""
         setup_channel_conversation()
-        await setup_message("987654321/123456789", message_id="111222333")
+        await setup_message(standard_conversation_id, message_id="111222333")
 
         event = create_discord_event(event_type="deleted_message", message_type="channel")
         result = await adapter.incoming_events_processor.process_event(event)
@@ -393,11 +407,11 @@ class TestDiscordToSocketIOFlowIntegration:
         assert isinstance(result, list), "Expected process_event to return a list of events"
         assert len(result) == 1, "Expected one event to be generated"
         assert result[0]["event_type"] == "message_deleted"
-        assert result[0]["data"]["conversation_id"] == "987654321/123456789"
+        assert result[0]["data"]["conversation_id"] == standard_conversation_id
         assert result[0]["data"]["message_id"] == "111222333"
 
-        conversation = adapter.conversation_manager.conversations["987654321/123456789"]
-        assert "111222333" not in adapter.conversation_manager.message_cache.messages.get("987654321/123456789", {})
+        conversation = adapter.conversation_manager.conversations[standard_conversation_id]
+        assert "111222333" not in adapter.conversation_manager.message_cache.messages.get(standard_conversation_id, {})
         assert len(conversation.messages) == 0
 
     @pytest.mark.asyncio
@@ -405,10 +419,11 @@ class TestDiscordToSocketIOFlowIntegration:
                                        adapter,
                                        setup_channel_conversation,
                                        setup_message,
-                                       create_discord_event):
+                                       create_discord_event,
+                                       standard_conversation_id):
         """Test flow from Discord added reaction to socket.io event"""
         setup_channel_conversation()
-        await setup_message("987654321/123456789", message_id="111222333")
+        await setup_message(standard_conversation_id, message_id="111222333")
 
         event = create_discord_event(event_type="added_reaction", message_type="channel", with_emoji="👍")
         result = await adapter.incoming_events_processor.process_event(event)
@@ -416,11 +431,11 @@ class TestDiscordToSocketIOFlowIntegration:
         assert isinstance(result, list), "Expected process_event to return a list of events"
         assert len(result) == 1, "Expected one event to be generated"
         assert result[0]["event_type"] == "reaction_added"
-        assert result[0]["data"]["conversation_id"] == "987654321/123456789"
+        assert result[0]["data"]["conversation_id"] == standard_conversation_id
         assert result[0]["data"]["message_id"] == "111222333"
         assert result[0]["data"]["emoji"] == "thumbs_up"
 
-        cached_message = adapter.conversation_manager.message_cache.messages["987654321/123456789"]["111222333"]
+        cached_message = adapter.conversation_manager.message_cache.messages[standard_conversation_id]["111222333"]
         assert "thumbs_up" in cached_message.reactions, "Reaction should be added to message"
         assert cached_message.reactions["thumbs_up"] == 1, "Reaction count should be 1"
 
@@ -429,10 +444,11 @@ class TestDiscordToSocketIOFlowIntegration:
                                          adapter,
                                          setup_channel_conversation,
                                          setup_message,
-                                         create_discord_event):
+                                         create_discord_event,
+                                         standard_conversation_id):
         """Test flow from Discord removed reaction to socket.io event"""
         setup_channel_conversation()
-        await setup_message("987654321/123456789", message_id="111222333", reactions={"thumbs_up": 1})
+        await setup_message(standard_conversation_id, message_id="111222333", reactions={"thumbs_up": 1})
 
         event = create_discord_event(event_type="removed_reaction", message_type="channel", with_emoji="👍")
         result = await adapter.incoming_events_processor.process_event(event)
@@ -440,9 +456,9 @@ class TestDiscordToSocketIOFlowIntegration:
         assert isinstance(result, list), "Expected process_event to return a list of events"
         assert len(result) == 1, "Expected one event to be generated"
         assert result[0]["event_type"] == "reaction_removed"
-        assert result[0]["data"]["conversation_id"] == "987654321/123456789"
+        assert result[0]["data"]["conversation_id"] == standard_conversation_id
         assert result[0]["data"]["message_id"] == "111222333"
         assert result[0]["data"]["emoji"] == "thumbs_up"
 
-        cached_message = adapter.conversation_manager.message_cache.messages["987654321/123456789"]["111222333"]
+        cached_message = adapter.conversation_manager.message_cache.messages[standard_conversation_id]["111222333"]
         assert "thumbs_up" not in cached_message.reactions, "Reaction should be removed from message"

@@ -17,6 +17,8 @@ class ZulipIncomingEventType(str, Enum):
     UPDATE_MESSAGE = "update_message"
     DELETE_MESSAGE = "delete_message"
     REACTION = "reaction"
+    REALM = "realm"
+    STREAM = "stream"
     FETCH_HISTORY = "fetch_history"
 
 class IncomingEventProcessor(BaseIncomingEventProcessor):
@@ -30,8 +32,7 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             client: Zulip client instance
             conversation_manager: Conversation manager for tracking message history
         """
-        super().__init__(config, client)
-        self.conversation_manager = conversation_manager
+        super().__init__(config, client, conversation_manager)
         self.downloader = Downloader(self.config, self.client)
 
     def _get_event_handlers(self) -> Dict[str, Callable]:
@@ -45,6 +46,8 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             ZulipIncomingEventType.UPDATE_MESSAGE: self._handle_update_message,
             ZulipIncomingEventType.DELETE_MESSAGE: self._handle_delete_message,
             ZulipIncomingEventType.REACTION: self._handle_reaction,
+            ZulipIncomingEventType.REALM: self._handle_rename,
+            ZulipIncomingEventType.STREAM: self._handle_rename,
             ZulipIncomingEventType.FETCH_HISTORY: self._handle_fetch_history
         }
 
@@ -65,9 +68,14 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             if self._skip_message(message):
                 return events
 
+            server = None
+            if not await self.conversation_manager.conversation_exists(message):
+                server = self.client.get_server_settings()
+
             delta = await self.conversation_manager.add_to_conversation({
                 "message": message,
-                "attachments": await self.downloader.download_attachment(message)
+                "attachments": await self.downloader.download_attachment(message),
+                "server": server
             })
 
             if delta:
@@ -127,20 +135,25 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             List of events to emit
         """
         events = []
-        delta = await self.conversation_manager.migrate_between_conversations(event)
+        delta = await self.conversation_manager.migrate_between_conversations(
+            {"message": event, "server": self.client.get_server_settings()}
+        )
 
         if delta:
             if delta.get("fetch_history", False):
                 events.append(self.incoming_event_builder.conversation_started(delta))
 
-                history = await self._fetch_history(delta["conversation_id"], anchor=delta.get("message_id", "newest"))
+                history = await self._fetch_history(delta["conversation_id"], anchor="newest")
                 events.append(self.incoming_event_builder.history_fetched(delta, history))
 
-            old_conversation_id = f"{event.get('stream_id', '')}/{event.get('orig_subject', '')}"
-            for message_id in delta.get("deleted_message_ids", []):
-                events.append(
-                    self.incoming_event_builder.message_deleted(message_id, old_conversation_id)
-                )
+            old_conversation = self.conversation_manager.get_conversation(
+                f"{event.get('stream_id', '')}/{event.get('orig_subject', '')}"
+            )
+            if old_conversation:
+                for message_id in delta.get("deleted_message_ids", []):
+                    events.append(
+                        self.incoming_event_builder.message_deleted(message_id, old_conversation.conversation_id)
+                    )
             for migrated_message in delta.get("added_messages", []):
                 events.append(self.incoming_event_builder.message_received(migrated_message))
 
@@ -224,6 +237,17 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             logging.error(f"Error handling reaction event: {e}", exc_info=True)
 
         return events
+
+    async def _handle_rename(self, event: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Handle a team or channel rename event from Zulip
+
+        Args:
+            event: An event object
+
+        Returns:
+            List of events to emit
+        """
+        return await super()._handle_rename({"event": event})
 
     def _history_fetcher_class(self):
         """History fetcher class"""

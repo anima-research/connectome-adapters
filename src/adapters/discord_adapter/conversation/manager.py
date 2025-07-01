@@ -39,7 +39,43 @@ class Manager(BaseManager):
         self.message_builder = MessageBuilder()
         self.thread_handler = ThreadHandler(self.message_cache)
 
-    async def _get_conversation_id(self, message: Any) -> Optional[str]:
+    async def update_metadata(self, event: Any) -> List[Dict[str, Any]]:
+        """Update the conversation metadata
+
+        Args:
+            event: Event object
+
+        Returns:
+            Dictionary with delta information
+        """
+        deltas = []
+        server_id = None
+        platform_conversation_id = None
+        new_name = event.name
+
+        if hasattr(event, "guild"):
+            platform_conversation_id = f"{event.guild.id}/{event.id}"
+        else:
+            server_id = str(event.id)
+
+        for conversation in self.conversations.values():
+            if server_id:
+                updated = self._update_server_metadata(conversation, server_id, new_name)
+            else:
+                updated = self._update_conversation_metadata(conversation, platform_conversation_id, new_name)
+
+            if updated:
+                deltas.append(
+                    ConversationDelta(
+                        conversation_id=conversation.conversation_id,
+                        conversation_name=conversation.conversation_name,
+                        server_name=conversation.server_name
+                    ).to_dict()
+                )
+
+        return deltas
+
+    async def _get_platform_conversation_id(self, message: Any) -> Optional[str]:
         """Get the conversation ID from a Discord message
 
         Args:
@@ -72,8 +108,9 @@ class Manager(BaseManager):
         """
         channel_id = message.channel_id
         guild_id = message.guild_id
-
-        return f"{guild_id}/{channel_id}" if guild_id else f"{channel_id}"
+        return self._generate_deterministic_conversation_id(
+            f"{guild_id}/{channel_id}" if guild_id else f"{channel_id}"
+        )
 
     async def _get_conversation_type(self, message: Any) -> str:
         """Get the conversation type from a Discord message
@@ -90,37 +127,46 @@ class Manager(BaseManager):
             return "thread"
         return "channel"
 
-    async def _get_conversation_name(self, message: Any) -> Optional[str]:
-        """Get the conversation name from a Discord message
+    async def _update_conversation_name(self, event: Any, conversation_info: Any) -> None:
+        """Update the conversation name
 
         Args:
-            message: Discord message object
+            event: Event object
+            conversation_info: Conversation info object
 
         Returns:
             Conversation name as string, or None if not found
         """
-        if isinstance(message.channel, discord.DMChannel):
-            return None
-        return message.channel.name
+        if isinstance(event["message"].channel, discord.DMChannel):
+            conversation_info.conversation_name = self._get_custom_conversation_name(conversation_info)
+            return
+
+        conversation_info.conversation_name = event["message"].channel.name
 
     def _create_conversation_info(self,
+                                  platform_conversation_id: str,
                                   conversation_id: str,
                                   conversation_type: str,
-                                  conversation_name: Optional[str] = None) -> ConversationInfo:
+                                  server: Optional[str] = None) -> ConversationInfo:
         """Create a conversation info object
 
         Args:
+            platform_conversation_id: Platform conversation ID
             conversation_id: Conversation ID
             conversation_type: Conversation type
-            conversation_name: Conversation name
-
+            server: Server object
         Returns:
             Conversation info object
         """
+        server_id = str(server.id) if server else None
+        server_name = server.name if server else None
+
         return ConversationInfo(
+            platform_conversation_id=platform_conversation_id,
             conversation_id=conversation_id,
             conversation_type=conversation_type,
-            conversation_name=conversation_name,
+            server_id=server_id,
+            server_name=server_name,
             just_started=True
         )
 
@@ -352,6 +398,4 @@ class Manager(BaseManager):
         Returns:
             Conversation info object or None if conversation not found
         """
-        return self.get_conversation(
-            await self._get_conversation_id_from_update(event)
-        )
+        return self.get_conversation(await self._get_conversation_id_from_update(event))

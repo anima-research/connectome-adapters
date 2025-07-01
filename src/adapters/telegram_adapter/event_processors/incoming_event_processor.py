@@ -4,7 +4,6 @@ import logging
 import os
 import telethon
 
-from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
 
@@ -34,8 +33,7 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             client: Telethon client instance
             conversation_manager: Conversation manager for tracking message history
         """
-        super().__init__(config, client)
-        self.conversation_manager = conversation_manager
+        super().__init__(config, client, conversation_manager)
         self.downloader = Downloader(self.config, self.client)
 
     def _get_event_handlers(self) -> Dict[str, Callable]:
@@ -65,10 +63,17 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
 
         try:
             message = event["event"].message
+            channel = None
+
+            if not await self.conversation_manager.conversation_exists(message):
+                channel = await self._get_channel(message)
+
             delta = await self.conversation_manager.add_to_conversation({
                 "message": message,
                 "user": await self._get_user(message),
-                "attachments": [await self.downloader.download_attachment(message)]
+                "attachments": [await self.downloader.download_attachment(message)],
+                "server": None,
+                "platform_conversation": channel
             })
 
             if delta:
@@ -157,10 +162,18 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
 
         try:
             if message and hasattr(message, "action_message") and message.action_message:
-                return await self._pin_message(message.action_message)
+                action_message = message.action_message
+                action = getattr(action_message, "action", None)
+
+                if action:
+                    action_type = type(action).__name__
+
+                    if action_type == "MessageActionPinMessage":
+                        return await self._pin_message(action_message)
+                    elif action_type == "MessageActionChatEditTitle":
+                        return await self._handle_rename({"event": action_message})
 
             if message and hasattr(message, "original_update") and message.original_update:
-                print(message.original_update)
                 return await self._unpin_message(message.original_update)
         except Exception as e:
             logging.error(f"Error handling chat action: {e}", exc_info=True)
@@ -188,6 +201,25 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
 
         return None
 
+    async def _get_channel(self, message: Any) -> Optional[Any]:
+        """Get channel information from Telegram
+
+        Args:
+            message: Telethon message object
+
+        Returns:
+            Telethon user object or None if not found
+        """
+        try:
+            await self.rate_limiter.limit_request("get_channel")
+
+            if message and hasattr(message, "peer_id") and hasattr(message.peer_id, "channel_id"):
+                return await self.client.get_entity(int(message.peer_id.channel_id))
+        except Exception as e:
+            logging.error(f"Error getting channel: {e}")
+
+        return None
+
     async def _pin_message(self, message: Any) -> List[Dict[str, Any]]:
         """Pin a message in Telegram
 
@@ -198,28 +230,22 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             List of events to emit (typically empty for this case)
         """
         events = []
+        delta = await self.conversation_manager.update_conversation({
+            "event_type": "pinned_message",
+            "message": message
+        })
 
-        if hasattr(message, "action"):
-            action = message.action
-            action_type = type(action).__name__
-
-            if action_type == "MessageActionPinMessage":
-                delta = await self.conversation_manager.update_conversation({
-                    "event_type": "pinned_message",
-                    "message": message
-                })
-
-                if delta:
-                    for message_id in delta.get("pinned_message_ids", []):
-                        events.append(
-                            self.incoming_event_builder.pin_status_update(
-                                "message_pinned",
-                                {
-                                    "message_id": message_id,
-                                    "conversation_id": delta["conversation_id"]
-                                }
-                            )
-                        )
+        if delta:
+            for message_id in delta.get("pinned_message_ids", []):
+                events.append(
+                    self.incoming_event_builder.pin_status_update(
+                        "message_pinned",
+                        {
+                            "message_id": message_id,
+                            "conversation_id": delta["conversation_id"]
+                        }
+                    )
+                )
 
         return events
 

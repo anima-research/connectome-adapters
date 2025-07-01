@@ -140,7 +140,7 @@ class HistoryFetcher(BaseHistoryFetcher):
             offset_date = int(offset_date)
 
         result = await self.client(functions.messages.GetHistoryRequest(
-            peer=int(self.conversation.conversation_id),
+            peer=int(self.conversation.platform_conversation_id),
             offset_id=offset_id,
             offset_date=offset_date,
             add_offset=0,

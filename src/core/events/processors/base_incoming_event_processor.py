@@ -12,15 +12,17 @@ from src.core.utils.config import Config
 class BaseIncomingEventProcessor(ABC):
     """Incoming events processor"""
 
-    def __init__(self, config: Config, client: Any):
+    def __init__(self, config: Config, client: Any, conversation_manager: Any):
         """Initialize the incoming events processor
 
         Args:
             config: Config instance
             client: Client instance
+            conversation_manager: Conversation manager instance
         """
         self.config = config
         self.client = client
+        self.conversation_manager = conversation_manager
         self.rate_limiter = RateLimiter.get_instance(self.config)
         self.incoming_event_builder = IncomingEventBuilder(
             self.config.get_setting("adapter", "adapter_type"),
@@ -113,3 +115,25 @@ class BaseIncomingEventProcessor(ABC):
     def _history_fetcher_class(self):
         """History fetcher class"""
         raise NotImplementedError("Child classes must implement _history_fetcher_class")
+
+    async def _handle_rename(self, event: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Handle a server or conversation rename event
+
+        Args:
+            event: An event object
+
+        Returns:
+            List of events to emit
+        """
+        try:
+            events = []
+            deltas = await self.conversation_manager.update_metadata(event["event"])
+
+            for delta in deltas:
+                events.append(self.incoming_event_builder.conversation_updated(delta))
+
+            return events
+        except Exception as e:
+            logging.error(f"Error handling renaming event: {e}", exc_info=True)
+
+        return []

@@ -20,10 +20,16 @@ class TestUserBuilder:
         return user
 
     @pytest.fixture
-    def conversation_info(self):
+    def standard_conversation_id(self):
+        """Setup a test conversation info"""
+        return "telegram_NanjgbGidWdUm1AKb3g8"
+
+    @pytest.fixture
+    def conversation_info(self, standard_conversation_id):
         """Create a conversation info object"""
         return ConversationInfo(
-            conversation_id="789",
+            platform_conversation_id="789",
+            conversation_id=standard_conversation_id,
             conversation_type="private"
         )
 

@@ -61,21 +61,27 @@ class TestSocketIOToTelegramFlowIntegration:
         return adapter
 
     @pytest.fixture
-    def setup_conversation(self, adapter):
+    def standard_conversation_id(self):
+        """Setup a test conversation info"""
+        return "telegram_s6jg4fmrGB46NvIx9nb3"
+
+    @pytest.fixture
+    def setup_conversation(self, adapter, standard_conversation_id):
         """Setup a test conversation with a user"""
         def _setup():
-            adapter.conversation_manager.conversations["456"] = ConversationInfo(
-                conversation_id="456",
+            adapter.conversation_manager.conversations[standard_conversation_id] = ConversationInfo(
+                platform_conversation_id="456",
+                conversation_id=standard_conversation_id,
                 conversation_type="private"
             )
-            return adapter.conversation_manager.conversations["456"]
+            return adapter.conversation_manager.conversations[standard_conversation_id]
         return _setup
 
     @pytest.fixture
-    def setup_conversation_known_member(self, adapter):
+    def setup_conversation_known_member(self, adapter, standard_conversation_id):
         """Setup a test conversation with a user"""
         def _setup():
-            adapter.conversation_manager.conversations["456"].known_members = {
+            adapter.conversation_manager.conversations[standard_conversation_id].known_members = {
                 "456": UserInfo(
                     user_id="456",
                     username="test_user",
@@ -83,16 +89,16 @@ class TestSocketIOToTelegramFlowIntegration:
                     last_name="User"
                 )
             }
-            return adapter.conversation_manager.conversations["456"]
+            return adapter.conversation_manager.conversations[standard_conversation_id]
         return _setup
 
     @pytest.fixture
-    def setup_message(self, adapter):
+    def setup_message(self, adapter, standard_conversation_id):
         """Setup a test message in the cache"""
         async def _setup(reactions=None):
             cached_msg = await adapter.conversation_manager.message_cache.add_message({
                 "message_id": "123",
-                "conversation_id": "456",
+                "conversation_id": standard_conversation_id,
                 "text": "Test message",
                 "timestamp": datetime.now()
             })
@@ -145,7 +151,8 @@ class TestSocketIOToTelegramFlowIntegration:
                                      adapter,
                                      telethon_client_mock,
                                      setup_conversation,
-                                     create_message_response):
+                                     create_message_response,
+                                     standard_conversation_id):
         """Test the complete flow from socket.io send_message to Telethon call"""
         setup_conversation()
 
@@ -159,7 +166,7 @@ class TestSocketIOToTelegramFlowIntegration:
         response = await adapter.outgoing_events_processor.process_event({
             "event_type": "send_message",
             "data": {
-                "conversation_id": "456",
+                "conversation_id": standard_conversation_id,
                 "text": "Hello, world!",
                 "thread_id": None
             }
@@ -175,16 +182,16 @@ class TestSocketIOToTelegramFlowIntegration:
         )
 
         assert len(adapter.conversation_manager.conversations) == 1
-        assert "456" in adapter.conversation_manager.conversations
-        assert adapter.conversation_manager.conversations["456"].conversation_type == "private"
+        assert standard_conversation_id in adapter.conversation_manager.conversations
+        assert adapter.conversation_manager.conversations[standard_conversation_id].conversation_type == "private"
 
         assert len(adapter.conversation_manager.message_cache.messages) == 1
-        assert "456" in adapter.conversation_manager.message_cache.messages
-        assert "123" in adapter.conversation_manager.message_cache.messages["456"]
+        assert standard_conversation_id in adapter.conversation_manager.message_cache.messages
+        assert "123" in adapter.conversation_manager.message_cache.messages[standard_conversation_id]
 
-        cached_message = adapter.conversation_manager.message_cache.messages["456"]["123"]
+        cached_message = adapter.conversation_manager.message_cache.messages[standard_conversation_id]["123"]
         assert cached_message.text == "Hello, world!"
-        assert cached_message.conversation_id == "456"
+        assert cached_message.conversation_id == standard_conversation_id
 
     @pytest.mark.asyncio
     async def test_edit_message_flow(self,
@@ -193,7 +200,8 @@ class TestSocketIOToTelegramFlowIntegration:
                                      setup_conversation,
                                      setup_conversation_known_member,
                                      setup_message,
-                                     create_message_response):
+                                     create_message_response,
+                                     standard_conversation_id):
         """Test the complete flow from socket.io edit_message to Telethon call"""
         entity = MagicMock()
         telethon_client_mock.get_entity.return_value = entity
@@ -208,7 +216,7 @@ class TestSocketIOToTelegramFlowIntegration:
         response = await adapter.outgoing_events_processor.process_event({
             "event_type": "edit_message",
             "data": {
-                "conversation_id": "456",
+                "conversation_id": standard_conversation_id,
                 "message_id": "123",
                 "text": "Edited message content"
             }
@@ -222,9 +230,9 @@ class TestSocketIOToTelegramFlowIntegration:
             text="Edited message content"
         )
 
-        assert adapter.conversation_manager.message_cache.messages["456"]["123"].text == "Edited message content"
+        assert adapter.conversation_manager.message_cache.messages[standard_conversation_id]["123"].text == "Edited message content"
 
-        conversation = adapter.conversation_manager.conversations["456"]
+        conversation = adapter.conversation_manager.conversations[standard_conversation_id]
         assert conversation.conversation_type == "private"
 
     @pytest.mark.asyncio
@@ -233,7 +241,8 @@ class TestSocketIOToTelegramFlowIntegration:
                                        telethon_client_mock,
                                        setup_conversation,
                                        setup_conversation_known_member,
-                                       setup_message):
+                                       setup_message,
+                                       standard_conversation_id):
         """Test the complete flow from socket.io delete_message to Telethon call"""
         entity = MagicMock()
         telethon_client_mock.get_entity.return_value = entity
@@ -246,7 +255,7 @@ class TestSocketIOToTelegramFlowIntegration:
         response = await adapter.outgoing_events_processor.process_event({
             "event_type": "delete_message",
             "data": {
-                "conversation_id": "456",
+                "conversation_id": standard_conversation_id,
                 "message_id": "123"
             }
         })
@@ -258,7 +267,7 @@ class TestSocketIOToTelegramFlowIntegration:
             message_ids=[123]
         )
 
-        assert "123" not in adapter.conversation_manager.message_cache.messages.get("456", {})
+        assert "123" not in adapter.conversation_manager.message_cache.messages.get(standard_conversation_id, {})
 
     @pytest.mark.asyncio
     async def test_add_reaction_flow(self,
@@ -267,7 +276,8 @@ class TestSocketIOToTelegramFlowIntegration:
                                      setup_conversation,
                                      setup_conversation_known_member,
                                      setup_message,
-                                     create_message_response):
+                                     create_message_response,
+                                     standard_conversation_id):
         """Test the complete flow from socket.io add_reaction to Telethon call"""
         entity = MagicMock()
         telethon_client_mock.get_entity.return_value = entity
@@ -294,7 +304,7 @@ class TestSocketIOToTelegramFlowIntegration:
             response = await adapter.outgoing_events_processor.process_event({
                 "event_type": "add_reaction",
                 "data": {
-                    "conversation_id": "456",
+                    "conversation_id": standard_conversation_id,
                     "message_id": "123",
                     "emoji": "thumbs_up"
                 }
@@ -310,7 +320,7 @@ class TestSocketIOToTelegramFlowIntegration:
 
             telethon_client_mock.assert_called_once_with(mock_send_reaction_request)
 
-            cached_message = adapter.conversation_manager.message_cache.messages["456"]["123"]
+            cached_message = adapter.conversation_manager.message_cache.messages[standard_conversation_id]["123"]
             assert "thumbs_up" in cached_message.reactions
             assert cached_message.reactions["thumbs_up"] == 1
 
@@ -321,7 +331,8 @@ class TestSocketIOToTelegramFlowIntegration:
                                         setup_conversation,
                                         setup_conversation_known_member,
                                         setup_message,
-                                        create_message_response):
+                                        create_message_response,
+                                        standard_conversation_id):
         """Test the complete flow from socket.io remove_reaction to Telethon call"""
         entity = MagicMock()
         telethon_client_mock.get_entity.return_value = entity
@@ -351,7 +362,7 @@ class TestSocketIOToTelegramFlowIntegration:
             response = await adapter.outgoing_events_processor.process_event({
                 "event_type": "remove_reaction",
                 "data": {
-                    "conversation_id": "456",
+                    "conversation_id": standard_conversation_id,
                     "message_id": "123",
                     "emoji": "thumbs_up"
                 }
@@ -369,7 +380,7 @@ class TestSocketIOToTelegramFlowIntegration:
 
             telethon_client_mock.assert_called_once_with(mock_send_reaction_request)
 
-            cached_message = adapter.conversation_manager.message_cache.messages["456"]["123"]
+            cached_message = adapter.conversation_manager.message_cache.messages[standard_conversation_id]["123"]
             assert "thumbs_up" not in cached_message.reactions
             assert len(cached_message.reactions) == 0
 
@@ -380,7 +391,8 @@ class TestSocketIOToTelegramFlowIntegration:
                                     setup_conversation,
                                     setup_conversation_known_member,
                                     setup_message,
-                                    create_message_response):
+                                    create_message_response,
+                                    standard_conversation_id):
         """Test the complete flow from socket.io pin_message to Telethon call"""
         telethon_client_mock.get_entity.return_value = MagicMock()
 
@@ -397,7 +409,7 @@ class TestSocketIOToTelegramFlowIntegration:
             response = await adapter.outgoing_events_processor.process_event({
                 "event_type": "pin_message",
                 "data": {
-                    "conversation_id": "456",
+                    "conversation_id": standard_conversation_id,
                     "message_id": "123"
                 }
             })
@@ -405,7 +417,7 @@ class TestSocketIOToTelegramFlowIntegration:
 
             telethon_client_mock.get_entity.assert_called_once()
             mock_functions.messages.UpdatePinnedMessageRequest.assert_called_once()
-            assert "123" in adapter.conversation_manager.conversations["456"].pinned_messages
+            assert "123" in adapter.conversation_manager.conversations[standard_conversation_id].pinned_messages
 
     @pytest.mark.asyncio
     async def test_unpin_message_flow(self,
@@ -414,7 +426,8 @@ class TestSocketIOToTelegramFlowIntegration:
                                       setup_conversation,
                                       setup_conversation_known_member,
                                       setup_message,
-                                      create_message_response):
+                                      create_message_response,
+                                      standard_conversation_id):
         """Test the complete flow from socket.io unpin_message to Telethon call"""
         telethon_client_mock.get_entity.return_value = MagicMock()
 
@@ -426,15 +439,15 @@ class TestSocketIOToTelegramFlowIntegration:
             setup_conversation()
             setup_conversation_known_member()
             await setup_message()
-            adapter.conversation_manager.conversations["456"].pinned_messages.add("123")
+            adapter.conversation_manager.conversations[standard_conversation_id].pinned_messages.add("123")
             telethon_client_mock.return_value = create_message_response()
 
-            assert "123" in adapter.conversation_manager.conversations["456"].pinned_messages
+            assert "123" in adapter.conversation_manager.conversations[standard_conversation_id].pinned_messages
 
             response = await adapter.outgoing_events_processor.process_event({
                 "event_type": "unpin_message",
                 "data": {
-                    "conversation_id": "456",
+                    "conversation_id": standard_conversation_id,
                     "message_id": "123"
                 }
             })
@@ -442,4 +455,4 @@ class TestSocketIOToTelegramFlowIntegration:
 
             telethon_client_mock.get_entity.assert_called_once()
             mock_functions.messages.UpdatePinnedMessageRequest.assert_called_once()
-            assert "123" not in adapter.conversation_manager.conversations["456"].pinned_messages
+            assert "123" not in adapter.conversation_manager.conversations[standard_conversation_id].pinned_messages

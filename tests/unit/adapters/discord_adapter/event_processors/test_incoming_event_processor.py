@@ -178,6 +178,11 @@ class TestIncomingEventProcessor:
             "event": reaction
         }
 
+    @pytest.fixture
+    def standard_conversation_id(self):
+        """Standard conversation ID"""
+        return "discord_59gyUvrZxm9MLO8wvrYB"
+
     class TestProcessEvent:
         """Tests for the process_event method"""
 
@@ -226,7 +231,10 @@ class TestIncomingEventProcessor:
 
         @pytest.mark.asyncio
         @pytest.mark.filterwarnings("ignore::RuntimeWarning")
-        async def test_handle_message(self, processor, message_event_mock):
+        async def test_handle_message(self,
+                                      processor,
+                                      message_event_mock,
+                                      standard_conversation_id):
             """Test handling a new message"""
             message = {
                 "conversation_id": "444555666/111222333",
@@ -237,7 +245,7 @@ class TestIncomingEventProcessor:
                 "attachments": []
             }
             delta = {
-                "conversation_id": "444555666/111222333",
+                "conversation_id": standard_conversation_id,
                 "fetch_history": True,
                 "added_messages": [message]
             }
@@ -285,7 +293,10 @@ class TestIncomingEventProcessor:
         """Tests for the _handle_edited_message method"""
 
         @pytest.mark.asyncio
-        async def test_handle_edited_message_content(self, processor, edited_message_event_mock):
+        async def test_handle_edited_message_content(self,
+                                                      processor,
+                                                      edited_message_event_mock,
+                                                      standard_conversation_id):
             """Test handling an edited message (content change)"""
             message = {
                 "conversation_id": "444555666/111222333",
@@ -294,7 +305,7 @@ class TestIncomingEventProcessor:
                 "timestamp": 1672574400000  # 2023-01-01T12:00:00
             }
             delta = {
-                "conversation_id": "444555666/111222333",
+                "conversation_id": standard_conversation_id,
                 "updated_messages": [message]
             }
 
@@ -315,10 +326,13 @@ class TestIncomingEventProcessor:
             processor.incoming_event_builder.message_updated.assert_called_once_with(message)
 
         @pytest.mark.asyncio
-        async def test_handle_edited_message_pin(self, processor, edited_message_event_mock):
+        async def test_handle_edited_message_pin(self,
+                                                 processor,
+                                                 edited_message_event_mock,
+                                                 standard_conversation_id):
             """Test handling an edited message (pin status change)"""
             delta = {
-                "conversation_id": "444555666/111222333",
+                "conversation_id": standard_conversation_id,
                 "pinned_message_ids": ["123456789"]
             }
 
@@ -336,15 +350,18 @@ class TestIncomingEventProcessor:
                 "message_pinned",
                 {
                     "message_id": "123456789",
-                    "conversation_id": "444555666/111222333"
+                    "conversation_id": standard_conversation_id
                 }
             )
 
         @pytest.mark.asyncio
-        async def test_handle_edited_message_unpin(self, processor, edited_message_event_mock):
+        async def test_handle_edited_message_unpin(self,
+                                                   processor,
+                                                   edited_message_event_mock,
+                                                   standard_conversation_id):
             """Test handling an edited message (unpin)"""
             delta = {
-                "conversation_id": "444555666/111222333",
+                "conversation_id": standard_conversation_id,
                 "unpinned_message_ids": ["123456789"]
             }
 
@@ -362,7 +379,7 @@ class TestIncomingEventProcessor:
                 "message_unpinned",
                 {
                     "message_id": "123456789",
-                    "conversation_id": "444555666/111222333"
+                    "conversation_id": standard_conversation_id
                 }
             )
 
@@ -376,10 +393,13 @@ class TestIncomingEventProcessor:
         """Tests for the _handle_deleted_message method"""
 
         @pytest.mark.asyncio
-        async def test_handle_deleted_message(self, processor, deleted_message_event_mock):
+        async def test_handle_deleted_message(self,
+                                              processor,
+                                              deleted_message_event_mock,
+                                              standard_conversation_id):
             """Test handling a deleted message"""
             delta = {
-                "conversation_id": "444555666/111222333",
+                "conversation_id": standard_conversation_id,
                 "deleted_message_ids": ["123456789"]
             }
 
@@ -397,7 +417,7 @@ class TestIncomingEventProcessor:
                 incoming_event=deleted_message_event_mock["event"]
             )
             processor.incoming_event_builder.message_deleted.assert_called_once_with(
-                "123456789", "444555666/111222333"
+                "123456789", standard_conversation_id
             )
 
         @pytest.mark.asyncio
@@ -410,10 +430,13 @@ class TestIncomingEventProcessor:
         """Tests for the _handle_reaction method"""
 
         @pytest.mark.asyncio
-        async def test_handle_reaction_add(self, processor, reaction_add_event_mock):
+        async def test_handle_reaction_add(self,
+                                           processor,
+                                           reaction_add_event_mock,
+                                           standard_conversation_id):
             """Test handling a reaction add event"""
             delta = {
-                "conversation_id": "444555666/111222333",
+                "conversation_id": standard_conversation_id,
                 "message_id": "123456789",
                 "added_reactions": ["thumbs_up"]
             }
@@ -437,10 +460,13 @@ class TestIncomingEventProcessor:
             )
 
         @pytest.mark.asyncio
-        async def test_handle_reaction_remove(self, processor, reaction_remove_event_mock):
+        async def test_handle_reaction_remove(self,
+                                              processor,
+                                              reaction_remove_event_mock,
+                                              standard_conversation_id):
             """Test handling a reaction remove event"""
             delta = {
-                "conversation_id": "444555666/111222333",
+                "conversation_id": standard_conversation_id,
                 "message_id": "123456789",
                 "removed_reactions": ["thumbs_up"]
             }

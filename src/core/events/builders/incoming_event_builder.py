@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Union
 from src.core.events.models.incoming_events import (
     SenderInfo,
     IncomingAttachmentInfo,
-    ConversationStartedData,
+    ConversationMetaData,
     MessageReceivedData,
     MessageUpdatedData,
     MessageDeletedData,
@@ -10,6 +10,7 @@ from src.core.events.models.incoming_events import (
     PinStatusUpdateData,
     HistoryFetchedData,
     ConversationStartedEvent,
+    ConversationUpdatedEvent,
     MessageReceivedEvent,
     MessageUpdatedEvent,
     MessageDeletedEvent,
@@ -52,11 +53,23 @@ class IncomingEventBuilder:
         """
         event = ConversationStartedEvent(
             adapter_type=self.adapter_type,
-            data=ConversationStartedData(
-                adapter_name=self.adapter_name,
-                adapter_id=self.adapter_id,
-                conversation_id=delta["conversation_id"]
-            )
+            data=self._process_conversation_metadata(delta)
+        )
+        return event.model_dump()
+
+    def conversation_updated(self, delta: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Create a conversation_updated event with validation.
+
+        Args:
+            delta: Event change information
+
+        Returns:
+            Dictionary containing the validated event
+        """
+        event = ConversationUpdatedEvent(
+            adapter_type=self.adapter_type,
+            data=self._process_conversation_metadata(delta)
         )
         return event.model_dump()
 
@@ -219,6 +232,24 @@ class IncomingEventBuilder:
             )
         )
         return event.model_dump()
+
+    def _process_conversation_metadata(self, delta: Dict[str, Any]) -> ConversationMetaData:
+        """
+        Process a conversation metadata delta and return a ConversationMetaData object.
+
+        Args:
+            delta: Event change information
+
+        Returns:
+            ConversationMetaData object
+        """
+        return ConversationMetaData(
+            adapter_name=self.adapter_name,
+            adapter_id=self.adapter_id,
+            conversation_id=delta["conversation_id"],
+            conversation_name=delta["conversation_name"],
+            server_name=delta["server_name"]
+        )
 
     def _process_message(self, delta: Dict[str, Any]) -> MessageReceivedData:
         """

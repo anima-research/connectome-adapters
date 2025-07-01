@@ -47,10 +47,16 @@ class TestMessageBuilder:
         )
 
     @pytest.fixture
-    def mock_conversation_info(self):
+    def standard_conversation_id(self):
+        """Setup a test conversation info"""
+        return "telegram_gpuesUol8zJmOXetFBnj"
+
+    @pytest.fixture
+    def mock_conversation_info(self, standard_conversation_id):
         """Create a mock conversation info"""
         return ConversationInfo(
-            conversation_id="conversation123",
+            platform_conversation_id="conversation123",
+            conversation_id=standard_conversation_id,
             conversation_type="private"
         )
 
@@ -67,12 +73,16 @@ class TestMessageBuilder:
         assert len(builder.message_data) == 0
         assert builder.reset() is builder
 
-    def test_with_basic_info(self, builder, mock_message, mock_conversation_info):
+    def test_with_basic_info(self,
+                             builder,
+                             mock_message,
+                             mock_conversation_info,
+                             standard_conversation_id):
         """Test adding basic message info"""
         result = builder.with_basic_info(mock_message, mock_conversation_info)
 
         assert builder.message_data["message_id"] == "123"
-        assert builder.message_data["conversation_id"] == "conversation123"
+        assert builder.message_data["conversation_id"] == standard_conversation_id
         assert builder.message_data["timestamp"] == int(mock_message.date.timestamp())
         assert builder.message_data["is_direct_message"] is True
         assert result is builder
@@ -126,11 +136,11 @@ class TestMessageBuilder:
         assert builder.message_data["text"] == ""
         assert result is builder
 
-    def test_build(self, builder):
+    def test_build(self, builder, standard_conversation_id):
         """Test building the final message object"""
         builder.message_data = {
             "message_id": "123",
-            "conversation_id": "conversation123",
+            "conversation_id": standard_conversation_id,
             "text": "Test message"
         }
 
@@ -138,7 +148,7 @@ class TestMessageBuilder:
 
         assert result is not builder.message_data
         assert result["message_id"] == "123"
-        assert result["conversation_id"] == "conversation123"
+        assert result["conversation_id"] == standard_conversation_id
         assert result["text"] == "Test message"
 
     def test_full_build_chain(self,
@@ -146,7 +156,8 @@ class TestMessageBuilder:
                               mock_message,
                               mock_user_info,
                               mock_thread_info,
-                              mock_conversation_info):
+                              mock_conversation_info,
+                              standard_conversation_id):
         """Test a complete builder chain"""
         result = builder.reset() \
             .with_basic_info(mock_message, mock_conversation_info) \
@@ -156,7 +167,7 @@ class TestMessageBuilder:
             .build()
 
         assert result["message_id"] == "123"
-        assert result["conversation_id"] == "conversation123"
+        assert result["conversation_id"] == standard_conversation_id
         assert result["timestamp"] == int(mock_message.date.timestamp())
         assert result["sender_id"] == 789
         assert result["sender_name"] == "Test User"

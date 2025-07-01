@@ -58,7 +58,7 @@ class HistoryFetcher(BaseHistoryFetcher):
             return []
 
         try:
-            channel_id = self.conversation.conversation_id.split("/")[-1]
+            channel_id = self.conversation.platform_conversation_id.split("/")[-1]
             params = {"channel": channel_id, "inclusive": False}
 
             if self.anchor:

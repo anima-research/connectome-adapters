@@ -18,10 +18,16 @@ class TestThreadHandler:
         return AsyncMock()
 
     @pytest.fixture
-    def conversation_info(self):
+    def standard_conversation_id(self):
+        """Create a standard conversation ID for testing"""
+        return "discord_FeKw08M4keuw8e9gnsQZ"
+
+    @pytest.fixture
+    def conversation_info(self, standard_conversation_id):
         """Create a ConversationInfo instance for testing"""
         return ConversationInfo(
-            conversation_id="123456789",
+            conversation_id=standard_conversation_id,
+            platform_conversation_id="123456789",
             conversation_type="text_channel"
         )
 
@@ -37,11 +43,11 @@ class TestThreadHandler:
         )
 
     @pytest.fixture
-    def cached_message(self):
+    def cached_message(self, standard_conversation_id):
         """Create a CachedMessage instance for testing"""
         return CachedMessage(
             message_id="123",
-            conversation_id="123456789",
+            conversation_id=standard_conversation_id,
             thread_id=None,
             sender_id="456789123",
             sender_name="Discord User",
@@ -101,7 +107,7 @@ class TestThreadHandler:
         def test_message_without_reference_attribute(self, thread_handler):
             """Test extracting reply ID from message without reference attribute"""
             message = MagicMock()
-            delattr(message, 'reference')
+            delattr(message, "reference")
 
             assert thread_handler._extract_reply_to_id(message) is None
 

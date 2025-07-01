@@ -59,6 +59,20 @@ class TestSlackToSocketIOFlowIntegration:
                 }
             }
         })
+        client.team_info = AsyncMock(return_value={
+            "ok": True,
+            "team": {
+                "id": "T123",
+                "name": "slackteam"
+            }
+        })
+        client.conversations_info = AsyncMock(return_value={
+            "ok": True,
+            "channel": {
+                "id": "C456",
+                "name": "slackchannel"
+            }
+        })
         return client
 
     @pytest.fixture
@@ -139,14 +153,20 @@ class TestSlackToSocketIOFlowIntegration:
         return adapter
 
     @pytest.fixture
-    def setup_channel_conversation(self, adapter):
+    def standard_conversation_id(self):
+        """Create a mock standard conversation ID"""
+        return "slack_F0OIohoDYwVnEyYccO7j"
+
+    @pytest.fixture
+    def setup_channel_conversation(self, adapter, standard_conversation_id):
         """Setup a test channel conversation"""
         def _setup():
             conversation = ConversationInfo(
-                conversation_id="T12345/C12345678",
+                platform_conversation_id="T123/C456",
+                conversation_id=standard_conversation_id,
                 conversation_type="channel"
             )
-            adapter.conversation_manager.conversations["T12345/C12345678"] = conversation
+            adapter.conversation_manager.conversations[standard_conversation_id] = conversation
             return conversation
         return _setup
 
@@ -184,15 +204,15 @@ class TestSlackToSocketIOFlowIntegration:
     @pytest.fixture
     def create_slack_message(self):
         """Create a mock Slack message"""
-        def _create(message_type="channel", ts="1662031200.123456"):
+        def _create(ts="1662031200.123456"):
             return {
                 "type": "message",
                 "user": "U12345678",
                 "text": "Hello from Slack!",
                 "ts": ts,
-                "team": "T12345",
-                "channel": "C12345678" if message_type == "channel" else "D12345678",
-                "channel_type": message_type,
+                "team": "T123",
+                "channel": "C456",
+                "channel_type": "channel",
                 "blocks": []
             }
         return _create
@@ -201,25 +221,24 @@ class TestSlackToSocketIOFlowIntegration:
     def create_slack_event(self, create_slack_message):
         """Create a mock Slack event"""
         def _create(event_type="message",
-                    message_type="channel",
                     with_reaction=None,
                     is_pinned=False,
                     parent_ts=None):
 
             if event_type == "message":
-                message = create_slack_message(message_type)
+                message = create_slack_message()
                 return {
                     "type": event_type,
                     "event": message
                 }
 
             if event_type == "message_changed":
-                original_message = create_slack_message(message_type)
-                edited_message = create_slack_message(message_type)
+                original_message = create_slack_message()
+                edited_message = create_slack_message()
                 edited_message["text"] = "Edited message content"
 
                 if is_pinned:
-                    edited_message["pinned_to"] = ["C12345678"]
+                    edited_message["pinned_to"] = ["C456"]
 
                 return {
                     "type": "message_changed",
@@ -231,12 +250,12 @@ class TestSlackToSocketIOFlowIntegration:
                         "message": edited_message,
                         "previous_message": original_message,
                         "event_ts": time.time(),
-                        "team": "T12345"
+                        "team": "T123"
                     }
                 }
 
             if event_type == "message_deleted":
-                original_message = create_slack_message(message_type)
+                original_message = create_slack_message()
 
                 return {
                     "type": "message_deleted",
@@ -247,7 +266,7 @@ class TestSlackToSocketIOFlowIntegration:
                         "ts": time.time(),
                         "deleted_ts": original_message["ts"],
                         "event_ts": time.time(),
-                        "team": "T12345",
+                        "team": "T123",
                         "previous_message": original_message
                     }
                 }
@@ -264,18 +283,18 @@ class TestSlackToSocketIOFlowIntegration:
                         "reaction": reaction,
                         "item": {
                             "type": "message",
-                            "channel": "C12345678" if message_type == "channel" else "D12345678",
+                            "channel": "C456",
                             "ts": message_ts
                         },
                         "item_user": "U87654321",
                         "event_ts": time.time(),
                         "ts": time.time(),
-                        "team": "T12345"
+                        "team": "T123"
                     }
                 }
 
             if event_type == "pin_added" or event_type == "pin_removed":
-                message = create_slack_message(message_type)
+                message = create_slack_message()
 
                 return {
                     "type": event_type,
@@ -291,24 +310,7 @@ class TestSlackToSocketIOFlowIntegration:
                         },
                         "event_ts": time.time(),
                         "ts": time.time(),
-                        "team": "T12345"
-                    }
-                }
-
-            if event_type == "file_share":
-                message = create_slack_message(message_type, True)
-
-                return {
-                    "type": "file_share",
-                    "event": {
-                        "type": "message",
-                        "subtype": "file_share",
-                        "user": "U12345678",
-                        "channel": message["channel"],
-                        "ts": message["ts"],
-                        "files": message["files"],
-                        "event_ts": time.time(),
-                        "team": "T12345"
+                        "team": "T123"
                     }
                 }
 
@@ -318,12 +320,9 @@ class TestSlackToSocketIOFlowIntegration:
     # =============== TEST METHODS ===============
 
     @pytest.mark.asyncio
-    async def test_new_message_flow(self, adapter, create_slack_event):
+    async def test_new_message_flow(self, adapter, create_slack_event, standard_conversation_id):
         """Test flow from Slack message with attachment to socket.io event"""
-        event = create_slack_event(
-            event_type="message",
-            message_type="channel"
-        )
+        event = create_slack_event(event_type="message")
         adapter.incoming_events_processor.downloader.download_attachments.return_value = []
 
         with patch.object(adapter.incoming_events_processor, "_fetch_history", return_value=[]):
@@ -331,10 +330,10 @@ class TestSlackToSocketIOFlowIntegration:
 
             assert len(result) == 3, "Expected three events to be generated"
 
-            assert "T12345/C12345678" in adapter.conversation_manager.conversations
-            assert len(adapter.conversation_manager.conversations["T12345/C12345678"].messages) == 1
+            assert standard_conversation_id in adapter.conversation_manager.conversations
+            assert len(adapter.conversation_manager.conversations[standard_conversation_id].messages) == 1
 
-            conversation_messages = adapter.conversation_manager.message_cache.messages.get("T12345/C12345678", {})
+            conversation_messages = adapter.conversation_manager.message_cache.messages.get(standard_conversation_id, {})
             assert len(conversation_messages) == 1
 
             cached_message = next(iter(conversation_messages.values()))
@@ -346,23 +345,24 @@ class TestSlackToSocketIOFlowIntegration:
                                        adapter,
                                        setup_channel_conversation,
                                        setup_message,
-                                       create_slack_event):
+                                       create_slack_event,
+                                       standard_conversation_id):
         """Test flow from Slack edited message to socket.io event"""
         setup_channel_conversation()
-        await setup_message("T12345/C12345678", message_id="1662031200.123456")
+        await setup_message(standard_conversation_id, message_id="1662031200.123456")
 
-        event = create_slack_event(event_type="message_changed", message_type="channel")
+        event = create_slack_event(event_type="message_changed")
         result = await adapter.incoming_events_processor.process_event(event)
 
         assert isinstance(result, list), "Expected process_event to return a list of events"
         assert len(result) > 0, "Expected at least one event to be generated"
 
         assert result[0]["event_type"] == "message_updated"
-        assert result[0]["data"]["conversation_id"] == "T12345/C12345678"
+        assert result[0]["data"]["conversation_id"] == standard_conversation_id
         assert result[0]["data"]["message_id"] == "1662031200.123456"
         assert result[0]["data"]["new_text"] == "Edited message content"
 
-        conversation_messages = adapter.conversation_manager.message_cache.messages.get("T12345/C12345678", {})
+        conversation_messages = adapter.conversation_manager.message_cache.messages.get(standard_conversation_id, {})
         assert len(conversation_messages) == 1
 
         cached_message = next(iter(conversation_messages.values()))
@@ -373,25 +373,26 @@ class TestSlackToSocketIOFlowIntegration:
                                     adapter,
                                     setup_channel_conversation,
                                     setup_message,
-                                    create_slack_event):
+                                    create_slack_event,
+                                    standard_conversation_id):
         """Test flow from Slack pin message to socket.io event"""
         setup_channel_conversation()
-        await setup_message("T12345/C12345678", message_id="1662031200.123456", is_pinned=False)
+        await setup_message(standard_conversation_id, message_id="1662031200.123456", is_pinned=False)
 
-        event = create_slack_event(event_type="pin_added", message_type="channel")
+        event = create_slack_event(event_type="pin_added")
         result = await adapter.incoming_events_processor.process_event(event)
 
         assert isinstance(result, list), "Expected process_event to return a list of events"
         assert len(result) > 0, "Expected at least one event to be generated"
 
         assert result[0]["event_type"] == "message_pinned"
-        assert result[0]["data"]["conversation_id"] == "T12345/C12345678"
+        assert result[0]["data"]["conversation_id"] == standard_conversation_id
         assert result[0]["data"]["message_id"] == "1662031200.123456"
 
-        conversation = adapter.conversation_manager.conversations["T12345/C12345678"]
+        conversation = adapter.conversation_manager.conversations[standard_conversation_id]
         assert "1662031200.123456" in conversation.pinned_messages
 
-        cached_message = adapter.conversation_manager.message_cache.messages["T12345/C12345678"]["1662031200.123456"]
+        cached_message = adapter.conversation_manager.message_cache.messages[standard_conversation_id]["1662031200.123456"]
         assert cached_message.is_pinned is True
 
     @pytest.mark.asyncio
@@ -399,25 +400,26 @@ class TestSlackToSocketIOFlowIntegration:
                                       adapter,
                                       setup_channel_conversation,
                                       setup_message,
-                                      create_slack_event):
+                                      create_slack_event,
+                                      standard_conversation_id):
         """Test flow from Slack unpin message to socket.io event"""
         setup_channel_conversation()
-        await setup_message("T12345/C12345678", message_id="1662031200.123456", is_pinned=True)
+        await setup_message(standard_conversation_id, message_id="1662031200.123456", is_pinned=True)
 
-        event = create_slack_event(event_type="pin_removed", message_type="channel")
+        event = create_slack_event(event_type="pin_removed")
         result = await adapter.incoming_events_processor.process_event(event)
 
         assert isinstance(result, list), "Expected process_event to return a list of events"
         assert len(result) > 0, "Expected at least one event to be generated"
 
         assert result[0]["event_type"] == "message_unpinned"
-        assert result[0]["data"]["conversation_id"] == "T12345/C12345678"
+        assert result[0]["data"]["conversation_id"] == standard_conversation_id
         assert result[0]["data"]["message_id"] == "1662031200.123456"
 
-        conversation = adapter.conversation_manager.conversations["T12345/C12345678"]
+        conversation = adapter.conversation_manager.conversations[standard_conversation_id]
         assert "1662031200.123456" not in conversation.pinned_messages
 
-        cached_message = adapter.conversation_manager.message_cache.messages["T12345/C12345678"]["1662031200.123456"]
+        cached_message = adapter.conversation_manager.message_cache.messages[standard_conversation_id]["1662031200.123456"]
         assert cached_message.is_pinned is False
 
     @pytest.mark.asyncio
@@ -425,22 +427,23 @@ class TestSlackToSocketIOFlowIntegration:
                                         adapter,
                                         setup_channel_conversation,
                                         setup_message,
-                                        create_slack_event):
+                                        create_slack_event,
+                                        standard_conversation_id):
         """Test flow from Slack deleted message to socket.io event"""
         setup_channel_conversation()
-        await setup_message("T12345/C12345678", message_id="1662031200.123456")
+        await setup_message(standard_conversation_id, message_id="1662031200.123456")
 
-        event = create_slack_event(event_type="message_deleted", message_type="channel")
+        event = create_slack_event(event_type="message_deleted")
         result = await adapter.incoming_events_processor.process_event(event)
 
         assert isinstance(result, list), "Expected process_event to return a list of events"
         assert len(result) == 1, "Expected one event to be generated"
         assert result[0]["event_type"] == "message_deleted"
-        assert result[0]["data"]["conversation_id"] == "T12345/C12345678"
+        assert result[0]["data"]["conversation_id"] == standard_conversation_id
         assert result[0]["data"]["message_id"] == "1662031200.123456"
 
-        conversation = adapter.conversation_manager.conversations["T12345/C12345678"]
-        assert "1662031200.123456" not in adapter.conversation_manager.message_cache.messages.get("T12345/C12345678", {})
+        conversation = adapter.conversation_manager.conversations[standard_conversation_id]
+        assert "1662031200.123456" not in adapter.conversation_manager.message_cache.messages.get(standard_conversation_id, {})
         assert len(conversation.messages) == 0
 
     @pytest.mark.asyncio
@@ -448,22 +451,23 @@ class TestSlackToSocketIOFlowIntegration:
                                        adapter,
                                        setup_channel_conversation,
                                        setup_message,
-                                       create_slack_event):
+                                       create_slack_event,
+                                       standard_conversation_id):
         """Test flow from Slack added reaction to socket.io event"""
         setup_channel_conversation()
-        await setup_message("T12345/C12345678", message_id="1662031200.123456")
+        await setup_message(standard_conversation_id, message_id="1662031200.123456")
 
-        event = create_slack_event(event_type="reaction_added", message_type="channel", with_reaction="thumbsup")
+        event = create_slack_event(event_type="reaction_added", with_reaction="thumbsup")
         result = await adapter.incoming_events_processor.process_event(event)
 
         assert isinstance(result, list), "Expected process_event to return a list of events"
         assert len(result) == 1, "Expected one event to be generated"
         assert result[0]["event_type"] == "reaction_added"
-        assert result[0]["data"]["conversation_id"] == "T12345/C12345678"
+        assert result[0]["data"]["conversation_id"] == standard_conversation_id
         assert result[0]["data"]["message_id"] == "1662031200.123456"
         assert result[0]["data"]["emoji"] == "thumbsup"
 
-        cached_message = adapter.conversation_manager.message_cache.messages["T12345/C12345678"]["1662031200.123456"]
+        cached_message = adapter.conversation_manager.message_cache.messages[standard_conversation_id]["1662031200.123456"]
         assert "thumbsup" in cached_message.reactions, "Reaction should be added to message"
         assert cached_message.reactions["thumbsup"] == 1, "Reaction count should be 1"
 
@@ -472,20 +476,21 @@ class TestSlackToSocketIOFlowIntegration:
                                          adapter,
                                          setup_channel_conversation,
                                          setup_message,
-                                         create_slack_event):
+                                         create_slack_event,
+                                         standard_conversation_id):
         """Test flow from Slack removed reaction to socket.io event"""
         setup_channel_conversation()
-        await setup_message("T12345/C12345678", message_id="1662031200.123456", reactions={"thumbsup": 1})
+        await setup_message(standard_conversation_id, message_id="1662031200.123456", reactions={"thumbsup": 1})
 
-        event = create_slack_event(event_type="reaction_removed", message_type="channel", with_reaction="thumbsup")
+        event = create_slack_event(event_type="reaction_removed", with_reaction="thumbsup")
         result = await adapter.incoming_events_processor.process_event(event)
 
         assert isinstance(result, list), "Expected process_event to return a list of events"
         assert len(result) == 1, "Expected one event to be generated"
         assert result[0]["event_type"] == "reaction_removed"
-        assert result[0]["data"]["conversation_id"] == "T12345/C12345678"
+        assert result[0]["data"]["conversation_id"] == standard_conversation_id
         assert result[0]["data"]["message_id"] == "1662031200.123456"
         assert result[0]["data"]["emoji"] == "thumbsup"
 
-        cached_message = adapter.conversation_manager.message_cache.messages["T12345/C12345678"]["1662031200.123456"]
+        cached_message = adapter.conversation_manager.message_cache.messages[standard_conversation_id]["1662031200.123456"]
         assert "thumbsup" not in cached_message.reactions, "Reaction should be removed from message"

@@ -26,7 +26,6 @@ class TestHistoryFetcher:
         return downloader
 
     @pytest.fixture
-
     def rate_limiter_mock(self):
         """Create a mocked rate limiter"""
         limiter = AsyncMock()
@@ -43,12 +42,18 @@ class TestHistoryFetcher:
         return manager
 
     @pytest.fixture
-    def conversation(self):
+    def standard_conversation_id(self):
+        """Create a standard conversation ID"""
+        return "zulip_wWrMhAlqbPvWgzzVrBvL"
+
+    @pytest.fixture
+    def conversation(self, standard_conversation_id):
         """Create a private conversation fixture"""
         conversation = MagicMock(spec=ConversationInfo)
-        conversation.conversation_id = "123_456"
+        conversation.platform_conversation_id = "123_456"
+        conversation.conversation_id = standard_conversation_id
         conversation.conversation_type = "private"
-        conversation.to_fields = MagicMock(return_value=["user1@example.com", "user2@example.com"])
+        conversation.emails = MagicMock(return_value=["user1@example.com", "user2@example.com"])
         conversation.known_members = {
             "123": UserInfo(user_id="123", username="User One", email="user1@example.com"),
             "456": UserInfo(user_id="456", username="User Two", email="user2@example.com")
@@ -78,12 +83,12 @@ class TestHistoryFetcher:
         ]
 
     @pytest.fixture
-    def mock_cached_messages(self):
+    def mock_cached_messages(self, standard_conversation_id):
         """Create mock cached message data"""
         return [
             {
                 "message_id": "1001",
-                "conversation_id": "123_456",
+                "conversation_id": standard_conversation_id,
                 "sender": {
                     "user_id": "123",
                     "display_name": "User One"
@@ -117,10 +122,11 @@ class TestHistoryFetcher:
                         conversation_manager_mock,
                         rate_limiter_mock,
                         downloader_mock,
-                        conversation):
+                        conversation,
+                        standard_conversation_id):
         """Create a HistoryFetcher instance"""
         def _create(conversation_id, anchor=None, before=None, after=None, history_limit=None):
-            if conversation_id == "123_456":
+            if conversation_id == standard_conversation_id:
                 conversation_manager_mock.get_conversation.return_value = conversation
             else:
                 conversation_manager_mock.get_conversation.return_value = None
@@ -145,9 +151,10 @@ class TestHistoryFetcher:
     async def test_fetch_with_anchor(self,
                                      history_fetcher,
                                      mock_messages,
-                                     mock_attachments):
+                                     mock_attachments,
+                                     standard_conversation_id):
         """Test fetching history with an anchor"""
-        fetcher = history_fetcher("123_456", anchor="2000")
+        fetcher = history_fetcher(standard_conversation_id, anchor="2000")
         fetcher.downloader.download_attachment.return_value = mock_attachments
         fetcher.client.get_messages.return_value = {
             "result": "success",
@@ -157,7 +164,7 @@ class TestHistoryFetcher:
             {
                 "added_messages": [{
                     "message_id": str(mock_messages[0]["id"]),
-                    "conversation_id": "123_456",
+                    "conversation_id": standard_conversation_id,
                     "sender": {
                         "user_id": str(mock_messages[0]["sender_id"]),
                         "display_name": mock_messages[0]["sender_full_name"]
@@ -171,7 +178,7 @@ class TestHistoryFetcher:
             {
                 "added_messages": [{
                     "message_id": str(mock_messages[1]["id"]),
-                    "conversation_id": "123_456",
+                    "conversation_id": standard_conversation_id,
                     "sender": {
                         "user_id": str(mock_messages[1]["sender_id"]),
                         "display_name": mock_messages[1]["sender_full_name"]
@@ -203,7 +210,7 @@ class TestHistoryFetcher:
 
         assert len(history) == 2
         assert history[0]["message_id"] == "1001"
-        assert history[0]["conversation_id"] == "123_456"
+        assert history[0]["conversation_id"] == standard_conversation_id
         assert history[0]["sender"]["user_id"] == "123"
         assert history[0]["sender"]["display_name"] == "User One"
         assert history[0]["text"] == "Hello world"
@@ -217,11 +224,12 @@ class TestHistoryFetcher:
 
     @pytest.mark.asyncio
     async def test_fetch_with_before(self,
-                                history_fetcher,
-                                mock_messages,
-                                mock_attachments):
+                                     history_fetcher,
+                                     mock_messages,
+                                     mock_attachments,
+                                     standard_conversation_id):
         """Test fetching history with before timestamp"""
-        fetcher = history_fetcher("123_456", before=1627984200, history_limit=50)
+        fetcher = history_fetcher(standard_conversation_id, before=1627984200, history_limit=50)
         fetcher._fetch_history_in_batches = AsyncMock(return_value=mock_messages)
         fetcher._download_attachments = AsyncMock(
             return_value={0: mock_attachments, 1: mock_attachments}
@@ -231,7 +239,7 @@ class TestHistoryFetcher:
         for msg in mock_messages:
             formatted_messages.append({
                 "message_id": str(msg["id"]),
-                "conversation_id": "123_456",
+                "conversation_id": standard_conversation_id,
                 "sender": {
                     "user_id": str(msg["sender_id"]),
                     "display_name": msg["sender_full_name"]
@@ -265,9 +273,10 @@ class TestHistoryFetcher:
     async def test_fetch_with_after(self,
                                     history_fetcher,
                                     mock_messages,
-                                    mock_attachments):
+                                    mock_attachments,
+                                    standard_conversation_id):
         """Test fetching history with after timestamp"""
-        fetcher = history_fetcher("123_456", after=1627983900, history_limit=50)
+        fetcher = history_fetcher(standard_conversation_id, after=1627983900, history_limit=50)
         fetcher._fetch_history_in_batches = AsyncMock(return_value=mock_messages)
         fetcher._download_attachments = AsyncMock(
             return_value={0: mock_attachments, 1: mock_attachments}
@@ -277,7 +286,7 @@ class TestHistoryFetcher:
         for msg in mock_messages:
             formatted_messages.append({
                 "message_id": str(msg["id"]),
-                "conversation_id": "123_456",
+                "conversation_id": standard_conversation_id,
                 "sender": {
                     "user_id": str(msg["sender_id"]),
                     "display_name": msg["sender_full_name"]
@@ -313,9 +322,9 @@ class TestHistoryFetcher:
         fetcher = history_fetcher("nonexistent_id")
         assert await fetcher.fetch() == []
 
-    def test_extract_reply_to_id(self, history_fetcher):
+    def test_extract_reply_to_id(self, history_fetcher, standard_conversation_id):
         """Test extracting reply to ID from content"""
-        fetcher = history_fetcher("123_456")
+        fetcher = history_fetcher(standard_conversation_id)
         content = "@_**User One|123** [said](https://zulip.example.com/123-general/near/1001):\n```quote\nHello world\n```\nReply to message"
         assert fetcher._extract_reply_to_id(content) == "1001"
         assert fetcher._extract_reply_to_id("Regular message") is None

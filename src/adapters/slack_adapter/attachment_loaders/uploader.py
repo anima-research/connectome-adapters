@@ -40,12 +40,12 @@ class Uploader():
         except Exception as e:
             logging.error(f"Error removing temporary directory: {e}")
 
-    async def upload_attachments(self, data: Any) -> None:
+    async def upload_attachments(self, conversation_info: Any, data: Any) -> None:
         """Upload a file to Slack
 
         Args:
-            conversation_id: Conversation ID to share the file in
-            attachments: List of attachment details
+            conversation_info: Conversation info
+            data: Event data containing attachments
         """
         for attachment in data.attachments:
             try:
@@ -67,7 +67,7 @@ class Uploader():
 
                 upload_params = {
                     "file": temp_path,
-                    "channel": data.conversation_id.split("/")[-1]
+                    "channel": conversation_info.platform_conversation_id.split("/")[-1]
                 }
                 if data.thread_id:
                     upload_params["thread_ts"] = data.thread_id

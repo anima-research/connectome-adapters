@@ -18,10 +18,16 @@ class TestThreadHandler:
         return AsyncMock()
 
     @pytest.fixture
-    def conversation_info(self):
+    def standard_conversation_id(self):
+        """Create a standard conversation ID"""
+        return "zulip_wWrMhAlqbPvWgzzVrBvL"
+
+    @pytest.fixture
+    def conversation_info(self, standard_conversation_id):
         """Create a ConversationInfo instance for testing"""
         return ConversationInfo(
-            conversation_id="123_456",
+            platform_conversation_id="123_456",
+            conversation_id=standard_conversation_id,
             conversation_type="private"
         )
 
@@ -37,11 +43,11 @@ class TestThreadHandler:
         )
 
     @pytest.fixture
-    def cached_message(self):
+    def cached_message(self, standard_conversation_id):
         """Create a CachedMessage instance for testing"""
         return CachedMessage(
             message_id="123",
-            conversation_id="123_456",
+            conversation_id=standard_conversation_id,
             thread_id=None,
             sender_id="user1",
             sender_name="User One",

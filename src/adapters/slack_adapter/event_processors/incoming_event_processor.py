@@ -21,6 +21,8 @@ class SlackIncomingEventType(str, Enum):
     ADDED_PIN = "pin_added"
     REMOVED_PIN = "pin_removed"
     FETCH_HISTORY = "fetch_history"
+    TEAM_RENAME = "team_rename"
+    CHANNEL_RENAME = "channel_rename"
 
 class IncomingEventProcessor(BaseIncomingEventProcessor):
     """Slack events processor"""
@@ -36,8 +38,7 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             client: Slack client instance
             conversation_manager: Conversation manager for tracking message history
         """
-        super().__init__(config, client)
-        self.conversation_manager = conversation_manager
+        super().__init__(config, client, conversation_manager)
         self.downloader = Downloader(self.config, self.client)
 
     def _get_event_handlers(self) -> Dict[str, Callable]:
@@ -54,7 +55,9 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             SlackIncomingEventType.REMOVED_REACTION: self._handle_reaction,
             SlackIncomingEventType.ADDED_PIN: self._handle_pin,
             SlackIncomingEventType.REMOVED_PIN: self._handle_pin,
-            SlackIncomingEventType.FETCH_HISTORY: self._handle_fetch_history
+            SlackIncomingEventType.FETCH_HISTORY: self._handle_fetch_history,
+            SlackIncomingEventType.TEAM_RENAME: self._handle_rename,
+            SlackIncomingEventType.CHANNEL_RENAME: self._handle_rename
         }
 
     async def _handle_message(self, event: Any) -> List[Dict[str, Any]]:
@@ -70,10 +73,19 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
         events = []
 
         try:
+            team = None
+            channel = None
+
+            if not await self.conversation_manager.conversation_exists(event):
+                team = await self._get_team_info(event)
+                channel = await self._get_channel_info(event)
+
             delta = await self.conversation_manager.add_to_conversation({
                 "message": event,
                 "user": await self._get_user_info(event),
-                "attachments": await self.downloader.download_attachments(event)
+                "attachments": await self.downloader.download_attachments(event),
+                "server": team,
+                "platform_conversation": channel
             })
 
             if delta:
@@ -236,13 +248,48 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             User info dictionary
         """
         try:
-            user_id = event.get("user", "")
-            user_info = await self.client.users_info(user=user_id)
+            user_info = await self.client.users_info(user=event.get("user", ""))
 
             if user_info:
                 return user_info.get("user", {})
         except Exception as e:
             logging.error(f"Error fetching user info: {e}")
+
+        return {}
+
+    async def _get_team_info(self, event: Dict[str, Any]) -> Dict[str, Any]:
+        """Get team info for a given event
+
+        Args:
+            event: Slack event object
+
+        Returns:
+            User info dictionary
+        """
+        try:
+            team_info = await self.client.team_info(team=event.get("team", ""))
+            if team_info:
+                return team_info.get("team", {})
+        except Exception as e:
+            logging.error(f"Error fetching team info: {e}")
+
+        return {}
+
+    async def _get_channel_info(self, event: Dict[str, Any]) -> Dict[str, Any]:
+        """Get channel info for a given event
+
+        Args:
+            event: Slack event object
+
+        Returns:
+            User info dictionary
+        """
+        try:
+            channel_info = await self.client.conversations_info(channel=event.get("channel", ""))
+            if channel_info:
+                return channel_info.get("channel", {})
+        except Exception as e:
+            logging.error(f"Error fetching channel info: {e}")
 
         return {}
 

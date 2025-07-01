@@ -116,14 +116,7 @@ class BaseOutgoingEventProcessor(ABC):
             Dict[str, Any]: Dictionary containing the status and message_ids
         """
         try:
-            conversation_info = None
-
-            if self._conversation_should_exist():
-                conversation_info = self.conversation_manager.get_conversation(data.conversation_id)
-                if not conversation_info:
-                    raise Exception(f"Conversation {data.conversation_id} not found")
-
-            return await self._send_message(conversation_info, data)
+            return await self._send_message(self._find_conversation(data.conversation_id), data)
         except Exception as e:
             logging.error(f"Failed to send message to conversation {data.conversation_id}: {e}", exc_info=True)
             return {
@@ -146,14 +139,7 @@ class BaseOutgoingEventProcessor(ABC):
             Dict[str, Any]: Dictionary containing the status
         """
         try:
-            conversation_info = None
-
-            if self._conversation_should_exist():
-                conversation_info = self.conversation_manager.get_conversation(data.conversation_id)
-                if not conversation_info:
-                    raise Exception(f"Conversation {data.conversation_id} not found")
-
-            return await self._edit_message(conversation_info, data)
+            return await self._edit_message(self._find_conversation(data.conversation_id), data)
         except Exception as e:
             logging.error(f"Failed to edit message {data.message_id}: {e}", exc_info=True)
             return {
@@ -176,7 +162,7 @@ class BaseOutgoingEventProcessor(ABC):
             Dict[str, Any]: Dictionary containing the status
         """
         try:
-            return await self._delete_message(data)
+            return await self._delete_message(self._find_conversation(data.conversation_id), data)
         except Exception as e:
             logging.error(f"Failed to delete message {data.message_id}: {e}", exc_info=True)
             return {
@@ -185,7 +171,7 @@ class BaseOutgoingEventProcessor(ABC):
             }
 
     @abstractmethod
-    async def _delete_message(self, data: BaseModel) -> Dict[str, Any]:
+    async def _delete_message(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
         """Delete a message"""
         raise NotImplementedError("Child classes must implement _delete_message")
 
@@ -199,7 +185,7 @@ class BaseOutgoingEventProcessor(ABC):
             Dict[str, Any]: Dictionary containing the status
         """
         try:
-            return await self._add_reaction(data)
+            return await self._add_reaction(self._find_conversation(data.conversation_id), data)
         except Exception as e:
             logging.error(f"Failed to add reaction to message {data.message_id}: {e}", exc_info=True)
             return {
@@ -208,7 +194,7 @@ class BaseOutgoingEventProcessor(ABC):
             }
 
     @abstractmethod
-    async def _add_reaction(self, data: BaseModel) -> Dict[str, Any]:
+    async def _add_reaction(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
         """Add a reaction to a message"""
         raise NotImplementedError("Child classes must implement _add_reaction")
 
@@ -222,7 +208,7 @@ class BaseOutgoingEventProcessor(ABC):
             Dict[str, Any]: Dictionary containing the status
         """
         try:
-            return await self._remove_reaction(data)
+            return await self._remove_reaction(self._find_conversation(data.conversation_id), data)
         except Exception as e:
             logging.error(f"Failed to remove reaction from message {data.message_id}: {e}", exc_info=True)
             return {
@@ -231,7 +217,7 @@ class BaseOutgoingEventProcessor(ABC):
             }
 
     @abstractmethod
-    async def _remove_reaction(self, data: BaseModel) -> Dict[str, Any]:
+    async def _remove_reaction(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
         """Remove a reaction from a message"""
         raise NotImplementedError("Child classes must implement _remove_reaction")
 
@@ -268,7 +254,7 @@ class BaseOutgoingEventProcessor(ABC):
             Dict[str, Any]: Dictionary containing the status
         """
         try:
-            return await self._pin_message(data)
+            return await self._pin_message(self._find_conversation(data.conversation_id), data)
         except Exception as e:
             logging.error(f"Failed to pin message {data.message_id}: {e}", exc_info=True)
             return {
@@ -277,7 +263,7 @@ class BaseOutgoingEventProcessor(ABC):
             }
 
     @abstractmethod
-    async def _pin_message(self, data: BaseModel) -> Dict[str, Any]:
+    async def _pin_message(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
         """Pin a message"""
         raise NotImplementedError("Child classes must implement _pin_message")
 
@@ -293,7 +279,7 @@ class BaseOutgoingEventProcessor(ABC):
             Dict[str, Any]: Dictionary containing the status
         """
         try:
-            return await self._unpin_message(data)
+            return await self._unpin_message(self._find_conversation(data.conversation_id), data)
         except Exception as e:
             logging.error(f"Failed to unpin message {data.message_id}: {e}", exc_info=True)
             return {
@@ -302,14 +288,25 @@ class BaseOutgoingEventProcessor(ABC):
             }
 
     @abstractmethod
-    async def _unpin_message(self, data: BaseModel) -> Dict[str, Any]:
+    async def _unpin_message(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
         """Unpin a message"""
         raise NotImplementedError("Child classes must implement _unpin_message")
 
-    @abstractmethod
-    async def _conversation_should_exist(self) -> bool:
-        """Check if a conversation should exist before sending or editing a message"""
-        raise NotImplementedError("Child classes must implement _conversation_should_exist")
+    def _find_conversation(self, conversation_id: str) -> Any:
+        """Find a conversation by id
+
+        Args:
+            conversation_id: The standard conversation ID
+
+        Returns:
+            Any: The conversation info
+        """
+        conversation_info = self.conversation_manager.get_conversation(conversation_id)
+
+        if not conversation_info:
+            raise Exception(f"Conversation {conversation_id} not found")
+
+        return conversation_info
 
     def _split_long_message(self, text: str) -> List[str]:
         """Split a long message at sentence boundaries to fit within adapter's message length limits.

@@ -81,15 +81,21 @@ class TestSocketIOToDiscordFlowIntegration:
         return adapter
 
     @pytest.fixture
-    def setup_channel_conversation(self, adapter):
+    def standard_conversation_id(self):
+        """Create a standard conversation ID"""
+        return "discord_2SV7UT3h2SpMid0xZNcS"
+
+    @pytest.fixture
+    def setup_channel_conversation(self, adapter, standard_conversation_id):
         """Setup a test channel conversation"""
         def _setup():
             conversation = ConversationInfo(
-                conversation_id="987654321/123456789",
+                conversation_id=standard_conversation_id,
+                platform_conversation_id="987654321/123456789",
                 conversation_type="channel",
                 conversation_name="general"
             )
-            adapter.conversation_manager.conversations["987654321/123456789"] = conversation
+            adapter.conversation_manager.conversations[standard_conversation_id] = conversation
             return conversation
         return _setup
 
@@ -141,7 +147,8 @@ class TestSocketIOToDiscordFlowIntegration:
                                                      adapter,
                                                      setup_channel_conversation,
                                                      channel_mock,
-                                                     uploader_mock):
+                                                     uploader_mock,
+                                                     standard_conversation_id):
         """Test sending a message with an attachment"""
         setup_channel_conversation()
 
@@ -150,13 +157,13 @@ class TestSocketIOToDiscordFlowIntegration:
 
         with patch.object(
             adapter.outgoing_events_processor,
-            '_get_channel',
+            "_get_channel",
             return_value=channel_mock
         ):
             response = await adapter.outgoing_events_processor.process_event({
                 "event_type": "send_message",
                 "data": {
-                    "conversation_id": "987654321/123456789",
+                    "conversation_id": standard_conversation_id,
                     "text": "See attachment",
                     "attachments": [
                         {
@@ -179,20 +186,21 @@ class TestSocketIOToDiscordFlowIntegration:
                                      adapter,
                                      setup_channel_conversation,
                                      setup_message,
-                                     channel_mock):
+                                     channel_mock,
+                                     standard_conversation_id):
         """Test the complete flow from socket.io edit_message to Discord call"""
         setup_channel_conversation()
-        await setup_message("987654321/123456789")
+        await setup_message(standard_conversation_id)
 
         with patch.object(
             adapter.outgoing_events_processor,
-            '_get_channel',
+            "_get_channel",
             return_value=channel_mock
         ):
             response = await adapter.outgoing_events_processor.process_event({
                 "event_type": "edit_message",
                 "data": {
-                    "conversation_id": "987654321/123456789",
+                    "conversation_id": standard_conversation_id,
                     "message_id": "111222333",
                     "text": "Edited message content"
                 }
@@ -208,20 +216,21 @@ class TestSocketIOToDiscordFlowIntegration:
                                        adapter,
                                        setup_channel_conversation,
                                        setup_message,
-                                       channel_mock):
+                                       channel_mock,
+                                       standard_conversation_id):
         """Test the complete flow from socket.io delete_message to Discord call"""
         setup_channel_conversation()
-        await setup_message("987654321/123456789")
+        await setup_message(standard_conversation_id)
 
         with patch.object(
             adapter.outgoing_events_processor,
-            '_get_channel',
+            "_get_channel",
             return_value=channel_mock
         ):
             response = await adapter.outgoing_events_processor.process_event({
                 "event_type": "delete_message",
                 "data": {
-                    "conversation_id": "987654321/123456789",
+                    "conversation_id": standard_conversation_id,
                     "message_id": "111222333"
                 }
             })
@@ -236,20 +245,21 @@ class TestSocketIOToDiscordFlowIntegration:
                                      adapter,
                                      setup_channel_conversation,
                                      setup_message,
-                                     channel_mock):
+                                     channel_mock,
+                                     standard_conversation_id):
         """Test the complete flow from socket.io add_reaction to Discord call"""
         setup_channel_conversation()
-        await setup_message("987654321/123456789")
+        await setup_message(standard_conversation_id)
 
         with patch.object(
             adapter.outgoing_events_processor,
-            '_get_channel',
+            "_get_channel",
             return_value=channel_mock
         ):
             response = await adapter.outgoing_events_processor.process_event({
                 "event_type": "add_reaction",
                 "data": {
-                    "conversation_id": "987654321/123456789",
+                    "conversation_id": standard_conversation_id,
                     "message_id": "111222333",
                     "emoji": "thumbs_up"
                 }
@@ -265,20 +275,21 @@ class TestSocketIOToDiscordFlowIntegration:
                                         adapter,
                                         setup_channel_conversation,
                                         setup_message,
-                                        channel_mock):
+                                        channel_mock,
+                                        standard_conversation_id):
         """Test the complete flow from socket.io remove_reaction to Discord call"""
         setup_channel_conversation()
-        await setup_message("987654321/123456789", reactions={"thumbs_up": 1})
+        await setup_message(standard_conversation_id, reactions={"thumbs_up": 1})
 
         with patch.object(
             adapter.outgoing_events_processor,
-            '_get_channel',
+            "_get_channel",
             return_value=channel_mock
         ):
             response = await adapter.outgoing_events_processor.process_event({
                 "event_type": "remove_reaction",
                 "data": {
-                    "conversation_id": "987654321/123456789",
+                    "conversation_id": standard_conversation_id,
                     "message_id": "111222333",
                     "emoji": "thumbs_up"
                 }
@@ -294,10 +305,11 @@ class TestSocketIOToDiscordFlowIntegration:
                                     adapter,
                                     setup_channel_conversation,
                                     setup_message,
-                                    channel_mock):
+                                    channel_mock,
+                                    standard_conversation_id):
         """Test the complete flow from socket.io pin_message to Discord call"""
         setup_channel_conversation()
-        await setup_message("987654321/123456789")
+        await setup_message(standard_conversation_id)
 
         with patch.object(
             adapter.outgoing_events_processor,
@@ -307,7 +319,7 @@ class TestSocketIOToDiscordFlowIntegration:
             response = await adapter.outgoing_events_processor.process_event({
                 "event_type": "pin_message",
                 "data": {
-                    "conversation_id": "987654321/123456789",
+                    "conversation_id": standard_conversation_id,
                     "message_id": "111222333"
                 }
             })
@@ -322,10 +334,11 @@ class TestSocketIOToDiscordFlowIntegration:
                                       adapter,
                                       setup_channel_conversation,
                                       setup_message,
-                                      channel_mock):
+                                      channel_mock,
+                                      standard_conversation_id):
         """Test the complete flow from socket.io unpin_message to Discord call"""
         setup_channel_conversation()
-        await setup_message("987654321/123456789")
+        await setup_message(standard_conversation_id)
 
         with patch.object(
             adapter.outgoing_events_processor,
@@ -335,7 +348,7 @@ class TestSocketIOToDiscordFlowIntegration:
             response = await adapter.outgoing_events_processor.process_event({
                 "event_type": "unpin_message",
                 "data": {
-                    "conversation_id": "987654321/123456789",
+                    "conversation_id": standard_conversation_id,
                     "message_id": "111222333"
                 }
             })

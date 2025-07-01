@@ -243,14 +243,14 @@ class HistoryFetcher(BaseHistoryFetcher):
             Narrow parameter for API call or empty list if info is not found
         """
         if self.conversation.conversation_type == "private":
-            emails = self.conversation.to_fields()
+            emails = self.conversation.emails()
             if emails:
                 return [{"operator": "pm-with", "operand": ",".join(emails)}]
             return []
 
         return [
-            {"operator": "stream", "operand": self.conversation.conversation_name},
-            {"operator": "topic", "operand": self.conversation.conversation_id.split("/", 1)[1]}
+            {"operator": "stream", "operand": self.conversation.stream_name},
+            {"operator": "topic", "operand": self.conversation.stream_topic}
         ]
 
     def _extract_reply_to_id(self, content: str) -> str:

@@ -90,6 +90,11 @@ class TestOutgoingEventProcessor:
         reaction.results = results
         return reaction
 
+    @pytest.fixture
+    def standard_conversation_id(self):
+        """Setup a test conversation info"""
+        return "telegram_s6jg4fmrGB46NvIx9nb3"
+
     class TestSendMessage:
         """Tests for the send_message method"""
 
@@ -98,7 +103,8 @@ class TestOutgoingEventProcessor:
                                             processor,
                                             telethon_client_mock,
                                             message_mock,
-                                            uploader_mock):
+                                            uploader_mock,
+                                            standard_conversation_id):
             """Test sending a message with attachments"""
             telethon_client_mock.send_message.return_value = message_mock
             telethon_client_mock.get_entity.return_value = "entity"
@@ -106,7 +112,7 @@ class TestOutgoingEventProcessor:
             event_data = {
                 "event_type": "send_message",
                 "data": {
-                    "conversation_id": "123",
+                    "conversation_id": standard_conversation_id,
                     "text": "Hello, world!",
                     "attachments": [
                         {"file_name": "some_file.txt", "content": "dGVzdAo="}
@@ -127,7 +133,9 @@ class TestOutgoingEventProcessor:
             assert processor.conversation_manager.add_to_conversation.call_count == 2
 
         @pytest.mark.asyncio
-        async def test_send_message_missing_required_fields(self, processor):
+        async def test_send_message_missing_required_fields(self,
+                                                            processor,
+                                                            standard_conversation_id):
             """Test sending a message with missing required fields"""
             # Missing conversation_id
             response = await processor.process_event({
@@ -139,29 +147,35 @@ class TestOutgoingEventProcessor:
             # Missing text
             response = await processor.process_event({
                 "event_type": "send_message",
-                "data": {"conversation_id": "123"}
+                "data": {"conversation_id": standard_conversation_id}
             })
             assert response["request_completed"] is False
 
         @pytest.mark.asyncio
-        async def test_send_message_entity_not_found(self, processor, telethon_client_mock):
+        async def test_send_message_entity_not_found(self,
+                                                     processor,
+                                                     telethon_client_mock,
+                                                     standard_conversation_id):
             """Test sending a message when entity can't be found"""
             telethon_client_mock.get_entity.return_value = None
             response = await processor.process_event({
                 "event_type": "send_message",
-                "data": {"conversation_id": "123", "text": "Hello, world!"}
+                "data": {"conversation_id": standard_conversation_id, "text": "Hello, world!"}
             })
 
             assert response["request_completed"] is False
             telethon_client_mock.send_message.assert_not_called()
 
         @pytest.mark.asyncio
-        async def test_send_message_exception(self, processor, telethon_client_mock):
+        async def test_send_message_exception(self,
+                                              processor,
+                                              telethon_client_mock,
+                                              standard_conversation_id):
             """Test handling an exception during send_message"""
             telethon_client_mock.get_entity.side_effect = Exception("Test error")
             response = await processor.process_event({
                 "event_type": "send_message",
-                "data": {"conversation_id": "123", "text": "Hello, world!"}
+                "data": {"conversation_id": standard_conversation_id, "text": "Hello, world!"}
             })
 
             assert response["request_completed"] is False
@@ -170,7 +184,11 @@ class TestOutgoingEventProcessor:
         """Tests for the edit_message method"""
 
         @pytest.mark.asyncio
-        async def test_edit_message_success(self, processor, telethon_client_mock, message_mock):
+        async def test_edit_message_success(self,
+                                            processor,
+                                            telethon_client_mock,
+                                            message_mock,
+                                            standard_conversation_id):
             """Test successfully editing a message"""
             telethon_client_mock.edit_message.return_value = message_mock
             telethon_client_mock.get_entity.return_value = "entity"
@@ -178,8 +196,8 @@ class TestOutgoingEventProcessor:
             response = await processor.process_event({
                 "event_type": "edit_message",
                 "data": {
-                    "conversation_id": "123",
-                    "message_id": "456",
+                    "conversation_id": standard_conversation_id,
+                    "message_id": "123",
                     "text": "Updated text"
                 }
             })
@@ -187,7 +205,7 @@ class TestOutgoingEventProcessor:
             assert response["request_completed"] is True
             telethon_client_mock.edit_message.assert_called_once_with(
                 entity="entity",
-                message=456,  # Should be converted to int
+                message=123,  # Should be converted to int
                 text="Updated text"
             )
             processor.conversation_manager.update_conversation.assert_called_once_with({
@@ -196,7 +214,9 @@ class TestOutgoingEventProcessor:
             })
 
         @pytest.mark.asyncio
-        async def test_edit_message_missing_required_fields(self, processor):
+        async def test_edit_message_missing_required_fields(self,
+                                                            processor,
+                                                            standard_conversation_id):
             """Test editing a message with missing required fields"""
             # Missing conversation_id
             response = await processor.process_event({
@@ -208,26 +228,29 @@ class TestOutgoingEventProcessor:
             # Missing message_id
             response = await processor.process_event({
                 "event_type": "edit_message",
-                "data": {"conversation_id": "123", "text": "Hello"}
+                "data": {"conversation_id": standard_conversation_id, "text": "Hello"}
             })
             assert response["request_completed"] is False
 
             # Missing text
             response = await processor.process_event({
                 "event_type": "edit_message",
-                "data": {"conversation_id": "123", "message_id": "456"}
+                "data": {"conversation_id": standard_conversation_id, "message_id": "123"}
             })
             assert response["request_completed"] is False
 
         @pytest.mark.asyncio
-        async def test_edit_message_entity_not_found(self, processor, telethon_client_mock):
+        async def test_edit_message_entity_not_found(self,
+                                                     processor,
+                                                     telethon_client_mock,
+                                                     standard_conversation_id):
             """Test editing a message when entity can't be found"""
             telethon_client_mock.get_entity.return_value = None
             response = await processor.process_event({
                 "event_type": "edit_message",
                 "data": {
-                    "conversation_id": "123",
-                    "message_id": "456",
+                    "conversation_id": standard_conversation_id,
+                    "message_id": "123",
                     "text": "Updated text"
                 }
             })
@@ -236,14 +259,17 @@ class TestOutgoingEventProcessor:
             telethon_client_mock.edit_message.assert_not_called()
 
         @pytest.mark.asyncio
-        async def test_edit_message_exception(self, processor, telethon_client_mock):
+        async def test_edit_message_exception(self,
+                                              processor,
+                                              telethon_client_mock,
+                                              standard_conversation_id):
             """Test handling an exception during edit_message"""
             telethon_client_mock.get_entity.side_effect = Exception("Test error")
             response = await processor.process_event({
                 "event_type": "edit_message",
                 "data": {
-                    "conversation_id": "123",
-                    "message_id": "456",
+                    "conversation_id": standard_conversation_id,
+                    "message_id": "123",
                     "text": "Updated text"
                 }
             })
@@ -254,32 +280,37 @@ class TestOutgoingEventProcessor:
         """Tests for the delete_message method"""
 
         @pytest.mark.asyncio
-        async def test_delete_message_success(self, processor, telethon_client_mock):
+        async def test_delete_message_success(self,
+                                              processor,
+                                              telethon_client_mock,
+                                              standard_conversation_id):
             """Test successfully deleting a message"""
             telethon_client_mock.delete_messages.return_value = [MagicMock()]
             telethon_client_mock.get_entity.return_value = "entity"
             response = await processor.process_event({
                 "event_type": "delete_message",
                 "data": {
-                    "conversation_id": "123",
-                    "message_id": "456"
+                    "conversation_id": standard_conversation_id,
+                    "message_id": "123"
                 }
             })
 
             assert response["request_completed"] is True
             telethon_client_mock.delete_messages.assert_called_once_with(
                 entity="entity",
-                message_ids=[456]  # Should be converted to int
+                message_ids=[123]  # Should be converted to int
             )
             processor.conversation_manager.delete_from_conversation.assert_called_once_with(
                 outgoing_event={
-                    "deleted_ids": ["456"],
-                    "conversation_id": "123"
+                    "deleted_ids": ["123"],
+                    "conversation_id": standard_conversation_id
                 }
             )
 
         @pytest.mark.asyncio
-        async def test_delete_message_missing_required_fields(self, processor):
+        async def test_delete_message_missing_required_fields(self,
+                                                              processor,
+                                                              standard_conversation_id):
             """Test deleting a message with missing required fields"""
             # Missing conversation_id
             response = await processor.process_event({
@@ -291,19 +322,22 @@ class TestOutgoingEventProcessor:
             # Missing message_id
             response = await processor.process_event({
                 "event_type": "delete_message",
-                "data": {"conversation_id": "123"}
+                "data": {"conversation_id": standard_conversation_id}
             })
             assert response["request_completed"] is False
 
         @pytest.mark.asyncio
-        async def test_delete_message_entity_not_found(self, processor, telethon_client_mock):
+        async def test_delete_message_entity_not_found(self,
+                                                      processor,
+                                                      telethon_client_mock,
+                                                      standard_conversation_id):
             """Test deleting a message when entity can't be found"""
             telethon_client_mock.get_entity.return_value = None
             response = await processor.process_event({
                 "event_type": "delete_message",
                 "data": {
-                    "conversation_id": "123",
-                    "message_id": "456"
+                    "conversation_id": standard_conversation_id,
+                    "message_id": "123"
                 }
             })
 
@@ -311,14 +345,17 @@ class TestOutgoingEventProcessor:
             telethon_client_mock.delete_messages.assert_not_called()
 
         @pytest.mark.asyncio
-        async def test_delete_message_exception(self, processor, telethon_client_mock):
+        async def test_delete_message_exception(self,
+                                                processor,
+                                                telethon_client_mock,
+                                                standard_conversation_id):
             """Test handling an exception during delete_message"""
             telethon_client_mock.get_entity.side_effect = Exception("Test error")
             response = await processor.process_event({
                 "event_type": "delete_message",
                 "data": {
-                    "conversation_id": "123",
-                    "message_id": "456"
+                    "conversation_id": standard_conversation_id,
+                    "message_id": "123"
                 }
             })
 
@@ -328,15 +365,19 @@ class TestOutgoingEventProcessor:
         """Tests for reaction-related methods"""
 
         @pytest.mark.asyncio
-        async def test_add_reaction_success(self, processor, telethon_client_mock, message_mock):
+        async def test_add_reaction_success(self,
+                                            processor,
+                                            telethon_client_mock,
+                                            message_mock,
+                                            standard_conversation_id):
             """Test successfully adding a reaction"""
             telethon_client_mock.return_value = message_mock
             telethon_client_mock.get_entity.return_value = "entity"
             response = await processor.process_event({
                 "event_type": "add_reaction",
                 "data": {
-                    "conversation_id": "123",
-                    "message_id": "456",
+                    "conversation_id": standard_conversation_id,
+                    "message_id": "123",
                     "emoji": "thumbs_up"
                 }
             })
@@ -352,7 +393,8 @@ class TestOutgoingEventProcessor:
                                                processor,
                                                telethon_client_mock,
                                                message_mock,
-                                               reaction_mock):
+                                               reaction_mock,
+                                               standard_conversation_id):
             """Test successfully removing a reaction"""
             telethon_client_mock.return_value = message_mock
             telethon_client_mock.get_entity.return_value = "entity"
@@ -364,8 +406,8 @@ class TestOutgoingEventProcessor:
             event_data = {
                 "event_type": "remove_reaction",
                 "data": {
-                    "conversation_id": "123",
-                    "message_id": "456",
+                    "conversation_id": standard_conversation_id,
+                    "message_id": "123",
                     "emoji": "thumbs_up"
                 }
             }
@@ -375,7 +417,7 @@ class TestOutgoingEventProcessor:
                 response = await processor.process_event(event_data)
                 assert response["request_completed"] is True
 
-            telethon_client_mock.get_messages.assert_called_once_with("entity", ids=456)
+            telethon_client_mock.get_messages.assert_called_once_with("entity", ids=123)
             mock_update_reactions.assert_called_once_with(reaction_mock, "👍")
             processor.conversation_manager.update_conversation.assert_called_once_with({
                 "event_type": "edited_message",
@@ -383,7 +425,10 @@ class TestOutgoingEventProcessor:
             })
 
         @pytest.mark.asyncio
-        async def test_remove_reaction_no_reactions(self, processor, telethon_client_mock):
+        async def test_remove_reaction_no_reactions(self,
+                                                    processor,
+                                                    telethon_client_mock,
+                                                    standard_conversation_id):
             """Test removing a reaction from a message with no reactions"""
             telethon_client_mock.get_entity.return_value = "entity"
 
@@ -394,8 +439,8 @@ class TestOutgoingEventProcessor:
             response = await processor.process_event({
                 "event_type": "remove_reaction",
                 "data": {
-                    "conversation_id": "123",
-                    "message_id": "456",
+                    "conversation_id": standard_conversation_id,
+                    "message_id": "123",
                     "emoji": "thumbs_up"
                 }
             })
@@ -420,7 +465,10 @@ class TestOutgoingEventProcessor:
         """Tests for pin/unpin message methods"""
 
         @pytest.mark.asyncio
-        async def test_pin_message_success(self, processor, telethon_client_mock):
+        async def test_pin_message_success(self,
+                                           processor,
+                                           telethon_client_mock,
+                                           standard_conversation_id):
             """Test successfully pinning a message"""
             telethon_client_mock.return_value = MagicMock()
             telethon_client_mock.get_entity.return_value = "entity"
@@ -428,34 +476,41 @@ class TestOutgoingEventProcessor:
             response = await processor.process_event({
                 "event_type": "pin_message",
                 "data": {
-                    "conversation_id": "123",
-                    "message_id": "456"
+                    "conversation_id": standard_conversation_id,
+                    "message_id": "123"
                 }
             })
 
             assert response["request_completed"] is True
             telethon_client_mock.assert_called_once()
-            processor.rate_limiter.limit_request.assert_called_with("pin_message", "123")
+            processor.rate_limiter.limit_request.assert_called_with(
+                "pin_message", standard_conversation_id
+            )
 
         @pytest.mark.asyncio
-        async def test_pin_message_missing_required_fields(self, processor):
+        async def test_pin_message_missing_required_fields(self,
+                                                           processor,
+                                                           standard_conversation_id):
             """Test pinning a message with missing required fields"""
             # Missing conversation_id
             response = await processor.process_event({
                 "event_type": "pin_message",
-                "data": {"message_id": "456"}
+                "data": {"message_id": "123"}
             })
             assert response["request_completed"] is False
 
             # Missing message_id
             response = await processor.process_event({
                 "event_type": "pin_message",
-                "data": {"conversation_id": "123"}
+                "data": {"conversation_id": standard_conversation_id}
             })
             assert response["request_completed"] is False
 
         @pytest.mark.asyncio
-        async def test_unpin_message_success(self, processor, telethon_client_mock):
+        async def test_unpin_message_success(self,
+                                             processor,
+                                             telethon_client_mock,
+                                             standard_conversation_id):
             """Test successfully unpinning a message"""
             telethon_client_mock.return_value = MagicMock()
             telethon_client_mock.get_entity.return_value = "entity"
@@ -463,39 +518,32 @@ class TestOutgoingEventProcessor:
             response = await processor.process_event({
                 "event_type": "unpin_message",
                 "data": {
-                    "conversation_id": "123",
-                    "message_id": "456"
+                    "conversation_id": standard_conversation_id,
+                    "message_id": "123"
                 }
             })
 
             assert response["request_completed"] is True
             telethon_client_mock.assert_called_once()
-            processor.rate_limiter.limit_request.assert_called_with("unpin_message", "123")
+            processor.rate_limiter.limit_request.assert_called_with(
+                "unpin_message", standard_conversation_id
+            )
 
         @pytest.mark.asyncio
-        async def test_unpin_message_missing_required_fields(self, processor):
+        async def test_unpin_message_missing_required_fields(self,
+                                                             processor,
+                                                             standard_conversation_id):
             """Test unpinning a message with missing required fields"""
             # Missing conversation_id
             response = await processor.process_event({
                 "event_type": "unpin_message",
-                "data": {"message_id": "456"}
+                "data": {"message_id": "123"}
             })
             assert response["request_completed"] is False
 
             # Missing message_id (when not unpinning all)
             response = await processor.process_event({
                 "event_type": "unpin_message",
-                "data": {"conversation_id": "123"}
+                "data": {"conversation_id": standard_conversation_id}
             })
             assert response["request_completed"] is False
-
-    class TestHelperMethods:
-        """Tests for helper methods"""
-
-        @pytest.mark.asyncio
-        async def test_get_entity_success(self, processor, telethon_client_mock):
-            """Test successfully getting an entity"""
-            telethon_client_mock.get_entity.return_value = "test_entity"
-
-            assert await processor._get_entity("123") == "test_entity"
-            telethon_client_mock.get_entity.assert_called_once_with("123")

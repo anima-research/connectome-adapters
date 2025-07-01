@@ -40,8 +40,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         Returns:
             Dict[str, Any]: Dictionary containing the status and message_ids
         """
-        conversation_id = self._format_conversation_id(data.conversation_id)
-        entity = await self._get_entity(conversation_id)
+        entity = await self._get_entity(conversation_info)
         message_ids = []
         reply_to_message_id = None
 
@@ -94,8 +93,7 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         Returns:
             Dict[str, Any]: Dictionary containing the status
         """
-        conversation_id = self._format_conversation_id(data.conversation_id)
-        entity = await self._get_entity(conversation_id)
+        entity = await self._get_entity(conversation_info)
 
         await self.rate_limiter.limit_request("edit_message", data.conversation_id)
         await self.conversation_manager.update_conversation({
@@ -110,16 +108,17 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         logging.info(f"Message edited in conversation {data.conversation_id}")
         return {"request_completed": True}
 
-    async def _delete_message(self, data: BaseModel) -> Dict[str, Any]:
+    async def _delete_message(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
         """Delete a message
 
         Args:
+            conversation_info: Conversation info
             data: Event data containing conversation_id and message_id
 
         Returns:
             Dict[str, Any]: Dictionary containing the status
         """
-        entity = await self._get_entity(self._format_conversation_id(data.conversation_id))
+        entity = await self._get_entity(conversation_info)
         await self.rate_limiter.limit_request("delete_message", data.conversation_id)
         messages = await self.client.delete_messages(entity=entity, message_ids=[(int(data.message_id))])
 
@@ -134,23 +133,23 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         logging.info(f"Message deleted in conversation {data.conversation_id}")
         return {"request_completed": True}
 
-    async def _add_reaction(self, data: BaseModel) -> Dict[str, Any]:
+    async def _add_reaction(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
         """Add a reaction to a message
 
         Args:
+            conversation_info: Conversation info
             data: Event data containing conversation_id, message_id, and emoji
 
         Returns:
             Dict[str, Any]: Dictionary containing the status
         """
-        conversation_id = self._format_conversation_id(data.conversation_id)
-        entity = await self._get_entity(conversation_id)
+        entity = await self._get_entity(conversation_info)
         emoji_symbol = emoji.emojize(f":{data.emoji}:")
 
         if not emoji_symbol or emoji_symbol == f":{data.emoji}:":
             raise Exception(f"Python library emoji does not support this emoji: {data.emoji}")
 
-        await self.rate_limiter.limit_request("add_reaction", conversation_id)
+        await self.rate_limiter.limit_request("add_reaction", data.conversation_id)
         await self.conversation_manager.update_conversation({
             "event_type": "edited_message",
             "message": await self.client(
@@ -162,33 +161,33 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
             )
         })
 
-        logging.info(f"Reaction added to message in conversation {conversation_id}")
+        logging.info(f"Reaction added to message in conversation {data.conversation_id}")
         return {"request_completed": True}
 
-    async def _remove_reaction(self, data: BaseModel) -> Dict[str, Any]:
+    async def _remove_reaction(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
         """Remove a specific reaction from a message
 
         Args:
+            conversation_info: Conversation info
             data: Event data containing conversation_id, message_id, and emoji
 
         Returns:
             Dict[str, Any]: Dictionary containing the status
         """
-        conversation_id = self._format_conversation_id(data.conversation_id)
-        entity = await self._get_entity(conversation_id)
+        entity = await self._get_entity(conversation_info)
         emoji_symbol = emoji.emojize(f":{data.emoji}:")
 
         if not emoji_symbol or emoji_symbol == f":{data.emoji}:":
             raise Exception(f"Python library emoji does not support this emoji: {data.emoji}")
 
-        await self.rate_limiter.limit_request("get_messages", conversation_id)
+        await self.rate_limiter.limit_request("get_messages", data.conversation_id)
 
         message_id = int(data.message_id)
         old_message = await self.client.get_messages(entity, ids=message_id)
         old_reactions = getattr(old_message, "reactions", None) if old_message else None
         new_reactions = self._update_reactions_list(old_reactions, emoji_symbol)
 
-        await self.rate_limiter.limit_request("remove_reaction", conversation_id)
+        await self.rate_limiter.limit_request("remove_reaction", data.conversation_id)
         await self.conversation_manager.update_conversation({
             "event_type": "edited_message",
             "message": await self.client(
@@ -200,19 +199,20 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
             )
         })
 
-        logging.info(f"Reaction removed from message in conversation {conversation_id}")
+        logging.info(f"Reaction removed from message in conversation {data.conversation_id}")
         return {"request_completed": True}
 
-    async def _pin_message(self, data: BaseModel) -> Dict[str, Any]:
+    async def _pin_message(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
         """Pin a message
 
         Args:
+            conversation_info: Conversation info
             data: Event data containing conversation_id and message_id
 
         Returns:
             Dict[str, Any]: Dictionary containing the status
         """
-        entity = await self._get_entity(self._format_conversation_id(data.conversation_id))
+        entity = await self._get_entity(conversation_info)
 
         await self.rate_limiter.limit_request("pin_message", data.conversation_id)
         message = await self.client(functions.messages.UpdatePinnedMessageRequest(
@@ -231,17 +231,17 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         logging.info(f"Message {data.message_id} pinned in conversation {data.conversation_id}")
         return {"request_completed": True}
 
-    async def _unpin_message(self, data: BaseModel) -> Dict[str, Any]:
+    async def _unpin_message(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
         """Unpin a message
 
         Args:
+            conversation_info: Conversation info
             data: Event data containing conversation_id and message_id
 
         Returns:
             Dict[str, Any]: Dictionary containing the status
         """
-        entity = await self._get_entity(self._format_conversation_id(data.conversation_id))
-
+        entity = await self._get_entity(conversation_info)
         await self.rate_limiter.limit_request("unpin_message", data.conversation_id)
         message = await self.client(functions.messages.UpdatePinnedMessageRequest(
             peer=entity, id=int(data.message_id), unpin=True
@@ -258,17 +258,6 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
 
         logging.info(f"Message {data.message_id} unpinned in conversation {data.conversation_id}")
         return {"request_completed": True}
-
-    def _conversation_should_exist(self) -> bool:
-        """Check if a conversation should exist before sending or editing a message
-
-        Returns:
-            bool: True if a conversation should exist, False otherwise
-
-        Note:
-            In Telegram the existence of a conversation is mandatory.
-        """
-        return True
 
     def _adapter_specific_mention_all(self) -> str:
         """Mention all users in a conversation
@@ -335,19 +324,21 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
 
         return reactions_to_add
 
-    async def _get_entity(self, conversation_id: Union[str, int]) -> Any:
+    async def _get_entity(self, conversation_info: Any) -> Any:
         """Get an entity from a conversation ID
 
         Args:
-            conversation_id: The conversation ID
+            conversation_info: The conversation info
 
         Returns:
             The entity or raises an exception if not found
         """
         await self.rate_limiter.limit_request("get_entity")
 
+        conversation_id = self._format_conversation_id(conversation_info.platform_conversation_id)
         entity = await self.client.get_entity(conversation_id)
+
         if not entity:
-            raise Exception(f"No entity found for conversation {conversation_id}")
+            raise Exception(f"No entity found for conversation {conversation_info.conversation_id}")
 
         return entity

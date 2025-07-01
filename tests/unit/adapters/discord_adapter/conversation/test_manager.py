@@ -14,7 +14,7 @@ from src.adapters.discord_adapter.conversation.reaction_handler import ReactionH
 
 from src.core.cache.message_cache import MessageCache, CachedMessage
 from src.core.cache.attachment_cache import AttachmentCache
-from src.core.conversation.base_data_classes import ThreadInfo, UserInfo, ConversationDelta
+from src.core.conversation.base_data_classes import ThreadInfo, UserInfo
 
 class TestManager:
     """Tests for the Discord conversation manager class"""
@@ -40,21 +40,27 @@ class TestManager:
         )
 
     @pytest.fixture
-    def conversation_info_mock(self):
+    def standard_conversation_id(self):
+        """Create a standard conversation ID"""
+        return "discord_2SV7UT3h2SpMid0xZNcS"
+
+    @pytest.fixture
+    def conversation_info_mock(self, standard_conversation_id):
         """Create a mock ConversationInfo"""
         return ConversationInfo(
-            conversation_id="987654321/123456789",
+            platform_conversation_id="987654321/123456789",
+            conversation_id=standard_conversation_id,
             conversation_type="channel",
             conversation_name="general",
             messages=set(["111222333"])
         )
 
     @pytest.fixture
-    def cached_message_mock(self):
+    def cached_message_mock(self, standard_conversation_id):
         """Create a mock cached message"""
         return CachedMessage(
             message_id="111222333",
-            conversation_id="987654321/123456789",
+            conversation_id=standard_conversation_id,
             thread_id=None,
             sender_id="123456789",
             sender_name="Discord User",
@@ -85,6 +91,7 @@ class TestManager:
         # Set up guild
         guild = MagicMock(spec=discord.Guild)
         guild.id = 987654321
+        guild.name = "Test Server"
         message.guild = guild
 
         # Set up author
@@ -149,31 +156,46 @@ class TestManager:
         """Tests for conversation creation and identification"""
 
         @pytest.mark.asyncio
-        async def test_get_or_create_conversation_info_new(self, manager, mock_discord_message):
+        async def test_get_or_create_conversation_info_new(self,
+                                                           manager,
+                                                           mock_discord_message,
+                                                           standard_conversation_id):
             """Test creating a new conversation"""
             assert len(manager.conversations) == 0
-            conversation_info = await manager._get_or_create_conversation_info(mock_discord_message)
+            conversation_info = await manager._get_or_create_conversation_info({
+                "message": mock_discord_message,
+                "server": mock_discord_message.guild
+            })
 
             assert len(manager.conversations) == 1
-            assert conversation_info.conversation_id == "987654321/123456789"
+            assert conversation_info.platform_conversation_id == "987654321/123456789"
+            assert conversation_info.conversation_id == standard_conversation_id
             assert conversation_info.conversation_type == "channel"
-            assert conversation_info.conversation_name == "general"
+            assert conversation_info.server_id == "987654321"
+            assert conversation_info.server_name == "Test Server"
             assert conversation_info.just_started is True
 
         @pytest.mark.asyncio
-        async def test_get_or_create_conversation_info_existing(self, manager, mock_discord_message):
+        async def test_get_or_create_conversation_info_existing(self,
+                                                                manager,
+                                                                mock_discord_message,
+                                                                standard_conversation_id):
             """Test getting an existing conversation"""
-            with patch.object(manager, "_get_conversation_id", return_value="987654321/123456789"):
-                manager.conversations["987654321/123456789"] = ConversationInfo(
-                    conversation_id="987654321/123456789",
+            with patch.object(manager, "_get_platform_conversation_id", return_value="987654321/123456789"):
+                manager.conversations[standard_conversation_id] = ConversationInfo(
+                    platform_conversation_id="987654321/123456789",
+                    conversation_id=standard_conversation_id,
                     conversation_type="channel",
                     conversation_name="general"
                 )
 
-                conversation_info = await manager._get_or_create_conversation_info(mock_discord_message)
+                conversation_info = await manager._get_or_create_conversation_info(
+                    {"message": mock_discord_message}
+                )
 
                 assert len(manager.conversations) == 1
-                assert conversation_info.conversation_id == "987654321/123456789"
+                assert conversation_info.platform_conversation_id == "987654321/123456789"
+                assert conversation_info.conversation_id == standard_conversation_id
                 assert conversation_info.conversation_type == "channel"
 
     class TestAddToConversation:
@@ -185,7 +207,8 @@ class TestManager:
                                    mock_discord_message,
                                    cached_message_mock,
                                    user_info_mock,
-                                   attachment_mock):
+                                   attachment_mock,
+                                   standard_conversation_id):
             """Test adding a message with attachment"""
             thread_info = ThreadInfo(
                 thread_id="111222333",
@@ -194,7 +217,8 @@ class TestManager:
 
             with patch.object(manager, "_get_or_create_conversation_info",
                              return_value=ConversationInfo(
-                                conversation_id="987654321/123456789",
+                                platform_conversation_id="987654321/123456789",
+                                conversation_id=standard_conversation_id,
                                 conversation_type="channel",
                                 conversation_name="general",
                                 just_started=True
@@ -209,7 +233,7 @@ class TestManager:
                     "attachments": [attachment_mock]
                 })
 
-                assert delta["conversation_id"] == "987654321/123456789"
+                assert delta["conversation_id"] == standard_conversation_id
                 assert delta["fetch_history"] is True  # New conversation should fetch history
 
                 assert len(delta["added_messages"]) == 1
@@ -237,17 +261,18 @@ class TestManager:
                                               manager,
                                               conversation_info_mock,
                                               cached_message_mock,
-                                              mock_discord_edited_message):
+                                              mock_discord_edited_message,
+                                              standard_conversation_id):
             """Test updating a message's content"""
             manager.message_cache.get_message_by_id.return_value = cached_message_mock
-            manager.conversations["987654321/123456789"] = conversation_info_mock
+            manager.conversations[standard_conversation_id] = conversation_info_mock
 
             delta = await manager.update_conversation({
                 "event_type": DiscordEventType.EDITED_MESSAGE,
                 "message": mock_discord_edited_message
             })
 
-            assert delta["conversation_id"] == "987654321/123456789"
+            assert delta["conversation_id"] == standard_conversation_id
             assert delta["updated_messages"][0]["message_id"] == "111222333"
             assert cached_message_mock.text == mock_discord_edited_message.data["content"]
 
@@ -256,10 +281,11 @@ class TestManager:
                                    manager,
                                    cached_message_mock,
                                    conversation_info_mock,
-                                   mock_discord_edited_message):
+                                   mock_discord_edited_message,
+                                   standard_conversation_id):
             """Test pinning a message"""
             manager.message_cache.get_message_by_id.return_value = cached_message_mock
-            manager.conversations["987654321/123456789"] = conversation_info_mock
+            manager.conversations[standard_conversation_id] = conversation_info_mock
 
             mock_discord_edited_message.data["content"] = cached_message_mock.text
             mock_discord_edited_message.data["pinned"] = True
@@ -269,7 +295,7 @@ class TestManager:
                 "message": mock_discord_edited_message
             })
 
-            assert delta["conversation_id"] == "987654321/123456789"
+            assert delta["conversation_id"] == standard_conversation_id
             assert len(delta["pinned_message_ids"]) == 1
             assert delta["pinned_message_ids"][0] == cached_message_mock.message_id
 
@@ -281,12 +307,13 @@ class TestManager:
                                      manager,
                                      cached_message_mock,
                                      conversation_info_mock,
-                                     mock_discord_edited_message):
+                                     mock_discord_edited_message,
+                                     standard_conversation_id):
             """Test unpinning a message"""
             cached_message_mock.is_pinned = True
             conversation_info_mock.pinned_messages.add(cached_message_mock.message_id)
             manager.message_cache.get_message_by_id.return_value = cached_message_mock
-            manager.conversations["987654321/123456789"] = conversation_info_mock
+            manager.conversations[standard_conversation_id] = conversation_info_mock
 
             mock_discord_edited_message.data["content"] = cached_message_mock.text
             mock_discord_edited_message.data["pinned"] = False
@@ -296,7 +323,7 @@ class TestManager:
                 "message": mock_discord_edited_message
             })
 
-            assert delta["conversation_id"] == "987654321/123456789"
+            assert delta["conversation_id"] == standard_conversation_id
             assert len(delta["unpinned_message_ids"]) == 1
             assert delta["unpinned_message_ids"][0] == cached_message_mock.message_id
 
@@ -308,14 +335,15 @@ class TestManager:
                                                manager,
                                                conversation_info_mock,
                                                cached_message_mock,
-                                               mock_discord_reaction_event):
+                                               mock_discord_reaction_event,
+                                               standard_conversation_id):
             """Test updating a message's reactions"""
             manager.message_cache.get_message_by_id.return_value = cached_message_mock
-            manager.conversations["987654321/123456789"] = conversation_info_mock
+            manager.conversations[standard_conversation_id] = conversation_info_mock
 
             delta = await manager.update_conversation(mock_discord_reaction_event)
 
-            assert delta["conversation_id"] == "987654321/123456789"
+            assert delta["conversation_id"] == standard_conversation_id
             assert delta["added_reactions"] == ["fire"]
             assert "fire" in cached_message_mock.reactions
             assert cached_message_mock.reactions["fire"] == 1
@@ -328,9 +356,10 @@ class TestManager:
                                       manager,
                                       conversation_info_mock,
                                       cached_message_mock,
-                                      mock_discord_deleted_message):
+                                      mock_discord_deleted_message,
+                                      standard_conversation_id):
             """Test deleting a message"""
-            manager.conversations["987654321/123456789"] = conversation_info_mock
+            manager.conversations[standard_conversation_id] = conversation_info_mock
             manager.message_cache.get_message_by_id.return_value = cached_message_mock
             manager.message_cache.delete_message.return_value = True
 
@@ -340,12 +369,12 @@ class TestManager:
                 )
 
                 manager.message_cache.get_message_by_id.assert_called_with(
-                    conversation_id="987654321/123456789",
+                    conversation_id=standard_conversation_id,
                     message_id="111222333"
                 )
                 manager.message_cache.delete_message.assert_called_with(
-                    "987654321/123456789", "111222333"
+                    standard_conversation_id, "111222333"
                 )
 
-                assert delta["conversation_id"] == "987654321/123456789"
+                assert delta["conversation_id"] == standard_conversation_id
                 assert "111222333" in delta["deleted_message_ids"]

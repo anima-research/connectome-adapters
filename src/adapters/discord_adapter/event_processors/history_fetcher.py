@@ -12,7 +12,6 @@ from src.adapters.discord_adapter.event_processors.discord_utils import (
 )
 
 from src.core.events.history_fetcher.base_history_fetcher import BaseHistoryFetcher
-from src.core.rate_limiter.rate_limiter import RateLimiter
 from src.core.utils.config import Config
 
 class HistoryFetcher(BaseHistoryFetcher):
@@ -95,7 +94,7 @@ class HistoryFetcher(BaseHistoryFetcher):
         await self.rate_limiter.limit_request("fetch_channel")
 
         return await get_discord_channel(
-            self.client, self.conversation.conversation_id
+            self.client, self.conversation.platform_conversation_id
         )
 
     async def _fetch_history_in_batches(self, channel: Any, index: int) -> List[Any]:

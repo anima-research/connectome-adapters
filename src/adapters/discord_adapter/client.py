@@ -63,6 +63,18 @@ class Client:
         async def on_raw_reaction_remove(payload):
             await self.process_event({"type": "removed_reaction", "event": payload})
 
+        @self.bot.event
+        async def on_guild_channel_update(_, after):
+            await self.process_event({"type": "renamed_conversation", "event": after})
+
+        @self.bot.event
+        async def on_thread_update(_, after):
+            await self.process_event({"type": "renamed_conversation", "event": after})
+
+        @self.bot.event
+        async def on_guild_update(before, after):
+            await self.process_event({"type": "renamed_server", "event": after})
+
     async def connect(self) -> bool:
         """Connect to Discord"""
         try:

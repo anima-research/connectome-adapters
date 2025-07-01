@@ -51,6 +51,11 @@ class TestSocketIOToSlackFlowIntegration:
         client.reactions_remove = AsyncMock(return_value={
             "ok": True
         })
+        # Mock successful history response
+        client.conversations_history = AsyncMock(return_value={
+            "ok": True
+        })
+
         return client
 
     @pytest.fixture
@@ -112,28 +117,33 @@ class TestSocketIOToSlackFlowIntegration:
         return adapter
 
     @pytest.fixture
-    def setup_conversation(self, adapter):
+    def standard_conversation_id(self):
+        """Create a mock standard conversation ID"""
+        return "slack_F0OIohoDYwVnEyYccO7j"
+
+    @pytest.fixture
+    def setup_conversation(self, adapter, standard_conversation_id):
         """Setup a test conversation with a user"""
         def _setup():
-            conversation_id = "T12345/C12345678"
-            adapter.conversation_manager.conversations[conversation_id] = ConversationInfo(
-                conversation_id=conversation_id,
+            adapter.conversation_manager.conversations[standard_conversation_id] = ConversationInfo(
+                platform_conversation_id="T123/C456",
+                conversation_id=standard_conversation_id,
                 conversation_type="channel"
             )
-            return adapter.conversation_manager.conversations[conversation_id]
+            return adapter.conversation_manager.conversations[standard_conversation_id]
         return _setup
 
     # =============== TEST METHODS ===============
 
     @pytest.mark.asyncio
-    async def test_send_message_flow(self, adapter, setup_conversation):
+    async def test_send_message_flow(self, adapter, setup_conversation, standard_conversation_id):
         """Test sending a simple message to Slack"""
         setup_conversation()
 
         response = await adapter.process_outgoing_event({
             "event_type": "send_message",
             "data": {
-                "conversation_id": "T12345/C12345678",
+                "conversation_id": standard_conversation_id,
                 "text": "Hello, Slack world!"
             }
         })
@@ -144,23 +154,26 @@ class TestSocketIOToSlackFlowIntegration:
 
         # Verify that the Slack API was called correctly
         adapter.client.web_client.chat_postMessage.assert_called_once_with(
-            channel="C12345678",
+            channel="C456",
             text="Hello, Slack world!",
             unfurl_links=False,
             unfurl_media=False
         )
 
     @pytest.mark.asyncio
-    async def test_send_message_with_attachment_flow(self, adapter, uploader_mock, setup_conversation):
+    async def test_send_message_with_attachment_flow(self,
+                                                     adapter,
+                                                     uploader_mock,
+                                                     setup_conversation,
+                                                     standard_conversation_id):
         """Test sending a message with an attachment to Slack"""
         setup_conversation()
 
         uploader_mock.upload_attachments.return_value = []
-
         response = await adapter.process_outgoing_event({
             "event_type": "send_message",
             "data": {
-                "conversation_id": "T12345/C12345678",
+                "conversation_id": standard_conversation_id,
                 "text": "See attachment",
                 "attachments": [
                     {
@@ -176,14 +189,14 @@ class TestSocketIOToSlackFlowIntegration:
         uploader_mock.upload_attachments.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_edit_message_flow(self, adapter, setup_conversation):
+    async def test_edit_message_flow(self, adapter, setup_conversation, standard_conversation_id):
         """Test the complete flow from socket.io edit_message to Slack API call"""
         setup_conversation()
 
         response = await adapter.process_outgoing_event({
             "event_type": "edit_message",
             "data": {
-                "conversation_id": "T12345/C12345678",
+                "conversation_id": standard_conversation_id,
                 "message_id": "1662031200.123456",
                 "text": "Edited message content"
             }
@@ -192,18 +205,20 @@ class TestSocketIOToSlackFlowIntegration:
 
         # Verify that the Slack API was called correctly
         adapter.client.web_client.chat_update.assert_called_once_with(
-            channel="C12345678",
+            channel="C456",
             ts="1662031200.123456",
             text="Edited message content"
         )
 
     @pytest.mark.asyncio
-    async def test_delete_message_flow(self, adapter):
+    async def test_delete_message_flow(self, adapter, setup_conversation, standard_conversation_id):
         """Test the complete flow from socket.io delete_message to Slack API call"""
+        setup_conversation()
+
         response = await adapter.process_outgoing_event({
             "event_type": "delete_message",
             "data": {
-                "conversation_id": "T12345/C12345678",
+                "conversation_id": standard_conversation_id,
                 "message_id": "1662031200.123456"
             }
         })
@@ -211,13 +226,19 @@ class TestSocketIOToSlackFlowIntegration:
 
         # Verify that the Slack API was called correctly
         adapter.client.web_client.chat_delete.assert_called_once_with(
-            channel="C12345678",
+            channel="C456",
             ts="1662031200.123456"
         )
 
     @pytest.mark.asyncio
-    async def test_add_reaction_flow(self, adapter, emoji_converter_mock):
+    async def test_add_reaction_flow(self,
+                                     adapter,
+                                     emoji_converter_mock,
+                                     setup_conversation,
+                                     standard_conversation_id):
         """Test the complete flow from socket.io add_reaction to Slack API call"""
+        setup_conversation()
+
         with patch(
             "src.core.utils.emoji_converter.EmojiConverter.get_instance",
             return_value=emoji_converter_mock
@@ -225,7 +246,7 @@ class TestSocketIOToSlackFlowIntegration:
             response = await adapter.process_outgoing_event({
                 "event_type": "add_reaction",
                 "data": {
-                    "conversation_id": "T12345/C12345678",
+                    "conversation_id": standard_conversation_id,
                     "message_id": "1662031200.123456",
                     "emoji": "thumbs_up"
                 }
@@ -234,14 +255,20 @@ class TestSocketIOToSlackFlowIntegration:
 
             emoji_converter_mock.standard_to_platform_specific.assert_called_once_with("thumbs_up")
             adapter.client.web_client.reactions_add.assert_called_once_with(
-                channel="C12345678",
+                channel="C456",
                 timestamp="1662031200.123456",
                 name="+1"  # From emoji converter mock
             )
 
     @pytest.mark.asyncio
-    async def test_remove_reaction_flow(self, adapter, emoji_converter_mock):
+    async def test_remove_reaction_flow(self,
+                                        adapter,
+                                        emoji_converter_mock,
+                                        setup_conversation,
+                                        standard_conversation_id):
         """Test the complete flow from socket.io remove_reaction to Slack API call"""
+        setup_conversation()
+
         with patch(
             "src.core.utils.emoji_converter.EmojiConverter.get_instance",
             return_value=emoji_converter_mock
@@ -249,7 +276,7 @@ class TestSocketIOToSlackFlowIntegration:
             response = await adapter.process_outgoing_event({
                 "event_type": "remove_reaction",
                 "data": {
-                    "conversation_id": "T12345/C12345678",
+                    "conversation_id": standard_conversation_id,
                     "message_id": "1662031200.123456",
                     "emoji": "thumbs_up"
                 }
@@ -258,18 +285,20 @@ class TestSocketIOToSlackFlowIntegration:
 
             emoji_converter_mock.standard_to_platform_specific.assert_called_once_with("thumbs_up")
             adapter.client.web_client.reactions_remove.assert_called_once_with(
-                channel="C12345678",
+                channel="C456",
                 timestamp="1662031200.123456",
                 name="+1"  # From emoji converter mock
             )
 
     @pytest.mark.asyncio
-    async def test_fetch_history_flow(self, adapter):
+    async def test_fetch_history_flow(self, adapter, setup_conversation, standard_conversation_id):
         """Test the complete flow from socket.io fetch_history to HistoryFetcher"""
+        setup_conversation()
+
         mock_history = [
             {
                 "message_id": "1662031200.123456",
-                "conversation_id": "T12345/C12345678",
+                "conversation_id": standard_conversation_id,
                 "sender": {"user_id": "U12345678", "display_name": "Test User"},
                 "text": "Test message",
                 "timestamp": 1662031200123
@@ -280,7 +309,7 @@ class TestSocketIOToSlackFlowIntegration:
             response = await adapter.process_outgoing_event({
                 "event_type": "fetch_history",
                 "data": {
-                    "conversation_id": "T12345/C12345678",
+                    "conversation_id": standard_conversation_id,
                     "before": int(time.time()),
                     "limit": 10
                 }
@@ -288,7 +317,7 @@ class TestSocketIOToSlackFlowIntegration:
             assert response["request_completed"] is True
 
     @pytest.mark.asyncio
-    async def test_pin_message_flow(self, adapter, setup_conversation):
+    async def test_pin_message_flow(self, adapter, setup_conversation, standard_conversation_id):
         """Test the complete flow from socket.io pin_message to Slack API call"""
         setup_conversation()
         adapter.client.web_client.pins_add = AsyncMock(return_value={"ok": True})
@@ -296,19 +325,19 @@ class TestSocketIOToSlackFlowIntegration:
         response = await adapter.process_outgoing_event({
             "event_type": "pin_message",
             "data": {
-                "conversation_id": "T12345/C12345678",
+                "conversation_id": standard_conversation_id,
                 "message_id": "1662031200.123456"
             }
         })
         assert response["request_completed"] is True
 
         adapter.client.web_client.pins_add.assert_called_once_with(
-            channel="C12345678",
+            channel="C456",
             timestamp="1662031200.123456"
         )
 
     @pytest.mark.asyncio
-    async def test_unpin_message_flow(self, adapter, setup_conversation):
+    async def test_unpin_message_flow(self, adapter, setup_conversation, standard_conversation_id):
         """Test the complete flow from socket.io unpin_message to Slack API call"""
         setup_conversation()
         adapter.client.web_client.pins_remove = AsyncMock(return_value={"ok": True})
@@ -316,13 +345,13 @@ class TestSocketIOToSlackFlowIntegration:
         response = await adapter.process_outgoing_event({
             "event_type": "unpin_message",
             "data": {
-                "conversation_id": "T12345/C12345678",
+                "conversation_id": standard_conversation_id,
                 "message_id": "1662031200.123456"
             }
         })
         assert response["request_completed"] is True
 
         adapter.client.web_client.pins_remove.assert_called_once_with(
-            channel="C12345678",
+            channel="C456",
             timestamp="1662031200.123456"
         )

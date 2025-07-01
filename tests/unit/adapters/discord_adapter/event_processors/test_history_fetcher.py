@@ -13,6 +13,11 @@ class TestHistoryFetcher:
     """Tests for the Discord HistoryFetcher class"""
 
     @pytest.fixture
+    def standard_conversation_id(self):
+        """Create a standard conversation ID for testing"""
+        return "discord_FeKw08M4keuw8e9gnsQZ"
+
+    @pytest.fixture
     def discord_client_mock(self):
         """Create a mocked Discord client"""
         client = MagicMock()
@@ -109,12 +114,13 @@ class TestHistoryFetcher:
     def mock_formatted_messages(self,
                                 mock_message_with_attachment,
                                 mock_message_reply,
-                                mock_attachments):
+                                mock_attachments,
+                                standard_conversation_id):
         """Create mock formatted message data"""
         return [
             {
                 "message_id": str(mock_message_with_attachment.id),
-                "conversation_id": "987654321",
+                "conversation_id": standard_conversation_id,
                 "sender": {
                     "user_id": str(mock_message_with_attachment.author.id),
                     "display_name": mock_message_with_attachment.author.display_name
@@ -126,7 +132,7 @@ class TestHistoryFetcher:
             },
             {
                 "message_id": str(mock_message_reply.id),
-                "conversation_id": "987654321",
+                "conversation_id": standard_conversation_id,
                 "sender": {
                     "user_id": str(mock_message_reply.author.id),
                     "display_name": mock_message_reply.author.display_name
@@ -139,12 +145,12 @@ class TestHistoryFetcher:
         ]
 
     @pytest.fixture
-    def mock_cached_messages(self):
+    def mock_cached_messages(self, standard_conversation_id):
         """Create mock cached message data"""
         return [
             {
                 "message_id": "111222333",
-                "conversation_id": "987654321",
+                "conversation_id": standard_conversation_id,
                 "sender": {
                     "user_id": "444555666",
                     "display_name": "Cool User"
@@ -180,12 +186,14 @@ class TestHistoryFetcher:
                         mock_message_with_attachment,
                         mock_message_reply,
                         mock_formatted_messages,
-                        mock_attachments):
+                        mock_attachments,
+                        standard_conversation_id):
         """Create a HistoryFetcher instance"""
         def _create(conversation_id, anchor=None, before=None, after=None, history_limit=None):
-            if conversation_id == "987654321":
+            if conversation_id == standard_conversation_id:
                 conversation_manager_mock.get_conversation.return_value = ConversationInfo(
-                    conversation_id="987654321",
+                    platform_conversation_id="123456789",
+                    conversation_id=standard_conversation_id,
                     conversation_type="channel",
                     conversation_name="general"
                 )
@@ -224,15 +232,15 @@ class TestHistoryFetcher:
     @pytest.mark.asyncio
     async def test_fetch_with_anchor(self,
                                      history_fetcher,
-                                     channel_mock,
-                                     mock_attachments):
+                                     mock_attachments,
+                                     standard_conversation_id):
         """Test fetching history with an anchor"""
-        fetcher = history_fetcher("987654321", anchor="222333444")
+        fetcher = history_fetcher(standard_conversation_id, anchor="222333444")
         history = await fetcher.fetch()
 
         assert len(history) == 2
         assert history[0]["message_id"] == "111222333"
-        assert history[0]["conversation_id"] == "987654321"
+        assert history[0]["conversation_id"] == standard_conversation_id
         assert history[0]["sender"]["user_id"] == "444555666"
         assert history[0]["text"] == "Message with attachment"
         assert history[0]["attachments"] == mock_attachments
@@ -242,9 +250,9 @@ class TestHistoryFetcher:
         assert history[1]["timestamp"] == 1609504200
 
     @pytest.mark.asyncio
-    async def test_fetch_with_before(self, history_fetcher):
+    async def test_fetch_with_before(self, history_fetcher, standard_conversation_id):
         """Test fetching history with before timestamp"""
-        fetcher = history_fetcher("987654321", before=1609504300)  # After both messages
+        fetcher = history_fetcher(standard_conversation_id, before=1609504300)  # After both messages
         history = await fetcher.fetch()
 
         fetcher.conversation_manager.get_conversation_cache.assert_called_once()
@@ -253,9 +261,9 @@ class TestHistoryFetcher:
     @pytest.mark.asyncio
     async def test_fetch_with_after(self,
                                     history_fetcher,
-                                    channel_mock):
+                                    standard_conversation_id):
         """Test fetching history with after timestamp"""
-        fetcher = history_fetcher("987654321", after=1609501000)  # Before both messages
+        fetcher = history_fetcher(standard_conversation_id, after=1609501000)  # Before both messages
         history = await fetcher.fetch()
 
         fetcher.conversation_manager.get_conversation_cache.assert_called_once()
@@ -270,15 +278,16 @@ class TestHistoryFetcher:
     def test_format_not_cached_message(self,
                                        history_fetcher,
                                        mock_message_with_attachment,
-                                       mock_attachments):
+                                       mock_attachments,
+                                       standard_conversation_id):
         """Test formatting a message that isn't cached"""
-        fetcher = history_fetcher("987654321")
+        fetcher = history_fetcher(standard_conversation_id)
         result = fetcher._format_not_cached_message(
             mock_message_with_attachment, mock_attachments
         )
 
         assert result["message_id"] == "111222333"
-        assert result["conversation_id"] == "987654321"
+        assert result["conversation_id"] == standard_conversation_id
         assert result["sender"]["user_id"] == "444555666"
         assert result["sender"]["display_name"] == "Cool User"
         assert result["text"] == "Message with attachment"
