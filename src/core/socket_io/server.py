@@ -2,7 +2,7 @@ import asyncio
 import logging
 import socketio
 import time
-
+import uuid
 from aiohttp import web
 from dataclasses import dataclass
 from typing import Dict, Any, Optional
@@ -131,11 +131,11 @@ class SocketIOServer:
         Returns:
             request_id: ID of the queued request
         """
-        request_id = data.get("request_id", f"req_{sid}_{int(time.time())}")
+        request_id = data.get("request_id", f"req_{time.time():.6f}_{uuid.uuid4()}")
         event = SocketIOQueuedEvent(data, sid, time.time(), request_id)
         self.request_map[request_id] = event
 
-        await self.event_queue.put(event)
+        self.event_queue.put_nowait(event)
         logging.info(f"Queued event with request_id {request_id}.")
 
         internal_request_id = data.get("internal_request_id", None)
@@ -191,7 +191,11 @@ class SocketIOServer:
 
         while self.is_processing:
             try:
-                event = await self.event_queue.get()
+                try:
+                    event = self.event_queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    await asyncio.sleep(1)
+                    continue
 
                 if event.request_id and event.request_id not in self.request_map:
                     self.event_queue.task_done()
