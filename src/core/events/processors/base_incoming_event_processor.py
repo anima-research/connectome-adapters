@@ -83,7 +83,8 @@ class BaseIncomingEventProcessor(ABC):
                              anchor: Optional[str] = None,
                              before: Optional[int] = None,
                              after: Optional[int] = None,
-                             limit: Optional[int] = None) -> List[Dict[str, Any]]:
+                             limit: Optional[int] = None,
+                             message_to_exclude: Optional[Any] = None) -> List[Dict[str, Any]]:
         """Fetch conversation history
 
         Args:
@@ -91,6 +92,7 @@ class BaseIncomingEventProcessor(ABC):
             before: int containing before timestamp
             after: int containing after timestamp
             limit: int containing limit
+            message_to_exclude: message to exclude
 
         Returns:
             List of formatted message history
@@ -105,7 +107,8 @@ class BaseIncomingEventProcessor(ABC):
                 anchor=anchor,
                 before=before,
                 after=after,
-                history_limit=limit
+                history_limit=limit,
+                message_to_exclude=message_to_exclude
             ).fetch()
         except Exception as e:
             logging.error(f"Error fetching conversation history: {e}", exc_info=True)
@@ -137,3 +140,31 @@ class BaseIncomingEventProcessor(ABC):
             logging.error(f"Error handling renaming event: {e}", exc_info=True)
 
         return []
+
+    async def _add_new_conversation_events(self,
+                                           events: List[Dict[str, Any]],
+                                           delta: Dict[str, Any],
+                                           anchor: Optional[Any] = None,
+                                           exclude_messages: Optional[bool] = True) -> None:
+        """Add new conversation events
+
+        Args:
+            events: List of events to emit
+            delta: Delta object
+            anchor: Anchor message object
+            exclude_messages: Whether to exclude messages
+        """
+        if not delta.get("fetch_history", False):
+            return
+
+        events.append(self.incoming_event_builder.conversation_started(delta))
+
+        added_messages = delta.get("added_messages", [])
+        message_to_exclude = added_messages[-1] if added_messages else None
+        history = await self._fetch_history(
+            delta["conversation_id"],
+            anchor=anchor if anchor else "newest",
+            message_to_exclude=message_to_exclude if exclude_messages else None
+        )
+
+        events.append(self.incoming_event_builder.history_fetched(delta, history))

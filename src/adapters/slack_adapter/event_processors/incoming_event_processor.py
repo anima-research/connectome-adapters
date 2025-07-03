@@ -90,13 +90,9 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
 
             if delta:
                 added_messages = delta.get("added_messages", [])
+                anchor = (added_messages[-1].get("message_id", None) if added_messages else None)
 
-                if delta.get("fetch_history", False):
-                    events.append(self.incoming_event_builder.conversation_started(delta))
-
-                    anchor = (added_messages[-1].get("message_id", None) if added_messages else None)
-                    history = await self._fetch_history(delta["conversation_id"], anchor=anchor)
-                    events.append(self.incoming_event_builder.history_fetched(delta, history))
+                await self._add_new_conversation_events(events, delta, anchor=anchor)
 
                 for message in added_messages:
                     events.append(self.incoming_event_builder.message_received(message))

@@ -21,7 +21,8 @@ class BaseHistoryFetcher(ABC):
                  anchor: Optional[str] = None,
                  before: Optional[int] = None,
                  after: Optional[int] = None,
-                 history_limit: Optional[int] = None):
+                 history_limit: Optional[int] = None,
+                 message_to_exclude: Optional[Any] = None):
         """Initialize the BaseHistoryFetcher
 
         Args:
@@ -33,6 +34,7 @@ class BaseHistoryFetcher(ABC):
             before: Before datetime
             after: After datetime
             history_limit: Limit the number of messages to fetch
+            message_to_exclude: Message to exclude from the history
         """
         self.config = config
         self.client = client
@@ -41,6 +43,7 @@ class BaseHistoryFetcher(ABC):
         self.anchor = anchor
         self.before = before
         self.after = after
+        self.message_to_exclude = message_to_exclude
         self.history_limit = history_limit or self.config.get_setting("adapter", "max_history_limit")
         self.cache_fetched_history = self.config.get_setting("caching", "cache_fetched_history")
         self.rate_limiter = RateLimiter.get_instance(self.config)
@@ -64,12 +67,10 @@ class BaseHistoryFetcher(ABC):
             f"history_limit=[{self.history_limit}]"
         )
 
-        if self.anchor:
-            return await self._fetch_from_api()
-
-        cached_messages = self._fetch_from_cache()
-        if len(cached_messages) >= self.history_limit:
-            return cached_messages
+        if not self.anchor:
+            cached_messages = self._fetch_from_cache()
+            if len(cached_messages) >= self.history_limit:
+                return cached_messages
 
         return await self._fetch_from_api()
 
@@ -116,6 +117,11 @@ class BaseHistoryFetcher(ABC):
         Returns:
             List of filtered message history
         """
+        if self.message_to_exclude:
+            message_id = self.message_to_exclude.get("message_id")
+            for msg in history:
+                if msg["message_id"] == message_id:
+                    history.remove(msg)
         if self.before:
             return [msg for msg in history if msg["timestamp"] < self.before]
         if self.after:

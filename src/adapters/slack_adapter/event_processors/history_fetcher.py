@@ -21,7 +21,8 @@ class HistoryFetcher(BaseHistoryFetcher):
                  anchor: Optional[str] = None,
                  before: Optional[int] = None,
                  after: Optional[int] = None,
-                 history_limit: Optional[int] = None):
+                 history_limit: Optional[int] = None,
+                 message_to_exclude: Optional[Any] = None):
         """Initialize the SlackHistoryFetcher
 
         Args:
@@ -33,6 +34,7 @@ class HistoryFetcher(BaseHistoryFetcher):
             before: Before datetime
             after: After datetime
             history_limit: Limit the number of messages to fetch
+            message_to_exclude: Message to exclude from the history
         """
         super().__init__(
             config,
@@ -42,9 +44,9 @@ class HistoryFetcher(BaseHistoryFetcher):
             anchor,
             before,
             after,
-            history_limit
+            history_limit,
+            message_to_exclude
         )
-
         self.downloader = Downloader(self.config, self.client, False)
         self.users = {}
 

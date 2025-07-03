@@ -79,11 +79,7 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
             })
 
             if delta:
-                if delta.get("fetch_history", False):
-                    events.append(self.incoming_event_builder.conversation_started(delta))
-
-                    history = await self._fetch_history(delta["conversation_id"], anchor="newest")
-                    events.append(self.incoming_event_builder.history_fetched(delta, history))
+                await self._add_new_conversation_events(events, delta)
 
                 for message in delta.get("added_messages", []):
                     events.append(self.incoming_event_builder.message_received(message))
@@ -140,22 +136,21 @@ class IncomingEventProcessor(BaseIncomingEventProcessor):
         )
 
         if delta:
-            if delta.get("fetch_history", False):
-                events.append(self.incoming_event_builder.conversation_started(delta))
+            await self._add_new_conversation_events(events=events, delta=delta, exclude_messages=False)
 
-                history = await self._fetch_history(delta["conversation_id"], anchor="newest")
-                events.append(self.incoming_event_builder.history_fetched(delta, history))
+            old_conversation_id = f"{event.get('stream_id', '')}/{event.get('orig_subject', '')}"
+            old_conversation = self.conversation_manager.get_conversation(old_conversation_id)
 
-            old_conversation = self.conversation_manager.get_conversation(
-                f"{event.get('stream_id', '')}/{event.get('orig_subject', '')}"
-            )
             if old_conversation:
                 for message_id in delta.get("deleted_message_ids", []):
                     events.append(
-                        self.incoming_event_builder.message_deleted(message_id, old_conversation.conversation_id)
+                        self.incoming_event_builder.message_deleted(
+                            message_id, old_conversation.conversation_id
+                        )
                     )
-            for migrated_message in delta.get("added_messages", []):
-                events.append(self.incoming_event_builder.message_received(migrated_message))
+
+            for message in delta.get("added_messages", []):
+                events.append(self.incoming_event_builder.message_received(message))
 
         return events
 
