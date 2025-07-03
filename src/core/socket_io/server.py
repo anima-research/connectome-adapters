@@ -221,8 +221,6 @@ class SocketIOServer:
                 self._build_request_event_data(event, result)
             ).model_dump()
 
-            print(f"Request result: {result}")
-
             if result.get("request_completed", False):
                 await self.emit_request_success_event(request_event_data)
             else:
