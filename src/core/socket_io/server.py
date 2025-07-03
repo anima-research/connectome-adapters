@@ -17,9 +17,11 @@ class SocketIOQueuedEvent:
     sid: str  # Socket ID of sender
     timestamp: float  # When it was queued
     request_id: Optional[str] = None  # Optional ID for tracking/cancellation
+    internal_request_id: Optional[str] = None  # Optional external ID for tracking
 
 class SocketIOServer:
     """Socket.IO server for communicating with LLM services"""
+    ADAPTER_STOPPED_ERROR = "Not processed due to adapter stopping"
 
     def __init__(self, config: Config):
         """Initialize the Socket.IO server
@@ -48,6 +50,7 @@ class SocketIOServer:
         self.event_queue = asyncio.Queue()
         self.processing_task = None
         self.is_processing = False
+        self.is_stopping = False
         self.request_map = {}
         self.request_event_builder = RequestEventBuilder(self.adapter_type)
 
@@ -71,16 +74,6 @@ class SocketIOServer:
         async def bot_response(sid, data):
             """Handle request to send a message to adapter"""
             await self._queue_event(sid, data)
-
-    async def emit_event(self, event: str, data: Dict[str, Any] = {}) -> None:
-        """Emit a status event to all connected clients
-
-        Args:
-            event: Event type
-            data: Event data
-        """
-        await self.sio.emit(event, data)
-        print(f"Emitted event: {event} with data: {data}")
 
     def set_adapter(self, adapter: Any) -> None:
         """Set the reference to the adapter instance
@@ -107,6 +100,11 @@ class SocketIOServer:
 
     async def stop(self) -> None:
         """Stop the Socket.IO server"""
+        self.is_stopping = True
+
+        while not self.event_queue.empty():
+            await self._process_single_event()
+
         if self.is_processing:
             self.is_processing = False
             if self.processing_task:
@@ -121,6 +119,43 @@ class SocketIOServer:
             await self.runner.cleanup()
             logging.info("Socket.IO server stopped")
 
+    async def emit_event(self, event: str, data: Dict[str, Any] = {}) -> None:
+        """Emit a status event to all connected clients
+
+        Args:
+            event: Event type
+            data: Event data
+        """
+        await self.sio.emit(event, data)
+        print(f"Emitted event: {event} with data: {data}")
+
+    async def emit_request_queued_event(self, data: Dict[str, Any] = {}) -> None:
+        """Emit a request queued event to all connected clients
+
+        Args:
+            event: Event type
+            data: Event data
+        """
+        await self.emit_event("request_queued", data)
+
+    async def emit_request_failed_event(self, data: Dict[str, Any] = {}) -> None:
+        """Emit a request failed event to all connected clients
+
+        Args:
+            event: Event type
+            data: Event data
+        """
+        await self.emit_event("request_failed", data)
+
+    async def emit_request_success_event(self, data: Dict[str, Any] = {}) -> None:
+        """Emit a request success event to all connected clients
+
+        Args:
+            event: Event type
+            data: Event data
+        """
+        await self.emit_event("request_success", data)
+
     async def _queue_event(self, sid: str, data: Dict[str, Any]) -> str:
         """Queue an event for processing with rate limiting
 
@@ -132,22 +167,75 @@ class SocketIOServer:
             request_id: ID of the queued request
         """
         request_id = data.get("request_id", f"req_{time.time():.6f}_{uuid.uuid4()}")
-        event = SocketIOQueuedEvent(data, sid, time.time(), request_id)
+        internal_request_id = None
+
+        if "internal_request_id" in data:
+            internal_request_id = data["internal_request_id"]
+            del data["internal_request_id"]
+
+        event = SocketIOQueuedEvent(data, sid, time.time(), request_id, internal_request_id)
+
+        if self.is_stopping:
+            await self.emit_request_failed_event(
+                self._build_request_event(
+                    request_id, internal_request_id, {"error": self.ADAPTER_STOPPED_ERROR}
+                )
+            )
+            return
+
         self.request_map[request_id] = event
-
         self.event_queue.put_nowait(event)
-        logging.info(f"Queued event with request_id {request_id}.")
 
-        internal_request_id = data.get("internal_request_id", None)
-        await self.sio.emit(
-            "request_queued",
-            self.request_event_builder.build(request_id, internal_request_id).model_dump(),
-            room=sid
-        )
-        logging.info(
-            f"Emitted request_queued event with request_id {request_id} and "\
-            f"internal_request_id {internal_request_id}."
-        )
+        logging.info(f"Queued event with request_id {request_id}")
+        await self.emit_request_queued_event(self._build_request_event(request_id, internal_request_id))
+
+    async def _process_event_queue(self) -> None:
+        """Process events from the queue with rate limiting"""
+        logging.info("Starting event queue processor")
+
+        while self.is_processing:
+            await self._process_single_event()
+
+    async def _process_single_event(self) -> None:
+        """Process a request event"""
+        try:
+            event = self.event_queue.get_nowait()
+        except asyncio.QueueEmpty:
+            await asyncio.sleep(1)
+            return
+
+        if event.request_id and event.request_id not in self.request_map:
+            self.event_queue.task_done()
+            return
+
+        logging.info(f"Processing event: {event.request_id}")
+
+        try:
+            result = {}
+            if not self.is_stopping:
+                result = await self.adapter.process_outgoing_event(event.data)
+
+            request_event_data = self.request_event_builder.build(
+                event.request_id,
+                event.internal_request_id,
+                self._build_request_event_data(event, result)
+            ).model_dump()
+
+            print(f"Request result: {result}")
+
+            if result.get("request_completed", False):
+                await self.emit_request_success_event(request_event_data)
+            else:
+                await self.emit_request_failed_event(request_event_data)
+
+            if event.request_id in self.request_map:
+                del self.request_map[event.request_id]
+            self.event_queue.task_done()
+        except asyncio.CancelledError:
+            logging.info("Event queue processor cancelled")
+        except Exception as e:
+            logging.error(f"Unexpected error in event queue processor: {e}", exc_info=True)
+            await asyncio.sleep(5)  # Prevent tight loop on error
 
     async def _cancel_request(self, sid: str, data: Dict[str, Any]) -> None:
         """Cancel a queued request if it hasn't been processed yet
@@ -162,87 +250,74 @@ class SocketIOServer:
             return
 
         if request_id not in self.request_map:
-            logging.warning(f"Request {request_id} not found in request map and cannot be cancelled.")
-            await self.sio.emit(
-                "request_failed",
-                self.request_event_builder.build(
-                    request_id, data.get("internal_request_id", None)
-                ).model_dump(),
-                room=sid
+            await self.emit_request_failed_event(
+                self._build_request_event(
+                    request_id,
+                    data.get("internal_request_id", None),
+                    {"error": "Request ID not found in request map"}
+                )
             )
-            logging.info(f"Emitted request_failed event with request_id {request_id}.")
             return
 
         del self.request_map[request_id]
-        logging.info(f"Request with request_id {request_id} cancelled successfully.")
+        logging.info(f"Request with request_id {request_id} cancelled successfully")
 
-        await self.sio.emit(
-            "request_success",
+        await self.emit_request_success_event(
             self.request_event_builder.build(
                 request_id, data.get("internal_request_id", None)
-            ).model_dump(),
-            room=sid
+            ).model_dump()
         )
-        logging.info(f"Emitted request_success event with request_id {request_id}.")
 
-    async def _process_event_queue(self) -> None:
-        """Process events from the queue with rate limiting"""
-        logging.info("Starting event queue processor")
+    def _build_request_event(self,
+                             request_id: str,
+                             internal_request_id: Optional[str] = None,
+                             data: Dict[str, Any] = {}) -> Dict[str, Any]:
+        """Build a request event
 
-        while self.is_processing:
-            try:
-                try:
-                    event = self.event_queue.get_nowait()
-                except asyncio.QueueEmpty:
-                    await asyncio.sleep(1)
-                    continue
+        Args:
+            request_id: Request ID
+            internal_request_id: Internal Request ID
+            data: Event data
 
-                if event.request_id and event.request_id not in self.request_map:
-                    self.event_queue.task_done()
-                    continue
+        Returns:
+            data: The data for the request event
+        """
+        return self.request_event_builder.build(
+            request_id, internal_request_id, data
+        ).model_dump()
 
-                logging.info(f"Processing event: {event.request_id}")
+    def _build_request_event_data(self,
+                                  event: SocketIOQueuedEvent,
+                                  result: Dict[str, Any]) -> Dict[str, Any]:
+        """Build the data for the request event
 
-                internal_request_id = None
-                if "internal_request_id" in event.data:
-                    internal_request_id = event.data["internal_request_id"]
-                    del event.data["internal_request_id"]
+        Args:
+            event: The event to build the data for
+            result: The result of the request
 
-                result = await self.adapter.process_outgoing_event(event.data)
-                status = "request_success" if result["request_completed"] else "request_failed"
-                data = {}
+        Returns:
+            data: The data for the request event
+        """
+        if self.is_stopping:
+            return {
+                "error": self.ADAPTER_STOPPED_ERROR,
+                "affected_message_id": event.data.get("data", {}).get("message_id", None)
+            }
 
-                if "message_ids" in result:
-                    data["message_ids"] = result["message_ids"]
-                elif "content" in result:
-                    data["content"] = result["content"]
-                elif "file_content" in result:
-                    data["file_content"] = result["file_content"]
-                elif "directories" in result and "files" in result:
-                    data["directories"] = result["directories"]
-                    data["files"] = result["files"]
-                elif "error" in result:
-                    data["error"] = result["error"]
-                    data["affected_message_id"] = event.data.get("data", {}).get("message_id", None)
+        data = {}
+        affected_message_id = event.data.get("data", {}).get("message_id", None)
 
-                await self.sio.emit(
-                    status,
-                    self.request_event_builder.build(
-                        event.request_id, internal_request_id, data
-                    ).model_dump(),
-                    room=event.sid
-                )
-                logging.info(
-                    f"Emitted {status} event with request_id {event.request_id} and "\
-                    f"internal_request_id {internal_request_id}."
-                )
+        if "message_ids" in result:
+            data["message_ids"] = result["message_ids"]
+        elif "content" in result:
+            data["content"] = result["content"]
+        elif "file_content" in result:
+            data["file_content"] = result["file_content"]
+        elif "directories" in result and "files" in result:
+            data["directories"] = result["directories"]
+            data["files"] = result["files"]
+        elif "error" in result:
+            data["error"] = result["error"]
+            data["affected_message_id"] = affected_message_id
 
-                if event.request_id in self.request_map:
-                    del self.request_map[event.request_id]
-                self.event_queue.task_done()
-            except asyncio.CancelledError:
-                logging.info("Event queue processor cancelled")
-                break
-            except Exception as e:
-                logging.error(f"Unexpected error in event queue processor: {e}", exc_info=True)
-                await asyncio.sleep(5)  # Prevent tight loop on error
+        return data
