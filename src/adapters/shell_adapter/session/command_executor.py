@@ -32,7 +32,6 @@ class CommandExecutor:
         self.command_max_lifetime = self.config.get_setting("adapter", "command_max_lifetime")
         self.cpu_limit = self.config.get_setting("adapter", "cpu_percent_limit")
         self.memory_limit_mb = self.config.get_setting("adapter", "memory_mb_limit")
-        self.disk_limit_mb = self.config.get_setting("adapter", "disk_mb_limit")
 
     def __del__(self):
         """Stop the command executor and cancel all running commands"""

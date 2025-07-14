@@ -9,7 +9,6 @@ adapter:
   end_output_size: 300                    # in characters
   cpu_percent_limit: 50
   memory_mb_limit: 50
-  disk_mb_limit: 50
 logging:
   logging_level: "info"                   # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
   log_file_path: "logs/shell_adapter.log"

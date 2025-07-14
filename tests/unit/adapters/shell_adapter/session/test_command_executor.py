@@ -21,8 +21,7 @@ class TestCommandExecutor:
             ("adapter", "end_output_size"): 4000,
             ("adapter", "command_max_lifetime"): 60,
             ("adapter", "cpu_percent_limit"): 80,
-            ("adapter", "memory_mb_limit"): 500,
-            ("adapter", "disk_mb_limit"): 1000
+            ("adapter", "memory_mb_limit"): 500
         }.get((section, key))
         return config
 
@@ -60,7 +59,6 @@ class TestCommandExecutor:
             assert executor.command_max_lifetime == 60
             assert executor.cpu_limit == 80
             assert executor.memory_limit_mb == 500
-            assert executor.disk_limit_mb == 1000
 
     class TestCleanup:
         """Tests for the cleanup method"""
