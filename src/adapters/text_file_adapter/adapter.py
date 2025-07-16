@@ -9,13 +9,12 @@ from src.core.utils.config import Config
 class Adapter():
     """Text file adapter implementation"""
 
-    def __init__(self, config: Config, socketio_server, start_maintenance=False):
+    def __init__(self, config: Config, socketio_server):
         """Initialize adapter
 
         Args:
             config: Config instance
             socketio_server: socket_io.server for event broadcasting
-            start_maintenance: Whether to start the maintenance loop
         """
         self.socketio_server = socketio_server
         self.config = config

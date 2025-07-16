@@ -1,11 +1,8 @@
 import pytest
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
 
+from unittest.mock import AsyncMock, MagicMock, patch
 from src.adapters.zulip_adapter.adapter import Adapter
-from src.adapters.zulip_adapter.conversation.manager import Manager
-from src.core.cache.attachment_cache import AttachmentCache
-from src.core.cache.message_cache import MessageCache
 
 class TestAdapter:
     """Tests for the Adapter class"""
@@ -32,14 +29,6 @@ class TestAdapter:
         })
         client.running = True
         return client
-
-    @pytest.fixture
-    def rate_limiter_mock(self):
-        """Create a mock rate limiter"""
-        rate_limiter = AsyncMock()
-        rate_limiter.limit_request = AsyncMock(return_value=None)
-        rate_limiter.get_wait_time = AsyncMock(return_value=0)
-        return rate_limiter
 
     @pytest.fixture
     def adapter(self, socketio_server_mock, rate_limiter_mock, zulip_config):

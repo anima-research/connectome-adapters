@@ -5,8 +5,8 @@ import zulip
 from typing import Any, Optional
 
 from src.adapters.zulip_adapter.conversation.manager import Manager
-from src.adapters.zulip_adapter.event_processors.incoming_event_processor import IncomingEventProcessor
-from src.adapters.zulip_adapter.event_processors.outgoing_event_processor import OutgoingEventProcessor
+from src.adapters.zulip_adapter.event_processing.incoming_event_processor import IncomingEventProcessor
+from src.adapters.zulip_adapter.event_processing.outgoing_event_processor import OutgoingEventProcessor
 from src.adapters.zulip_adapter.client import Client
 
 from src.core.adapter.base_adapter import BaseAdapter
@@ -17,16 +17,15 @@ class Adapter(BaseAdapter):
     ADAPTER_VERSION = "0.1.0"  # Our adapter version
     TESTED_WITH_API = "v1"     # Zulip API version we have tested with
 
-    def __init__(self, config: Config, socketio_server, start_maintenance=False):
+    def __init__(self, config: Config, socketio_server):
         """Initialize the Zulip adapter
 
         Args:
             config: Config instance
             socketio_server: socket_io.server for event broadcasting
-            start_maintenance: Whether to start the maintenance loop
         """
-        super().__init__(config, socketio_server, start_maintenance)
-        self.conversation_manager = Manager(config, start_maintenance)
+        super().__init__(config, socketio_server)
+        self.conversation_manager = Manager(config)
 
     async def _setup_client(self) -> None:
         """Connect to client"""

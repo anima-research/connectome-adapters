@@ -8,8 +8,8 @@ from telethon.tl.types import ReactionEmoji
 
 from src.adapters.telegram_adapter.adapter import Adapter
 from src.adapters.telegram_adapter.conversation.data_classes import ConversationInfo
-from src.adapters.telegram_adapter.event_processors.incoming_event_processor import IncomingEventProcessor
-from src.adapters.telegram_adapter.event_processors.outgoing_event_processor import OutgoingEventProcessor
+from src.adapters.telegram_adapter.event_processing.incoming_event_processor import IncomingEventProcessor
+from src.adapters.telegram_adapter.event_processing.outgoing_event_processor import OutgoingEventProcessor
 from src.core.conversation.base_data_classes import UserInfo
 
 class TestSocketIOToTelegramFlowIntegration:
@@ -36,14 +36,6 @@ class TestSocketIOToTelegramFlowIntegration:
         client.get_entity = AsyncMock()
         client.__call__ = AsyncMock()  # For reactions and other direct calls
         return client
-
-    @pytest.fixture
-    def rate_limiter_mock(self):
-        """Create a mock rate limiter"""
-        rate_limiter = AsyncMock()
-        rate_limiter.limit_request = AsyncMock(return_value=None)
-        rate_limiter.get_wait_time = AsyncMock(return_value=0)
-        return rate_limiter
 
     @pytest.fixture
     def adapter(self, telegram_config, socketio_mock, telethon_client_mock, rate_limiter_mock):
@@ -78,25 +70,31 @@ class TestSocketIOToTelegramFlowIntegration:
         return _setup
 
     @pytest.fixture
-    def setup_conversation_known_member(self, adapter, standard_conversation_id):
+    def setup_conversation_known_member(self, cache_mock, adapter, standard_conversation_id):
         """Setup a test conversation with a user"""
         def _setup():
-            adapter.conversation_manager.conversations[standard_conversation_id].known_members = {
-                "456": UserInfo(
-                    user_id="456",
-                    username="test_user",
-                    first_name="Test",
-                    last_name="User"
-                )
-            }
+            cache_mock.user_cache.add_user({
+                "user_id": "456",
+                "username": "test_user",
+                "first_name": "Test",
+                "last_name": "User"
+            })
+            cache_mock.user_cache.add_user({
+                "user_id": "test_bot_id",
+                "username": "test_bot",
+                "bot": True
+            })
+            adapter.conversation_manager.conversations[standard_conversation_id].known_members.add("456")
+            adapter.conversation_manager.conversations[standard_conversation_id].known_members.add("test_bot_id")
+
             return adapter.conversation_manager.conversations[standard_conversation_id]
         return _setup
 
     @pytest.fixture
-    def setup_message(self, adapter, standard_conversation_id):
+    def setup_message(self, cache_mock, adapter, standard_conversation_id):
         """Setup a test message in the cache"""
         async def _setup(reactions=None):
-            cached_msg = await adapter.conversation_manager.message_cache.add_message({
+            cached_msg = await cache_mock.message_cache.add_message({
                 "message_id": "123",
                 "conversation_id": standard_conversation_id,
                 "text": "Test message",
@@ -148,20 +146,23 @@ class TestSocketIOToTelegramFlowIntegration:
 
     @pytest.mark.asyncio
     async def test_send_message_flow(self,
+                                     cache_mock,
                                      adapter,
                                      telethon_client_mock,
                                      setup_conversation,
+                                     setup_conversation_known_member,
                                      create_message_response,
                                      standard_conversation_id):
         """Test the complete flow from socket.io send_message to Telethon call"""
         setup_conversation()
+        setup_conversation_known_member()
 
         entity = MagicMock()
         telethon_client_mock.get_entity.return_value = entity
         telethon_client_mock.send_message.return_value = create_message_response(text="Hello, world!")
 
         assert len(adapter.conversation_manager.conversations) == 1
-        assert len(adapter.conversation_manager.message_cache.messages) == 0
+        assert len(cache_mock.message_cache.messages) == 0
 
         response = await adapter.outgoing_events_processor.process_event({
             "event_type": "send_message",
@@ -185,16 +186,17 @@ class TestSocketIOToTelegramFlowIntegration:
         assert standard_conversation_id in adapter.conversation_manager.conversations
         assert adapter.conversation_manager.conversations[standard_conversation_id].conversation_type == "private"
 
-        assert len(adapter.conversation_manager.message_cache.messages) == 1
-        assert standard_conversation_id in adapter.conversation_manager.message_cache.messages
-        assert "123" in adapter.conversation_manager.message_cache.messages[standard_conversation_id]
+        assert len(cache_mock.message_cache.messages) == 1
+        assert standard_conversation_id in cache_mock.message_cache.messages
+        assert "123" in cache_mock.message_cache.messages[standard_conversation_id]
 
-        cached_message = adapter.conversation_manager.message_cache.messages[standard_conversation_id]["123"]
+        cached_message = cache_mock.message_cache.messages[standard_conversation_id]["123"]
         assert cached_message.text == "Hello, world!"
         assert cached_message.conversation_id == standard_conversation_id
 
     @pytest.mark.asyncio
     async def test_edit_message_flow(self,
+                                     cache_mock,
                                      adapter,
                                      telethon_client_mock,
                                      setup_conversation,
@@ -230,13 +232,14 @@ class TestSocketIOToTelegramFlowIntegration:
             text="Edited message content"
         )
 
-        assert adapter.conversation_manager.message_cache.messages[standard_conversation_id]["123"].text == "Edited message content"
+        assert cache_mock.message_cache.messages[standard_conversation_id]["123"].text == "Edited message content"
 
         conversation = adapter.conversation_manager.conversations[standard_conversation_id]
         assert conversation.conversation_type == "private"
 
     @pytest.mark.asyncio
     async def test_delete_message_flow(self,
+                                       cache_mock,
                                        adapter,
                                        telethon_client_mock,
                                        setup_conversation,
@@ -267,10 +270,11 @@ class TestSocketIOToTelegramFlowIntegration:
             message_ids=[123]
         )
 
-        assert "123" not in adapter.conversation_manager.message_cache.messages.get(standard_conversation_id, {})
+        assert "123" not in cache_mock.message_cache.messages.get(standard_conversation_id, {})
 
     @pytest.mark.asyncio
     async def test_add_reaction_flow(self,
+                                     cache_mock,
                                      adapter,
                                      telethon_client_mock,
                                      setup_conversation,
@@ -283,10 +287,10 @@ class TestSocketIOToTelegramFlowIntegration:
         telethon_client_mock.get_entity.return_value = entity
 
         with patch(
-                 "src.adapters.telegram_adapter.event_processors.outgoing_event_processor.functions"
+                 "src.adapters.telegram_adapter.event_processing.outgoing_event_processor.functions"
              ) as mock_functions, \
              patch(
-                 "src.adapters.telegram_adapter.event_processors.outgoing_event_processor.ReactionEmoji"
+                 "src.adapters.telegram_adapter.event_processing.outgoing_event_processor.ReactionEmoji"
              ) as mock_reaction_emoji:
 
             mock_reaction_emoji.return_value = MagicMock()
@@ -320,12 +324,13 @@ class TestSocketIOToTelegramFlowIntegration:
 
             telethon_client_mock.assert_called_once_with(mock_send_reaction_request)
 
-            cached_message = adapter.conversation_manager.message_cache.messages[standard_conversation_id]["123"]
+            cached_message = cache_mock.message_cache.messages[standard_conversation_id]["123"]
             assert "thumbs_up" in cached_message.reactions
             assert cached_message.reactions["thumbs_up"] == 1
 
     @pytest.mark.asyncio
     async def test_remove_reaction_flow(self,
+                                        cache_mock,
                                         adapter,
                                         telethon_client_mock,
                                         setup_conversation,
@@ -338,10 +343,10 @@ class TestSocketIOToTelegramFlowIntegration:
         telethon_client_mock.get_entity.return_value = entity
 
         with patch(
-                 "src.adapters.telegram_adapter.event_processors.outgoing_event_processor.functions"
+                 "src.adapters.telegram_adapter.event_processing.outgoing_event_processor.functions"
              ) as mock_functions, \
              patch(
-                 "src.adapters.telegram_adapter.event_processors.outgoing_event_processor.ReactionEmoji"
+                 "src.adapters.telegram_adapter.event_processing.outgoing_event_processor.ReactionEmoji"
              ) as mock_reaction_emoji:
 
             mock_reaction_emoji.return_value = MagicMock()
@@ -380,7 +385,7 @@ class TestSocketIOToTelegramFlowIntegration:
 
             telethon_client_mock.assert_called_once_with(mock_send_reaction_request)
 
-            cached_message = adapter.conversation_manager.message_cache.messages[standard_conversation_id]["123"]
+            cached_message = cache_mock.message_cache.messages[standard_conversation_id]["123"]
             assert "thumbs_up" not in cached_message.reactions
             assert len(cached_message.reactions) == 0
 
@@ -397,7 +402,7 @@ class TestSocketIOToTelegramFlowIntegration:
         telethon_client_mock.get_entity.return_value = MagicMock()
 
         with patch(
-            "src.adapters.telegram_adapter.event_processors.outgoing_event_processor.functions"
+            "src.adapters.telegram_adapter.event_processing.outgoing_event_processor.functions"
         ) as mock_functions:
 
             mock_functions.messages.UpdatePinnedMessageRequest.return_value = MagicMock()
@@ -432,7 +437,7 @@ class TestSocketIOToTelegramFlowIntegration:
         telethon_client_mock.get_entity.return_value = MagicMock()
 
         with patch(
-            "src.adapters.telegram_adapter.event_processors.outgoing_event_processor.functions"
+            "src.adapters.telegram_adapter.event_processing.outgoing_event_processor.functions"
         ) as mock_functions:
 
             mock_functions.messages.UpdatePinnedMessageRequest.return_value = MagicMock()

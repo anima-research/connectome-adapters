@@ -5,7 +5,9 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Dict, Any, Optional, List, Set, Union
+from typing import Dict, Any, Optional, List, Set
+
+from src.core.cache.user_cache import UserInfo
 
 class ConversationUpdateType(str, Enum):
     """Types of updates that can occur in a conversation"""
@@ -16,35 +18,6 @@ class ConversationUpdateType(str, Enum):
     REACTION_REMOVED = "reaction_removed"
     MESSAGE_PINNED = "message_pinned"
     MESSAGE_UNPINNED = "message_unpinned"
-
-@dataclass
-class UserInfo():
-    """Information about a user"""
-    user_id: str
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    username: Optional[str] = None
-    email: Optional[str] = None
-    is_bot: bool = False
-
-    @property
-    def display_name(self) -> str:
-        """Get a human-readable display name"""
-        if self.username:
-            return f"{self.username}"
-
-        name_parts = []
-        if self.first_name:
-            name_parts.append(self.first_name)
-        if self.last_name:
-            name_parts.append(self.last_name)
-        if name_parts:
-            return " ".join(name_parts)
-
-        if self.email:
-            return self.email
-
-        return f"User {self.user_id}"
 
 @dataclass
 class ThreadInfo:
@@ -75,7 +48,7 @@ class BaseConversationInfo:
     last_activity: datetime = None  # Last message times
 
     # Metadata storage
-    known_members: Dict[str, UserInfo] = field(default_factory=dict)
+    known_members: Set[str] = field(default_factory=set)
     just_started: bool = False
 
     # Add thread tracking

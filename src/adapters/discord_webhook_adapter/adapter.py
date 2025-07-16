@@ -5,7 +5,7 @@ import logging
 from typing import Any, Optional
 
 from src.adapters.discord_webhook_adapter.conversation.manager import Manager
-from src.adapters.discord_webhook_adapter.event_processors.outgoing_event_processor import OutgoingEventProcessor
+from src.adapters.discord_webhook_adapter.event_processing.outgoing_event_processor import OutgoingEventProcessor
 from src.adapters.discord_webhook_adapter.client import Client
 
 from src.core.adapter.base_adapter import BaseAdapter

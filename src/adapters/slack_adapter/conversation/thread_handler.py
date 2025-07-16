@@ -1,13 +1,9 @@
 from typing import Any, Optional
-from src.core.cache.message_cache import MessageCache
 from src.core.conversation.base_data_classes import ThreadInfo
 from src.core.conversation.base_thread_handler import BaseThreadHandler
 
 class ThreadHandler(BaseThreadHandler):
     """Handles thread information for Slack messages"""
-
-    def __init__(self, message_cache: MessageCache):
-        super().__init__(message_cache)
 
     def _add_message_to_thread_info(self, thread_info: ThreadInfo, message: Any) -> None:
         """Add a message to a thread info

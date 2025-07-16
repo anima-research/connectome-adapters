@@ -4,7 +4,8 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any, Optional
 
-from src.core.cache.message_cache import MessageCache, CachedMessage
+from src.core.cache.cache import Cache
+from src.core.cache.message_cache import CachedMessage
 from src.core.conversation.base_data_classes import BaseConversationInfo, ThreadInfo
 
 class BaseThreadHandler(ABC):
@@ -16,8 +17,8 @@ class BaseThreadHandler(ABC):
     - The root_message_id is the ultimate ancestor in the thread
     """
 
-    def __init__(self, message_cache: MessageCache):
-        self.message_cache = message_cache
+    def __init__(self):
+        self.cache = Cache.get_instance()
 
     async def add_thread_info(self,
                               message: Any,
@@ -45,7 +46,7 @@ class BaseThreadHandler(ABC):
             root_message_id = reply_to_msg_id
 
             try:
-                replied_msg = await self.message_cache.get_message_by_id(
+                replied_msg = await self.cache.message_cache.get_message_by_id(
                     conversation_id=conversation_info.conversation_id,
                     message_id=reply_to_msg_id
                 )

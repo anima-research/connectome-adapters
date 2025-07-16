@@ -13,11 +13,6 @@ class TestThreadHandler:
     """Tests for the ThreadHandler class"""
 
     @pytest.fixture
-    def message_cache_mock(self):
-        """Create a mocked MessageCache"""
-        return AsyncMock()
-
-    @pytest.fixture
     def standard_conversation_id(self):
         """Create a standard conversation ID"""
         return "zulip_wWrMhAlqbPvWgzzVrBvL"
@@ -60,9 +55,9 @@ class TestThreadHandler:
         )
 
     @pytest.fixture
-    def thread_handler(self, message_cache_mock):
+    def thread_handler(self):
         """Create a ThreadHandler instance for testing"""
-        return ThreadHandler(message_cache_mock)
+        return ThreadHandler()
 
     class TestAddThreadInfoToConversation:
         """Tests for add_thread_info_to_conversation method"""
@@ -128,13 +123,11 @@ class TestThreadHandler:
         @pytest.mark.asyncio
         async def test_reply_to_reply(self, thread_handler, conversation_info, cached_message):
             """Test handling reply to a message that is itself a reply"""
-            original_thread = ThreadInfo(
+            conversation_info.threads["123"] = ThreadInfo(
                 thread_id="123",
                 root_message_id="123",
                 messages=set(["456"])
             )
-            conversation_info.threads["123"] = original_thread
-
             replied_message = CachedMessage(
                 message_id="456",
                 conversation_id=cached_message.conversation_id,
@@ -148,21 +141,21 @@ class TestThreadHandler:
                 is_from_bot=cached_message.is_from_bot,
                 reply_to_message_id="123"  # This message replies to message 123
             )
-            thread_handler.message_cache.get_message_by_id.return_value = replied_message
 
-            message = {
-                "id": 789,
-                "content": '@_**User|123** [said](https://zulip.at-hub.com/123-dm/near/456):\n```quote\nHello\n```\nHi there'
-            }
-            result = await thread_handler.add_thread_info(message, conversation_info)
+            with patch.object(thread_handler.cache.message_cache, "get_message_by_id", return_value=replied_message):
+                message = {
+                    "id": 789,
+                    "content": '@_**User|123** [said](https://zulip.at-hub.com/123-dm/near/456):\n```quote\nHello\n```\nHi there'
+                }
+                result = await thread_handler.add_thread_info(message, conversation_info)
 
-            assert result is not None
-            assert result.thread_id == "456"  # Thread ID is the immediate reply target
-            assert result.root_message_id == "123"  # But root ID is from the original thread
-            assert len(result.messages) == 1
+                assert result is not None
+                assert result.thread_id == "456"  # Thread ID is the immediate reply target
+                assert result.root_message_id == "123"  # But root ID is from the original thread
+                assert len(result.messages) == 1
 
-            assert "456" in conversation_info.threads
-            assert conversation_info.threads["456"] == result
+                assert "456" in conversation_info.threads
+                assert conversation_info.threads["456"] == result
 
     class TestUpdateThreadInfo:
         """Tests for update_thread_info method"""
@@ -175,7 +168,6 @@ class TestThreadHandler:
                 "orig_content": '@_**User|123** [said](https://zulip.at-hub.com/123-dm/near/456):\n```quote\nHello\n```\nOriginal reply',
                 "content": '@_**User|123** [said](https://zulip.at-hub.com/123-dm/near/456):\n```quote\nHello\n```\nEdited reply'
             }
-
             changed, thread_info = await thread_handler.update_thread_info(
                 message, conversation_info
             )
@@ -191,7 +183,6 @@ class TestThreadHandler:
                 "orig_content": '@_**User|123** [said](https://zulip.at-hub.com/123-dm/near/456):\n```quote\nHello\n```\nOriginal reply',
                 "content": 'Edited with no reply'
             }
-
             changed, thread_info = await thread_handler.update_thread_info(
                 message, conversation_info
             )
@@ -209,7 +200,8 @@ class TestThreadHandler:
             }
 
             with patch.object(
-                ThreadHandler, 'add_thread_info',
+                ThreadHandler,
+                "add_thread_info",
                 return_value=ThreadInfo(thread_id="456", root_message_id="456")
             ):
                 changed, thread_info = await thread_handler.update_thread_info(
@@ -230,7 +222,8 @@ class TestThreadHandler:
             }
 
             with patch.object(
-                ThreadHandler, 'add_thread_info',
+                ThreadHandler,
+                "add_thread_info",
                 return_value=ThreadInfo(thread_id="789", root_message_id="789")
             ):
                 changed, thread_info = await thread_handler.update_thread_info(

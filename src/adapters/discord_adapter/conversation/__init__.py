@@ -5,7 +5,6 @@ from src.adapters.discord_adapter.conversation.manager import Manager, DiscordEv
 from src.adapters.discord_adapter.conversation.message_builder import MessageBuilder
 from src.adapters.discord_adapter.conversation.thread_handler import ThreadHandler
 from src.adapters.discord_adapter.conversation.reaction_handler import ReactionHandler
-from src.adapters.discord_adapter.conversation.user_builder import UserBuilder
 
 __all__ = [
     "ConversationInfo",
@@ -13,6 +12,5 @@ __all__ = [
     "MessageBuilder",
     "ReactionHandler",
     "ThreadHandler",
-    "UserBuilder",
     "DiscordEventType"
 ]

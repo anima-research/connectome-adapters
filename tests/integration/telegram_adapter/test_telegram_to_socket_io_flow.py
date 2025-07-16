@@ -9,8 +9,8 @@ from telethon.tl.types import ReactionEmoji
 
 from src.adapters.telegram_adapter.adapter import Adapter
 from src.adapters.telegram_adapter.conversation.data_classes import ConversationInfo
-from src.adapters.telegram_adapter.event_processors.incoming_event_processor import IncomingEventProcessor
-from src.adapters.telegram_adapter.event_processors.outgoing_event_processor import OutgoingEventProcessor
+from src.adapters.telegram_adapter.event_processing.incoming_event_processor import IncomingEventProcessor
+from src.adapters.telegram_adapter.event_processing.outgoing_event_processor import OutgoingEventProcessor
 
 class TestTelegramToSocketIOFlowIntegration:
     """Integration tests for Telegram to socket.io flow"""
@@ -30,14 +30,6 @@ class TestTelegramToSocketIOFlowIntegration:
         client = AsyncMock()
         client.get_entity = AsyncMock()
         return client
-
-    @pytest.fixture
-    def rate_limiter_mock(self):
-        """Create a mock rate limiter"""
-        rate_limiter = AsyncMock()
-        rate_limiter.limit_request = AsyncMock(return_value=None)
-        rate_limiter.get_wait_time = AsyncMock(return_value=0)
-        return rate_limiter
 
     @pytest.fixture
     def adapter(self, telegram_config, socketio_mock, telethon_client_mock, rate_limiter_mock):
@@ -72,25 +64,25 @@ class TestTelegramToSocketIOFlowIntegration:
         return _setup
 
     @pytest.fixture
-    def setup_conversation_known_member(self, adapter, standard_conversation_id):
+    def setup_conversation_known_member(self, cache_mock, adapter, standard_conversation_id):
         """Setup a test conversation with a user"""
         def _setup():
-            adapter.conversation_manager.conversations[standard_conversation_id].known_members = {
-                "456": {
-                    "user_id": "456",
-                    "username": "test_user",
-                    "first_name": "Test",
-                    "last_name": "User"
-                }
-            }
+            cache_mock.user_cache.add_user({
+                "user_id": "456",
+                "username": "test_user",
+                "first_name": "Test",
+                "last_name": "User"
+            })
+            adapter.conversation_manager.conversations[standard_conversation_id].known_members.add("456")
+
             return adapter.conversation_manager.conversations[standard_conversation_id]
         return _setup
 
     @pytest.fixture
-    def setup_message(self, adapter, standard_conversation_id):
+    def setup_message(self, cache_mock, adapter, standard_conversation_id):
         """Setup a test message in the cache"""
         async def _setup(message_id="123", reactions=None, is_pinned=False):
-            cached_msg = await adapter.conversation_manager.message_cache.add_message({
+            cached_msg = await cache_mock.message_cache.add_message({
                 "message_id": message_id,
                 "conversation_id": standard_conversation_id,
                 "text": "Test message",
@@ -231,6 +223,7 @@ class TestTelegramToSocketIOFlowIntegration:
     # =============== TEST METHODS ===============
     @pytest.mark.asyncio
     async def test_receive_message_flow(self,
+                                        cache_mock,
                                         adapter,
                                         telethon_client_mock,
                                         create_telethon_event,
@@ -246,8 +239,6 @@ class TestTelegramToSocketIOFlowIntegration:
         assert isinstance(result, list), "Expected process_event to return a list of events"
         assert len(result) > 0, "Expected at least one event to be generated"
 
-        print(result)
-
         message_events = [evt for evt in result if evt.get("event_type") == "message_received"]
         assert len(message_events) == 1, "Expected one message_received event"
 
@@ -258,12 +249,13 @@ class TestTelegramToSocketIOFlowIntegration:
         assert message_event["data"]["message_id"] == "123"
         assert message_event["data"]["text"] == "Test message"
 
-        assert standard_conversation_id in adapter.conversation_manager.message_cache.messages
-        assert "123" in adapter.conversation_manager.message_cache.messages[standard_conversation_id]
-        assert adapter.conversation_manager.message_cache.messages[standard_conversation_id]["123"].text == "Test message"
+        assert standard_conversation_id in cache_mock.message_cache.messages
+        assert "123" in cache_mock.message_cache.messages[standard_conversation_id]
+        assert cache_mock.message_cache.messages[standard_conversation_id]["123"].text == "Test message"
 
     @pytest.mark.asyncio
     async def test_edit_message_flow(self,
+                                     cache_mock,
                                      adapter,
                                      telethon_client_mock,
                                      setup_conversation,
@@ -298,10 +290,11 @@ class TestTelegramToSocketIOFlowIntegration:
         assert updated_event["data"]["message_id"] == "123"
         assert updated_event["data"]["new_text"] == "Edited message text"
 
-        assert adapter.conversation_manager.message_cache.messages[standard_conversation_id]["123"].text == "Edited message text"
+        assert cache_mock.message_cache.messages[standard_conversation_id]["123"].text == "Edited message text"
 
     @pytest.mark.asyncio
     async def test_delete_message_flow(self,
+                                       cache_mock,
                                        adapter,
                                        setup_conversation,
                                        setup_conversation_known_member,
@@ -329,11 +322,13 @@ class TestTelegramToSocketIOFlowIntegration:
             assert event_data["data"]["conversation_id"] == standard_conversation_id
             assert event_data["data"]["message_id"] in ["123", "456"]
 
-        assert "123" not in adapter.conversation_manager.message_cache.messages.get(standard_conversation_id, {})
-        assert "456" not in adapter.conversation_manager.message_cache.messages.get(standard_conversation_id, {})
+        assert "123" not in cache_mock.message_cache.messages.get(standard_conversation_id, {})
+        assert "456" not in cache_mock.message_cache.messages.get(standard_conversation_id, {})
 
     @pytest.mark.asyncio
-    async def test_message_pinned_flow(self, adapter,
+    async def test_message_pinned_flow(self,
+                                       cache_mock,
+                                       adapter,
                                        setup_conversation,
                                        setup_conversation_known_member,
                                        setup_message,
@@ -362,11 +357,13 @@ class TestTelegramToSocketIOFlowIntegration:
         assert pin_event["data"]["conversation_id"] == standard_conversation_id
         assert pin_event["data"]["message_id"] == "123"
 
-        assert adapter.conversation_manager.message_cache.messages[standard_conversation_id]["123"].is_pinned is True
+        assert cache_mock.message_cache.messages[standard_conversation_id]["123"].is_pinned is True
         assert "123" in adapter.conversation_manager.conversations[standard_conversation_id].pinned_messages
 
     @pytest.mark.asyncio
-    async def test_message_unpinned_flow(self, adapter,
+    async def test_message_unpinned_flow(self,
+                                         cache_mock,
+                                         adapter,
                                          setup_conversation,
                                          setup_conversation_known_member,
                                          setup_message,
@@ -396,11 +393,12 @@ class TestTelegramToSocketIOFlowIntegration:
         assert unpin_event["data"]["conversation_id"] == standard_conversation_id
         assert unpin_event["data"]["message_id"] == "123"
 
-        assert adapter.conversation_manager.message_cache.messages[standard_conversation_id]["123"].is_pinned is False
+        assert cache_mock.message_cache.messages[standard_conversation_id]["123"].is_pinned is False
         assert "123" not in adapter.conversation_manager.conversations[standard_conversation_id].pinned_messages
 
     @pytest.mark.asyncio
     async def test_reaction_added_flow(self,
+                                       cache_mock,
                                        adapter,
                                        telethon_client_mock,
                                        setup_conversation,
@@ -439,12 +437,13 @@ class TestTelegramToSocketIOFlowIntegration:
         assert event_data["data"]["message_id"] == "123"
         assert event_data["data"]["emoji"] == "thumbs_up"
 
-        cached_message = adapter.conversation_manager.message_cache.messages[standard_conversation_id]["123"]
+        cached_message = cache_mock.message_cache.messages[standard_conversation_id]["123"]
         assert "thumbs_up" in cached_message.reactions
         assert cached_message.reactions["thumbs_up"] == 1
 
     @pytest.mark.asyncio
     async def test_reaction_removed_flow(self,
+                                         cache_mock,
                                          adapter,
                                          telethon_client_mock,
                                          setup_conversation,
@@ -483,6 +482,6 @@ class TestTelegramToSocketIOFlowIntegration:
         assert event_data["data"]["message_id"] == "123"
         assert event_data["data"]["emoji"] == "red_heart"
 
-        cached_message = adapter.conversation_manager.message_cache.messages[standard_conversation_id]["123"]
+        cached_message = cache_mock.message_cache.messages[standard_conversation_id]["123"]
         assert "thumbs_up" in cached_message.reactions
         assert "red_heart" not in cached_message.reactions

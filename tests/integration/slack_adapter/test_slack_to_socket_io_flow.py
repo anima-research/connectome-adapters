@@ -11,12 +11,12 @@ from slack_sdk.socket_mode.request import SocketModeRequest
 
 from src.adapters.slack_adapter.adapter import Adapter
 from src.adapters.slack_adapter.client import Client
-from src.adapters.slack_adapter.attachment_loaders.uploader import Uploader
-from src.adapters.slack_adapter.attachment_loaders.downloader import Downloader
 from src.adapters.slack_adapter.conversation.data_classes import ConversationInfo
-from src.adapters.slack_adapter.event_processors.outgoing_event_processor import OutgoingEventProcessor
-from src.adapters.slack_adapter.event_processors.incoming_event_processor import IncomingEventProcessor
-from src.adapters.slack_adapter.event_processors.incoming_file_processor import IncomingFileProcessor
+from src.adapters.slack_adapter.event_processing.attachment_loaders.downloader import Downloader
+from src.adapters.slack_adapter.event_processing.attachment_loaders.uploader import Uploader
+from src.adapters.slack_adapter.event_processing.outgoing_event_processor import OutgoingEventProcessor
+from src.adapters.slack_adapter.event_processing.incoming_event_processor import IncomingEventProcessor
+from src.adapters.slack_adapter.event_processing.incoming_file_processor import IncomingFileProcessor
 
 class TestSlackToSocketIOFlowIntegration:
     """Integration tests for Slack to socket.io flow"""
@@ -112,14 +112,6 @@ class TestSlackToSocketIOFlowIntegration:
         return uploader_mock
 
     @pytest.fixture
-    def rate_limiter_mock(self):
-        """Create a mock rate limiter"""
-        rate_limiter = AsyncMock()
-        rate_limiter.limit_request = AsyncMock(return_value=None)
-        rate_limiter.get_wait_time = AsyncMock(return_value=0)
-        return rate_limiter
-
-    @pytest.fixture
     def adapter(self,
                 slack_config,
                 socketio_mock,
@@ -171,14 +163,14 @@ class TestSlackToSocketIOFlowIntegration:
         return _setup
 
     @pytest.fixture
-    def setup_message(self, adapter):
+    def setup_message(self, cache_mock, adapter):
         """Setup a test message in the cache"""
         async def _setup(conversation_id,
                          message_id="1662031200.123456",
                          reactions=None,
                          thread_id=None,
                          is_pinned=False):
-            cached_msg = await adapter.conversation_manager.message_cache.add_message({
+            cached_msg = await cache_mock.message_cache.add_message({
                 "message_id": message_id,
                 "conversation_id": conversation_id,
                 "text": "Test message",
@@ -320,7 +312,7 @@ class TestSlackToSocketIOFlowIntegration:
     # =============== TEST METHODS ===============
 
     @pytest.mark.asyncio
-    async def test_new_message_flow(self, adapter, create_slack_event, standard_conversation_id):
+    async def test_new_message_flow(self, cache_mock, adapter, create_slack_event, standard_conversation_id):
         """Test flow from Slack message with attachment to socket.io event"""
         event = create_slack_event(event_type="message")
         adapter.incoming_events_processor.downloader.download_attachments.return_value = []
@@ -333,7 +325,7 @@ class TestSlackToSocketIOFlowIntegration:
             assert standard_conversation_id in adapter.conversation_manager.conversations
             assert len(adapter.conversation_manager.conversations[standard_conversation_id].messages) == 1
 
-            conversation_messages = adapter.conversation_manager.message_cache.messages.get(standard_conversation_id, {})
+            conversation_messages = cache_mock.message_cache.messages.get(standard_conversation_id, {})
             assert len(conversation_messages) == 1
 
             cached_message = next(iter(conversation_messages.values()))
@@ -342,6 +334,7 @@ class TestSlackToSocketIOFlowIntegration:
 
     @pytest.mark.asyncio
     async def test_edited_message_flow(self,
+                                       cache_mock,
                                        adapter,
                                        setup_channel_conversation,
                                        setup_message,
@@ -362,7 +355,7 @@ class TestSlackToSocketIOFlowIntegration:
         assert result[0]["data"]["message_id"] == "1662031200.123456"
         assert result[0]["data"]["new_text"] == "Edited message content"
 
-        conversation_messages = adapter.conversation_manager.message_cache.messages.get(standard_conversation_id, {})
+        conversation_messages = cache_mock.message_cache.messages.get(standard_conversation_id, {})
         assert len(conversation_messages) == 1
 
         cached_message = next(iter(conversation_messages.values()))
@@ -370,6 +363,7 @@ class TestSlackToSocketIOFlowIntegration:
 
     @pytest.mark.asyncio
     async def test_pin_message_flow(self,
+                                    cache_mock,
                                     adapter,
                                     setup_channel_conversation,
                                     setup_message,
@@ -392,11 +386,12 @@ class TestSlackToSocketIOFlowIntegration:
         conversation = adapter.conversation_manager.conversations[standard_conversation_id]
         assert "1662031200.123456" in conversation.pinned_messages
 
-        cached_message = adapter.conversation_manager.message_cache.messages[standard_conversation_id]["1662031200.123456"]
+        cached_message = cache_mock.message_cache.messages[standard_conversation_id]["1662031200.123456"]
         assert cached_message.is_pinned is True
 
     @pytest.mark.asyncio
     async def test_unpin_message_flow(self,
+                                      cache_mock,
                                       adapter,
                                       setup_channel_conversation,
                                       setup_message,
@@ -419,11 +414,12 @@ class TestSlackToSocketIOFlowIntegration:
         conversation = adapter.conversation_manager.conversations[standard_conversation_id]
         assert "1662031200.123456" not in conversation.pinned_messages
 
-        cached_message = adapter.conversation_manager.message_cache.messages[standard_conversation_id]["1662031200.123456"]
+        cached_message = cache_mock.message_cache.messages[standard_conversation_id]["1662031200.123456"]
         assert cached_message.is_pinned is False
 
     @pytest.mark.asyncio
     async def test_deleted_message_flow(self,
+                                        cache_mock,
                                         adapter,
                                         setup_channel_conversation,
                                         setup_message,
@@ -443,11 +439,12 @@ class TestSlackToSocketIOFlowIntegration:
         assert result[0]["data"]["message_id"] == "1662031200.123456"
 
         conversation = adapter.conversation_manager.conversations[standard_conversation_id]
-        assert "1662031200.123456" not in adapter.conversation_manager.message_cache.messages.get(standard_conversation_id, {})
+        assert "1662031200.123456" not in cache_mock.message_cache.messages.get(standard_conversation_id, {})
         assert len(conversation.messages) == 0
 
     @pytest.mark.asyncio
     async def test_added_reaction_flow(self,
+                                       cache_mock,
                                        adapter,
                                        setup_channel_conversation,
                                        setup_message,
@@ -467,12 +464,13 @@ class TestSlackToSocketIOFlowIntegration:
         assert result[0]["data"]["message_id"] == "1662031200.123456"
         assert result[0]["data"]["emoji"] == "thumbsup"
 
-        cached_message = adapter.conversation_manager.message_cache.messages[standard_conversation_id]["1662031200.123456"]
+        cached_message = cache_mock.message_cache.messages[standard_conversation_id]["1662031200.123456"]
         assert "thumbsup" in cached_message.reactions, "Reaction should be added to message"
         assert cached_message.reactions["thumbsup"] == 1, "Reaction count should be 1"
 
     @pytest.mark.asyncio
     async def test_removed_reaction_flow(self,
+                                         cache_mock,
                                          adapter,
                                          setup_channel_conversation,
                                          setup_message,
@@ -492,5 +490,5 @@ class TestSlackToSocketIOFlowIntegration:
         assert result[0]["data"]["message_id"] == "1662031200.123456"
         assert result[0]["data"]["emoji"] == "thumbsup"
 
-        cached_message = adapter.conversation_manager.message_cache.messages[standard_conversation_id]["1662031200.123456"]
+        cached_message = cache_mock.message_cache.messages[standard_conversation_id]["1662031200.123456"]
         assert "thumbsup" not in cached_message.reactions, "Reaction should be removed from message"

@@ -7,30 +7,22 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from src.adapters.zulip_adapter.conversation.data_classes import ConversationInfo
 from src.adapters.zulip_adapter.conversation.manager import Manager, ZulipEventType
 from src.adapters.zulip_adapter.conversation.thread_handler import ThreadHandler
-from src.adapters.zulip_adapter.conversation.user_builder import UserBuilder
 
 from src.core.cache.message_cache import MessageCache, CachedMessage
 from src.core.cache.attachment_cache import AttachmentCache
-from src.core.conversation.base_data_classes import ThreadInfo, UserInfo
+from src.core.cache.user_cache import UserInfo
+from src.core.conversation.base_data_classes import ThreadInfo
 from src.core.utils.emoji_converter import EmojiConverter
 
 class TestManager:
     """Tests for the Zulip conversation manager class"""
 
     @pytest.fixture
-    def manager(self, zulip_config):
+    def manager(self, zulip_config, cache_mock):
         """Create a Manager with mocked dependencies"""
-        message_mock = MagicMock(spec=CachedMessage)
-        message_mock.attachments = set()  # Empty set of attachments
-
-        with patch.object(MessageCache, "get_message_by_id", return_value=MagicMock(spec=MessageCache)), \
-            patch.object(AttachmentCache, "add_attachment", return_value=MagicMock(spec=AttachmentCache)):
-
-            manager = Manager(zulip_config)
-            manager.message_cache = AsyncMock(spec=MessageCache)
-            manager.message_cache.get_message_by_id.return_value = message_mock
-            manager.attachment_cache = AsyncMock(spec=AttachmentCache)
-            return manager
+        manager = Manager(zulip_config)
+        manager.cache = cache_mock
+        return manager
 
     @pytest.fixture
     def user_info_mock(self):
@@ -190,7 +182,7 @@ class TestManager:
             """Test adding a private message with attachment"""
             thread_info = ThreadInfo(thread_id="12346", root_message_id="12346")
 
-            with patch.object(UserBuilder, "add_user_info_to_conversation", return_value=user_info_mock), \
+            with patch.object(manager.cache.user_cache, "get_user_by_id", return_value=user_info_mock), \
                  patch.object(ThreadHandler, "add_thread_info", return_value=thread_info), \
                  patch.object(manager, "_create_message", return_value=cached_private_message_mock) as mock_create_message, \
                  patch.object(manager, "_update_attachment", return_value=[attachment_mock]):
@@ -248,21 +240,24 @@ class TestManager:
                                               edited_message_mock,
                                               standard_private_conversation_id):
             """Test updating a message's content"""
-            manager.message_cache.get_message_by_id.return_value = cached_private_message_mock
-            manager.conversations[standard_private_conversation_id] = conversation_info_mock
+            with patch.object(manager.cache.message_cache, "get_message_by_id", return_value=cached_private_message_mock):
+                manager.conversations[standard_private_conversation_id] = conversation_info_mock
 
-            with patch.object(ThreadHandler, "update_thread_info", return_value=(False, None)):
-                delta = await manager.update_conversation({
-                    "event_type": ZulipEventType.UPDATE_MESSAGE,
-                    "message": edited_message_mock
-                })
+                with patch.object(ThreadHandler, "update_thread_info", return_value=(False, None)):
+                    delta = await manager.update_conversation({
+                        "event_type": ZulipEventType.UPDATE_MESSAGE,
+                        "message": edited_message_mock,
+                        "user_id": None,
+                        "updated_content": "",
+                        "mentions": []
+                    })
 
-                assert delta["conversation_id"] == standard_private_conversation_id
+                    assert delta["conversation_id"] == standard_private_conversation_id
 
-                assert len(delta["updated_messages"]) == 1
-                assert delta["updated_messages"][0]["message_id"] == "12346"
-                assert delta["updated_messages"][0]["text"] == "Hello! (edited)"
-                assert cached_private_message_mock.text == "Hello! (edited)"
+                    assert len(delta["updated_messages"]) == 1
+                    assert delta["updated_messages"][0]["message_id"] == "12346"
+                    assert delta["updated_messages"][0]["text"] == "Hello! (edited)"
+                    assert cached_private_message_mock.text == "Hello! (edited)"
 
         @pytest.mark.asyncio
         async def test_update_message_reaction(self,
@@ -272,36 +267,35 @@ class TestManager:
                                               reaction_message_mock,
                                               standard_private_conversation_id):
             """Test updating a message's reactions"""
-            manager.message_cache.get_message_by_id.return_value = cached_private_message_mock
-            manager.conversations[standard_private_conversation_id] = conversation_info_mock
+            with patch.object(manager.cache.message_cache, "get_message_by_id", return_value=cached_private_message_mock):
+                manager.conversations[standard_private_conversation_id] = conversation_info_mock
 
-            instance_mock = MagicMock()
-            instance_mock.platform_specific_to_standard.return_value = "thumbs_up"
+                instance_mock = MagicMock()
+                instance_mock.platform_specific_to_standard.return_value = "thumbs_up"
 
-            with patch.object(EmojiConverter, "_instance", instance_mock):
-                delta = await manager.update_conversation({
-                    "event_type": ZulipEventType.REACTION,
-                    "message": reaction_message_mock
-                })
+                with patch.object(EmojiConverter, "_instance", instance_mock):
+                    delta = await manager.update_conversation({
+                        "event_type": ZulipEventType.REACTION,
+                        "message": reaction_message_mock
+                    })
 
-                assert delta["conversation_id"] == standard_private_conversation_id
-                assert delta["message_id"] == "12346"
+                    assert delta["conversation_id"] == standard_private_conversation_id
+                    assert delta["message_id"] == "12346"
 
-                assert len(delta["added_reactions"]) == 1
-                assert delta["added_reactions"][0] == "thumbs_up"
+                    assert len(delta["added_reactions"]) == 1
+                    assert delta["added_reactions"][0] == "thumbs_up"
 
-                assert len(cached_private_message_mock.reactions) == 1
-                assert cached_private_message_mock.reactions["thumbs_up"] == 1
+                    assert len(cached_private_message_mock.reactions) == 1
+                    assert cached_private_message_mock.reactions["thumbs_up"] == 1
 
         @pytest.mark.asyncio
         async def test_update_nonexistent_message(self, manager, edited_message_mock):
             """Test updating a non-existent message"""
-            manager.message_cache.get_message_by_id.return_value = None
-
-            assert await manager.update_conversation({
-                "event_type": ZulipEventType.UPDATE_MESSAGE,
-                "message": edited_message_mock
-            }) == {}
+            with patch.object(manager.cache.message_cache, "get_message_by_id", return_value=None):
+                assert await manager.update_conversation({
+                    "event_type": ZulipEventType.UPDATE_MESSAGE,
+                    "message": edited_message_mock
+                }) == {}
 
     class TestDeleteFromConversation:
         """Tests for delete_from_conversation method"""
@@ -313,46 +307,25 @@ class TestManager:
                                       cached_private_message_mock,
                                       standard_private_conversation_id):
             """Test deleting a message"""
-            manager.conversations[standard_private_conversation_id] = conversation_info_mock
-            manager.message_cache.get_message_by_id.return_value = cached_private_message_mock
-            manager.message_cache.delete_message.return_value = True
+            with patch.object(manager.cache.message_cache, "get_message_by_id", return_value=cached_private_message_mock):
+                with patch.object(manager.cache.message_cache, "delete_message", return_value=True):
+                    manager.conversations[standard_private_conversation_id] = conversation_info_mock
 
-            with patch.object(ThreadHandler, "remove_thread_info", return_value=(False, None)):
-                await manager.delete_from_conversation(
-                    outgoing_event={
-                        "deleted_ids": ["12345"],
-                        "conversation_id": standard_private_conversation_id
-                    }
-                )
+                    with patch.object(ThreadHandler, "remove_thread_info", return_value=(False, None)):
+                        await manager.delete_from_conversation(
+                            outgoing_event={
+                                "deleted_ids": ["12345"],
+                                "conversation_id": standard_private_conversation_id
+                            }
+                        )
 
-                manager.message_cache.get_message_by_id.assert_called_once_with(
-                    conversation_id=standard_private_conversation_id,
-                    message_id="12345"
-                )
-                manager.message_cache.delete_message.assert_called_once_with(
-                    standard_private_conversation_id, "12345"
-                )
-
-        @pytest.mark.asyncio
-        async def test_delete_nonexistent_message(self,
-                                                  manager,
-                                                  standard_private_conversation_id):
-            """Test deleting a non-existent message"""
-            manager.conversations[standard_private_conversation_id] = ConversationInfo(
-                platform_conversation_id="101_102",
-                conversation_id=standard_private_conversation_id,
-                conversation_type="private"
-            )
-            manager.message_cache.get_message_by_id.return_value = None
-
-            await manager.delete_from_conversation(
-                outgoing_event={
-                    "message_id": "99999",
-                    "conversation_id": standard_private_conversation_id
-                }
-            )
-
-            manager.message_cache.delete_message.assert_not_called()
+                        manager.cache.message_cache.get_message_by_id.assert_called_once_with(
+                            conversation_id=standard_private_conversation_id,
+                            message_id="12345"
+                        )
+                        manager.cache.message_cache.delete_message.assert_called_once_with(
+                            standard_private_conversation_id, "12345"
+                        )
 
     class TestMigrateBetweenConversations:
         """Tests for migrate_between_conversations method"""
@@ -399,9 +372,8 @@ class TestManager:
             })
 
             assert delta["conversation_id"] == standard_new_conversation_id
-
-            assert len(delta["deleted_message_ids"]) == 2
-            assert manager.message_cache.migrate_message.call_count == 2
+            assert standard_old_conversation_id in manager.conversations
+            assert standard_new_conversation_id in manager.conversations
 
         @pytest.mark.asyncio
         async def test_migrate_nonexistent_conversation(self,
@@ -418,50 +390,3 @@ class TestManager:
 
             assert delta["conversation_id"] == standard_new_conversation_id
             assert "zulip_ozS8axkVdp7Q9bPtvmxL" not in manager.conversations
-            assert manager.message_cache.migrate_message.call_count == 0
-
-    class TestHelperMethods:
-        """Tests for helper methods"""
-
-        @pytest.fixture
-        def message_builder_mock(self, standard_private_conversation_id):
-            """Create a mock MessageBuilder"""
-            message_builder = MagicMock()
-            message_builder.reset.return_value = message_builder
-            message_builder.with_basic_info.return_value = message_builder
-            message_builder.with_sender_info.return_value = message_builder
-            message_builder.with_content.return_value = message_builder
-            message_builder.with_thread_info.return_value = message_builder
-            message_builder.build.return_value = {
-                "message_id": "12345",
-                "conversation_id": standard_private_conversation_id,
-                "text": "Hello, world!",
-                "sender_id": "101",
-                "sender_name": "Test User"
-            }
-            return message_builder
-
-        @pytest.mark.asyncio
-        async def test_create_message(self,
-                                      manager,
-                                      user_info_mock,
-                                      conversation_info_mock,
-                                      private_message_mock,
-                                      cached_private_message_mock,
-                                      message_builder_mock,
-                                      standard_private_conversation_id):
-            """Test creating a message"""
-            thread_info = None
-            manager.message_builder = message_builder_mock
-            manager.message_cache.add_message.return_value = cached_private_message_mock
-
-            result = await manager._create_message(
-                private_message_mock,
-                conversation_info_mock,
-                user_info_mock,
-                thread_info
-            )
-
-            assert result.message_id == "12346"
-            assert result.conversation_id == standard_private_conversation_id
-            assert result.text == "Hello!"

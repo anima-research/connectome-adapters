@@ -9,6 +9,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from src.adapters.zulip_adapter.adapter import Adapter
+from src.core.cache.cache import Cache
 from src.core.rate_limiter.rate_limiter import RateLimiter
 from src.core.socket_io.server import SocketIOServer
 from src.core.utils.config import Config
@@ -26,14 +27,15 @@ def shutdown():
 async def main():
     try:
         config = Config("config/zulip_config.yaml")
-        RateLimiter.get_instance(config)
         EmojiConverter.get_instance(config)
+        RateLimiter.get_instance(config)
+        Cache.get_instance(config, True)
         setup_logging(config)
 
         logging.info("Starting Zulip adapter")
 
         socketio_server = SocketIOServer(config)
-        adapter = Adapter(config, socketio_server, start_maintenance=True)
+        adapter = Adapter(config, socketio_server)
         socketio_server.set_adapter(adapter)
 
         if sys.platform != "win32":
@@ -48,7 +50,14 @@ async def main():
         await socketio_server.start()
         await adapter.start()
         while adapter.running and not should_shutdown:
-            await asyncio.sleep(1)
+            await asyncio.sleep(10)
+            await adapter.process_outgoing_event({
+                "event_type": "send_message",
+                "data": {
+                    "conversation_id": "zulip_9yCLilqyZ0AKlMqwrvRO",
+                    "text": "Hello, world!"
+                }
+            })
     except (ValueError, FileNotFoundError) as e:
         logging.error(f"Configuration error: {e}")
         logging.error("Please ensure zulip_config.yaml exists with required settings")

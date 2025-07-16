@@ -6,13 +6,14 @@ import shutil
 import sys
 import yaml
 
-from unittest.mock import patch, mock_open
+from unittest.mock import AsyncMock, MagicMock, mock_open, patch
 from pathlib import Path
 
 project_root = os.path.abspath(os.path.dirname(__file__))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+from src.core.cache.cache import Cache
 from src.core.utils.config import Config
 
 @pytest.fixture
@@ -162,3 +163,29 @@ def ensure_test_directories():
 
     if os.path.exists("test_attachments"):
         shutil.rmtree("test_attachments")
+
+@pytest.fixture(scope="function", autouse=True)
+def cache_mock(basic_config_data, mock_config_factory):
+    """Fixture to create and tear down a Cache singleton for tests.
+
+    This fixture has module scope, meaning it will be created once per test file
+    and torn down at the end of all tests in that file.
+    """
+    original_instance = Cache._instance
+    Cache._instance = None
+    cache_instance = Cache.get_instance(
+        config=mock_config_factory(basic_config_data),
+        start_maintenance=False
+    )
+
+    yield cache_instance
+
+    Cache._instance = original_instance
+
+@pytest.fixture
+def rate_limiter_mock():
+    """Create a mock rate limiter"""
+    rate_limiter = AsyncMock()
+    rate_limiter.limit_request = AsyncMock(return_value=None)
+    rate_limiter.get_wait_time = AsyncMock(return_value=0)
+    return rate_limiter

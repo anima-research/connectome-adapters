@@ -1,9 +1,8 @@
 import pytest
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch, call
 
+from unittest.mock import AsyncMock, MagicMock, patch
 from src.adapters.zulip_adapter.client import Client
-from src.core.rate_limiter.rate_limiter import RateLimiter
 
 class TestZulipClient:
     """Tests for ZulipClient"""
@@ -25,14 +24,6 @@ class TestZulipClient:
             })
             mock_client_class.return_value = mock_client
             yield mock_client
-
-    @pytest.fixture
-    def rate_limiter_mock(self):
-        """Create a mock rate limiter"""
-        rate_limiter = AsyncMock()
-        rate_limiter.limit_request = AsyncMock(return_value=None)
-        rate_limiter.get_wait_time = AsyncMock(return_value=0)
-        return rate_limiter
 
     @pytest.fixture
     def zulip_client(self, zulip_config, zulip_mock, rate_limiter_mock):

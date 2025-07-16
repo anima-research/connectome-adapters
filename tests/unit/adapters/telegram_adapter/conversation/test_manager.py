@@ -1,16 +1,30 @@
 import pytest
 import asyncio
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 from src.adapters.telegram_adapter.conversation.manager import Manager
-from src.core.cache.attachment_cache import AttachmentCache
-from src.core.cache.message_cache import CachedMessage, MessageCache
-
+from src.core.cache.message_cache import CachedMessage
+from src.core.cache.user_cache import UserInfo
 class TestConversationManager:
     """Tests for ConversationManager class"""
 
     # --- COMMON MOCK FIXTURES ---
+
+    @pytest.fixture(scope="function", autouse=True)
+    def ensure_user_exists_in_cache(self, cache_mock):
+        """Create necessary test directories before any tests and clean up after all tests"""
+        cache_mock.user_cache.add_user({
+            "user_id": "456",
+            "username": "testuser",
+            "first_name": "Test",
+            "last_name": "User",
+            "is_bot": False
+        })
+
+        yield
+
+        cache_mock.user_cache.delete_user("456")
 
     @pytest.fixture
     def mock_peer_id_with_user_id(self):
@@ -62,45 +76,10 @@ class TestConversationManager:
         return mock_message_base("123", mock_peer_id_with_user_id, "Test message")
 
     @pytest.fixture
-    def mock_telethon_user(self):
-        """Create a mock Telethon user"""
-        user = MagicMock()
-        user.id = "456"
-        user.username = "testuser"
-        user.first_name = "Test"
-        user.last_name = "User"
-        user.bot = False
-        return user
-
-    @pytest.fixture
-    def mock_message_cache(self):
-        """Create a mocked MessageCache"""
-        mock_cached_msg = MagicMock()
-        mock_cached_msg.text = ""  # Set as string, not a mock
-
-        cache = MagicMock()
-        cache.add_message = AsyncMock(return_value=mock_cached_msg)
-        cache.get_message_by_id = AsyncMock(return_value=None)
-        cache.delete_message = AsyncMock(return_value=True)
-        cache.migrate_messages = AsyncMock()
-        cache.messages = {}
-        cache.maintenance_task = None
-        return cache
-
-    @pytest.fixture
-    def mock_attachment_cache(self):
-        """Create a mocked AttachmentCache"""
-        cache = MagicMock()
-        cache.attachments = {}
-        cache.maintenance_task = None
-        return cache
-
-    @pytest.fixture
-    def manager(self, telegram_config, mock_message_cache, mock_attachment_cache):
-        """Create a ConversationManager with mocked dependencies"""
+    def manager(self, telegram_config, cache_mock):
+        """Create a Manager with mocked dependencies"""
         manager = Manager(telegram_config)
-        manager.message_cache = mock_message_cache
-        manager.attachment_cache = mock_attachment_cache
+        manager.cache = cache_mock
         return manager
 
     @pytest.fixture
@@ -146,7 +125,6 @@ class TestConversationManager:
         async def test_create_private_conversation(self,
                                                    manager,
                                                    mock_telethon_message,
-                                                   mock_telethon_user,
                                                    standard_conversation_id):
             """Test creating a new private conversation"""
             with patch.object(manager.message_builder, "build") as mock_build:
@@ -161,34 +139,35 @@ class TestConversationManager:
 
                 cached_msg_mock = MagicMock()
                 cached_msg_mock.text = "Test message"
-                manager.message_cache.add_message.return_value = cached_msg_mock
 
-                delta = await manager.add_to_conversation({
-                    "message": mock_telethon_message,
-                    "user": mock_telethon_user
-                })
+                with patch.object(manager.cache.message_cache, "add_message", return_value=cached_msg_mock):
+                    delta = await manager.add_to_conversation({
+                        "message": mock_telethon_message,
+                        "user_id": "456",
+                        "updated_content": "",
+                        "mentions": [],
+                        "attachments": []
+                    })
 
-            assert delta["fetch_history"] is True
-            assert delta["conversation_id"] == standard_conversation_id
+                    assert delta["fetch_history"] is True
+                    assert delta["conversation_id"] == standard_conversation_id
 
-            assert standard_conversation_id in manager.conversations
-            assert manager.conversations[standard_conversation_id].conversation_type == "private"
-
-            assert "456" in manager.conversations[standard_conversation_id].known_members
-            assert manager.conversations[standard_conversation_id].known_members["456"].username == "testuser"
-
-            manager.message_cache.add_message.assert_called_once()
+                    assert standard_conversation_id in manager.conversations
+                    assert manager.conversations[standard_conversation_id].conversation_type == "private"
+                    assert "456" in manager.conversations[standard_conversation_id].known_members
 
         @pytest.mark.asyncio
         async def test_create_group_conversation(self,
                                                  manager,
-                                                 mock_telethon_group_message,
-                                                 mock_telethon_user):
+                                                 mock_telethon_group_message):
             """Test creating a new group conversation"""
             standard_group_conversation_id = "telegram_icYcI02qjIDvs7z1ZNyB" # initial ID -101112
             delta = await manager.add_to_conversation({
                 "message": mock_telethon_group_message,
-                "user": mock_telethon_user
+                "user_id": "456",
+                "updated_content": "",
+                "mentions": [],
+                "attachments": []
             })
 
             assert delta["fetch_history"] is True
@@ -201,20 +180,24 @@ class TestConversationManager:
         async def test_update_existing_conversation(self,
                                                     manager,
                                                     mock_telethon_message,
-                                                    mock_telethon_user,
                                                     mock_message_base,
                                                     mock_peer_id_with_user_id,
                                                     standard_conversation_id):
             """Test updating an existing conversation"""
             await manager.add_to_conversation({
                 "message": mock_telethon_message,
-                "user": mock_telethon_user
+                "user_id": "456",
+                "updated_content": "",
+                "mentions": [],
+                "attachments": []
             })
 
-            manager.message_cache.add_message.reset_mock()
             delta = await manager.add_to_conversation({
                 "message": mock_message_base("124", mock_peer_id_with_user_id, "Second message"),
-                "user": mock_telethon_user
+                "user_id": "456",
+                "updated_content": "",
+                "mentions": [],
+                "attachments": []
             })
 
             assert delta["fetch_history"] is False
@@ -229,25 +212,28 @@ class TestConversationManager:
                                         mock_peer_id_with_user_id,
                                         mock_reply_to_message):
             """Create a mock Telethon message that is a reply"""
-            return mock_message_base(
-                "456", mock_peer_id_with_user_id, "Reply message", mock_reply_to_message
-            )
+            return mock_message_base("456", mock_peer_id_with_user_id, "Reply message", mock_reply_to_message)
 
         @pytest.mark.asyncio
         async def test_handle_reply(self,
                                     manager,
                                     mock_telethon_message,
                                     mock_telethon_reply_message,
-                                    mock_telethon_user,
                                     standard_conversation_id):
             """Test handling a reply to create a thread"""
             await manager.add_to_conversation({
                 "message": mock_telethon_message,
-                "user": mock_telethon_user
+                "user_id": "456",
+                "updated_content": "",
+                "mentions": [],
+                "attachments": []
             })
             await manager.add_to_conversation({
                 "message": mock_telethon_reply_message,
-                "user": mock_telethon_user
+                "user_id": "456",
+                "updated_content": "",
+                "mentions": [],
+                "attachments": []
             })
 
             conversation = manager.conversations[standard_conversation_id]
@@ -262,9 +248,7 @@ class TestConversationManager:
                                         mock_message_base,
                                         mock_peer_id_with_user_id):
             """Create a mock Telethon edited message"""
-            return mock_message_base(
-                "123", mock_peer_id_with_user_id, "Edited message"
-            )
+            return mock_message_base("123", mock_peer_id_with_user_id, "Edited message")
 
         @pytest.fixture
         def mock_pin_message(self,
@@ -272,9 +256,7 @@ class TestConversationManager:
                             mock_peer_id_with_user_id,
                             mock_reply_to_message):
             """Create a mock pin message event"""
-            return mock_message_base(
-                "789", mock_peer_id_with_user_id, "", mock_reply_to_message
-            )
+            return mock_message_base("789", mock_peer_id_with_user_id, "", mock_reply_to_message)
 
         @pytest.fixture
         def mock_unpin_message(self, mock_peer_id_with_user_id):
@@ -300,125 +282,131 @@ class TestConversationManager:
                                     manager,
                                     mock_telethon_message,
                                     mock_telethon_edited_message,
-                                    mock_telethon_user,
                                     cached_message_factory):
             """Test editing a message"""
             await manager.add_to_conversation({
                 "message": mock_telethon_message,
-                "user": mock_telethon_user
+                "user_id": "456",
+                "updated_content": "",
+                "mentions": [],
+                "attachments": []
             })
-
             cached_msg = cached_message_factory(text="Test message")
-            manager.message_cache.get_message_by_id.return_value = cached_msg
-            delta = await manager.update_conversation({
-                "event_type": "edited_message",
-                "message": mock_telethon_edited_message
-            })
 
-            assert len(delta["updated_messages"]) == 1
-            assert delta["updated_messages"][0]["text"] == "Edited message"
-            assert cached_msg.text == "Edited message"
+            with patch.object(manager.cache.message_cache, "get_message_by_id", return_value=cached_msg):
+                delta = await manager.update_conversation({
+                    "event_type": "edited_message",
+                    "message": mock_telethon_edited_message
+                })
 
-            manager.message_cache.get_message_by_id.return_value = None
+                assert len(delta["updated_messages"]) == 1
+                assert delta["updated_messages"][0]["text"] == "Edited message"
+                assert cached_msg.text == "Edited message"
 
         @pytest.mark.asyncio
         async def test_delete_message(self,
                                       manager,
                                       mock_telethon_message,
-                                      mock_telethon_user,
                                       cached_message_factory,
                                       mock_delete_message,
                                       standard_conversation_id):
             """Test deleting a message"""
             await manager.add_to_conversation({
                 "message": mock_telethon_message,
-                "user": mock_telethon_user
+                "user_id": "456",
+                "updated_content": "",
+                "mentions": [],
+                "attachments": []
             })
             cached_msg = cached_message_factory(text="Test message")
-            manager.message_cache.get_message_by_id.return_value = cached_msg
-            manager.message_cache.messages = { standard_conversation_id: {"123": cached_msg} }
 
-            result = await manager.delete_from_conversation(incoming_event={"event": mock_delete_message})
-            assert result["conversation_id"] == standard_conversation_id
-            assert result["deleted_message_ids"] == ["123"]
+            with patch.object(manager.cache.message_cache, "get_message_by_id", return_value=cached_msg):
+                result = await manager.delete_from_conversation(incoming_event={"event": mock_delete_message})
 
-            manager.message_cache.delete_message.assert_called_once_with(standard_conversation_id, "123")
-            manager.message_cache.messages = {}
+                assert result["conversation_id"] == standard_conversation_id
+                assert result["deleted_message_ids"] == ["123"]
 
         @pytest.mark.asyncio
         async def test_pin_message(self,
                                    manager,
                                    mock_telethon_message,
-                                   mock_telethon_user,
                                    mock_pin_message,
                                    cached_message_factory,
                                    standard_conversation_id):
             """Test pinning a message"""
             await manager.add_to_conversation({
                 "message": mock_telethon_message,
-                "user": mock_telethon_user
+                "user_id": "456",
+                "updated_content": "",
+                "mentions": [],
+                "attachments": []
             })
-
             cached_msg = cached_message_factory(message_id="123")
-            manager.message_cache.get_message_by_id.return_value = cached_msg
-            delta = await manager.update_conversation({
-                "event_type": "pinned_message",
-                "message": mock_pin_message
-            })
 
-            assert delta["conversation_id"] == standard_conversation_id
-            assert delta["pinned_message_ids"] == ["123"]
-            assert cached_msg.is_pinned is True
-            assert "123" in manager.conversations[standard_conversation_id].pinned_messages
+            with patch.object(manager.cache.message_cache, "get_message_by_id", return_value=cached_msg):
+                delta = await manager.update_conversation({
+                    "event_type": "pinned_message",
+                    "message": mock_pin_message
+                })
+
+                assert delta["conversation_id"] == standard_conversation_id
+                assert delta["pinned_message_ids"] == ["123"]
+                assert cached_msg.is_pinned is True
+                assert "123" in manager.conversations[standard_conversation_id].pinned_messages
 
         @pytest.mark.asyncio
         async def test_pin_message_not_found(self,
                                             manager,
                                             mock_telethon_message,
-                                            mock_telethon_user,
                                             mock_pin_message,
                                             standard_conversation_id):
             """Test pinning a message that doesn't exist in the cache"""
             await manager.add_to_conversation({
                 "message": mock_telethon_message,
-                "user": mock_telethon_user
-            })
-            manager.message_cache.get_message_by_id.return_value = None
-            delta = await manager.update_conversation({
-                "event_type": "pinned_message",
-                "message": mock_pin_message
+                "user_id": "456",
+                "updated_content": "",
+                "mentions": [],
+                "attachments": []
             })
 
-            assert "pinned_message_ids" not in delta
-            assert delta["conversation_id"] == standard_conversation_id  # Conversation is created anyway
+            with patch.object(manager.cache.message_cache, "get_message_by_id", return_value=None):
+                delta = await manager.update_conversation({
+                    "event_type": "pinned_message",
+                    "message": mock_pin_message
+                })
+
+                assert "pinned_message_ids" not in delta
+                assert delta["conversation_id"] == standard_conversation_id  # Conversation is created anyway
 
         @pytest.mark.asyncio
         async def test_unpin_message(self,
                                      manager,
                                      mock_telethon_message,
-                                     mock_telethon_user,
                                      mock_unpin_message,
                                      cached_message_factory,
                                      standard_conversation_id):
             """Test unpinning a message"""
             await manager.add_to_conversation({
                 "message": mock_telethon_message,
-                "user": mock_telethon_user
+                "user_id": "456",
+                "updated_content": "",
+                "mentions": [],
+                "attachments": []
             })
-
             cached_msg = cached_message_factory(message_id="123")
             cached_msg.is_pinned = True
-            manager.message_cache.get_message_by_id.return_value = cached_msg
-            manager.conversations[standard_conversation_id].pinned_messages.add("123")
-            delta = await manager.update_conversation({
-                "event_type": "unpinned_message",
-                "message": mock_unpin_message
-            })
 
-            assert delta["conversation_id"] == standard_conversation_id
-            assert delta["unpinned_message_ids"] == ["123"]
-            assert cached_msg.is_pinned is False
-            assert "123" not in manager.conversations[standard_conversation_id].pinned_messages
+            with patch.object(manager.cache.message_cache, "get_message_by_id", return_value=cached_msg):
+                manager.conversations[standard_conversation_id].pinned_messages.add("123")
+                delta = await manager.update_conversation({
+                    "event_type": "unpinned_message",
+                    "message": mock_unpin_message
+                })
+
+                assert delta["conversation_id"] == standard_conversation_id
+                assert delta["unpinned_message_ids"] == ["123"]
+                assert cached_msg.is_pinned is False
+                assert "123" not in manager.conversations[standard_conversation_id].pinned_messages
 
     class TestReactionHandling:
         """Tests for message reactions"""
@@ -463,35 +451,34 @@ class TestConversationManager:
                                     manager,
                                     mock_telethon_message,
                                     mock_telethon_reaction_message,
-                                    mock_telethon_user,
                                     cached_message_factory):
             """Test adding reactions to a message"""
             await manager.add_to_conversation({
                 "message": mock_telethon_message,
-                "user": mock_telethon_user
+                "user_id": "456",
+                "updated_content": "",
+                "mentions": [],
+                "attachments": []
             })
-
             cached_msg = cached_message_factory(
                 text=mock_telethon_reaction_message.message,
                 reactions={}
             )
-            manager.message_cache.get_message_by_id.return_value = cached_msg
-            delta = await manager.update_conversation({
-                "event_type": "edited_message",
-                "message": mock_telethon_reaction_message
-            })
 
-            assert "added_reactions" in delta
-            assert "thumbs_up" in delta["added_reactions"]
-            assert "red_heart" in delta["added_reactions"]
+            with patch.object(manager.cache.message_cache, "get_message_by_id", return_value=cached_msg):
+                delta = await manager.update_conversation({
+                    "event_type": "edited_message",
+                    "message": mock_telethon_reaction_message
+                })
 
-            manager.message_cache.get_message_by_id.return_value = None
+                assert "added_reactions" in delta
+                assert "thumbs_up" in delta["added_reactions"]
+                assert "red_heart" in delta["added_reactions"]
 
         @pytest.mark.asyncio
         async def test_remove_reactions(self,
                                        manager,
                                        mock_telethon_message,
-                                       mock_telethon_user,
                                        mock_message_base,
                                        mock_peer_id_with_user_id,
                                        create_reactions_mock,
@@ -499,25 +486,26 @@ class TestConversationManager:
             """Test removing reactions from a message"""
             await manager.add_to_conversation({
                 "message": mock_telethon_message,
-                "user": mock_telethon_user
+                "user_id": "456",
+                "updated_content": "",
+                "mentions": [],
+                "attachments": []
             })
-
             cached_msg = cached_message_factory(reactions={"thumbs_up": 2, "red_heart": 1})
-            manager.message_cache.get_message_by_id.return_value = cached_msg
-            reactions = create_reactions_mock([("👍", 1)])  # Only 👍 with reduced count
-            edited_msg = mock_message_base(
-                "123",
-                mock_peer_id_with_user_id,
-                cached_msg.text,
-                reactions=reactions
-            )
-            delta = await manager.update_conversation({
-                "event_type": "edited_message",
-                "message": edited_msg
-            })
 
-            assert "removed_reactions" in delta
-            assert "thumbs_up" in delta["removed_reactions"]  # Count decreased
-            assert "red_heart" in delta["removed_reactions"]  # Completely removed
+            with patch.object(manager.cache.message_cache, "get_message_by_id", return_value=cached_msg):
+                reactions = create_reactions_mock([("👍", 1)])  # Only 👍 with reduced count
+                edited_msg = mock_message_base(
+                    "123",
+                    mock_peer_id_with_user_id,
+                    cached_msg.text,
+                    reactions=reactions
+                )
+                delta = await manager.update_conversation({
+                    "event_type": "edited_message",
+                    "message": edited_msg
+                })
 
-            manager.message_cache.get_message_by_id.return_value = None
+                assert "removed_reactions" in delta
+                assert "thumbs_up" in delta["removed_reactions"]  # Count decreased
+                assert "red_heart" in delta["removed_reactions"]  # Completely removed

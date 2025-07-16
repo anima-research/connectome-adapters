@@ -1,8 +1,10 @@
 import pytest
 
+from unittest.mock import patch
 from src.adapters.zulip_adapter.conversation.data_classes import ConversationInfo
 from src.adapters.zulip_adapter.conversation.message_builder import MessageBuilder
-from src.core.conversation.base_data_classes import UserInfo
+from src.core.cache.cache import Cache
+from src.core.cache.user_cache import UserInfo
 
 class TestMessageBuilder:
     """Tests for the MessageBuilder class with Zulip messages"""
@@ -116,18 +118,20 @@ class TestMessageBuilder:
         assert builder.message_data["edited"] is False
         assert result is builder
 
-    def test_with_sender_info(self, builder, mock_sender):
+    def test_with_sender_id(self, cache_mock, builder, mock_sender):
         """Test adding sender information"""
-        result = builder.with_sender_info(mock_sender)
+        with patch.object(cache_mock.user_cache, "get_user_by_id", return_value=mock_sender):
+            with patch.object(Cache, "get_instance", return_value=cache_mock):
+                result = builder.with_sender_id(mock_sender.user_id)
 
-        assert builder.message_data["sender_id"] == "789"
-        assert builder.message_data["sender_name"] == "Test User"
-        assert builder.message_data["is_from_bot"] is False
-        assert result is builder
+                assert builder.message_data["sender_id"] == "789"
+                assert builder.message_data["sender_name"] == "Test User"
+                assert builder.message_data["is_from_bot"] is False
+                assert result is builder
 
     def test_with_content(self, builder, mock_zulip_message):
         """Test adding message content"""
-        result = builder.with_content(mock_zulip_message)
+        result = builder.with_content({"message": mock_zulip_message})
 
         assert builder.message_data["text"] == "Test message content"
         assert result is builder
@@ -135,8 +139,7 @@ class TestMessageBuilder:
     def test_with_content_no_content(self, builder):
         """Test adding content when message has no content"""
         message = {"id": 123}  # No content field
-
-        result = builder.with_content(message)
+        result = builder.with_content({"message": message})
         assert builder.message_data["text"] is None
         assert result is builder
 
@@ -156,43 +159,49 @@ class TestMessageBuilder:
         assert result["text"] == "Test message"
 
     def test_full_build_chain_private(self,
+                                      cache_mock,
                                       builder,
                                       mock_zulip_message,
                                       mock_sender,
                                       mock_private_conversation,
                                       standard_private_conversation_id):
         """Test a complete builder chain for a private message"""
-        result = builder.reset() \
-            .with_basic_info(mock_zulip_message, mock_private_conversation) \
-            .with_sender_info(mock_sender) \
-            .with_content(mock_zulip_message) \
-            .build()
+        with patch.object(cache_mock.user_cache, "get_user_by_id", return_value=mock_sender):
+            with patch.object(Cache, "get_instance", return_value=cache_mock):
+                result = builder.reset() \
+                    .with_basic_info(mock_zulip_message, mock_private_conversation) \
+                    .with_sender_id(mock_sender.user_id) \
+                    .with_content({"message": mock_zulip_message}) \
+                    .build()
 
-        assert result["message_id"] == "123"
-        assert result["conversation_id"] == standard_private_conversation_id
-        assert result["timestamp"] == 1609502400
-        assert result["sender_id"] == "789"
-        assert result["sender_name"] == "Test User"
-        assert result["is_from_bot"] is False
-        assert result["text"] == "Test message content"
+                assert result["message_id"] == "123"
+                assert result["conversation_id"] == standard_private_conversation_id
+                assert result["timestamp"] == 1609502400
+                assert result["sender_id"] == "789"
+                assert result["sender_name"] == "Test User"
+                assert result["is_from_bot"] is False
+                assert result["text"] == "Test message content"
 
     def test_full_build_chain_stream(self,
+                                      cache_mock,
                                       builder,
                                       mock_zulip_stream_message,
                                       mock_sender,
                                       mock_stream_conversation,
                                       standard_stream_conversation_id):
         """Test a complete builder chain for a stream message"""
-        result = builder.reset() \
-            .with_basic_info(mock_zulip_stream_message, mock_stream_conversation) \
-            .with_sender_info(mock_sender) \
-            .with_content(mock_zulip_stream_message) \
-            .build()
+        with patch.object(cache_mock.user_cache, "get_user_by_id", return_value=mock_sender):
+            with patch.object(Cache, "get_instance", return_value=cache_mock):
+                result = builder.reset() \
+                    .with_basic_info(mock_zulip_stream_message, mock_stream_conversation) \
+                    .with_sender_id(mock_sender.user_id) \
+                    .with_content({"message": mock_zulip_stream_message}) \
+                    .build()
 
-        assert result["message_id"] == "456"
-        assert result["conversation_id"] == standard_stream_conversation_id
-        assert result["timestamp"] == 1609502400
-        assert result["sender_id"] == "789"
-        assert result["sender_name"] == "Test User"
-        assert result["is_from_bot"] is False
-        assert result["text"] == "Stream message content"
+                assert result["message_id"] == "456"
+                assert result["conversation_id"] == standard_stream_conversation_id
+                assert result["timestamp"] == 1609502400
+                assert result["sender_id"] == "789"
+                assert result["sender_name"] == "Test User"
+                assert result["is_from_bot"] is False
+                assert result["text"] == "Stream message content"

@@ -17,7 +17,7 @@ class TestReactionHandler:
     @pytest.fixture
     def cached_message(self, standard_conversation_id):
         """Create a cached message with initial reactions"""
-        cached_msg = CachedMessage(
+        return CachedMessage(
             message_id="123",
             conversation_id=standard_conversation_id,
             text="Test message",
@@ -30,7 +30,6 @@ class TestReactionHandler:
             thread_id = None,
             reactions={"thumbs_up": 1}  # Initial reaction
         )
-        return cached_msg
 
     @pytest.fixture
     def delta(self, standard_conversation_id):

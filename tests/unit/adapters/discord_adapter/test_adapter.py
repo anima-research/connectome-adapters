@@ -4,7 +4,6 @@ import discord
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.adapters.discord_adapter.adapter import Adapter
-from src.adapters.discord_adapter.conversation.manager import Manager
 
 class TestAdapter:
     """Tests for the Discord Adapter class"""

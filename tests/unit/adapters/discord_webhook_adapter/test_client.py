@@ -2,9 +2,9 @@ import aiohttp
 import asyncio
 import discord
 import pytest
+
 from discord.ext import commands
 from unittest.mock import AsyncMock, MagicMock, patch, call
-
 from src.adapters.discord_webhook_adapter.client import Client
 
 class TestClient:

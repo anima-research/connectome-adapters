@@ -1,8 +1,8 @@
 import pytest
 import asyncio
 import time
-from unittest.mock import AsyncMock, MagicMock, patch
 
+from unittest.mock import AsyncMock, MagicMock, patch
 from src.adapters.telegram_adapter.client import Client
 
 class TestClient:

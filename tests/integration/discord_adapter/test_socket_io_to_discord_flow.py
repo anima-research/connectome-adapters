@@ -7,10 +7,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime, timezone
 
 from src.adapters.discord_adapter.adapter import Adapter
-from src.adapters.discord_adapter.attachment_loaders.uploader import Uploader
 from src.adapters.discord_adapter.conversation.data_classes import ConversationInfo
-from src.adapters.discord_adapter.event_processors.outgoing_event_processor import OutgoingEventProcessor
-from src.adapters.discord_adapter.event_processors.incoming_event_processor import IncomingEventProcessor
+from src.adapters.discord_adapter.event_processing.attachment_loaders.uploader import Uploader
+from src.adapters.discord_adapter.event_processing.outgoing_event_processor import OutgoingEventProcessor
+from src.adapters.discord_adapter.event_processing.incoming_event_processor import IncomingEventProcessor
 
 class TestSocketIOToDiscordFlowIntegration:
     """Integration tests for socket.io to Discord flow"""
@@ -48,14 +48,6 @@ class TestSocketIOToDiscordFlowIntegration:
         uploader_mock.upload_attachment = MagicMock(return_value=[])
         uploader_mock.clean_up_uploaded_files = MagicMock()
         return uploader_mock
-
-    @pytest.fixture
-    def rate_limiter_mock(self):
-        """Create a mock rate limiter"""
-        rate_limiter = AsyncMock()
-        rate_limiter.limit_request = AsyncMock(return_value=None)
-        rate_limiter.get_wait_time = AsyncMock(return_value=0)
-        return rate_limiter
 
     @pytest.fixture
     def adapter(self,
@@ -100,10 +92,10 @@ class TestSocketIOToDiscordFlowIntegration:
         return _setup
 
     @pytest.fixture
-    def setup_message(self, adapter):
+    def setup_message(self, cache_mock, adapter):
         """Setup a test message in the cache"""
         async def _setup(conversation_id, message_id="111222333", reactions=None):
-            cached_msg = await adapter.conversation_manager.message_cache.add_message({
+            cached_msg = await cache_mock.message_cache.add_message({
                 "message_id": message_id,
                 "conversation_id": conversation_id,
                 "text": "Test message",

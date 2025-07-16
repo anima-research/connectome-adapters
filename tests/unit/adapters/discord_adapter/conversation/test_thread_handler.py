@@ -13,11 +13,6 @@ class TestThreadHandler:
     """Tests for the Discord ThreadHandler class"""
 
     @pytest.fixture
-    def message_cache_mock(self):
-        """Create a mocked MessageCache"""
-        return AsyncMock()
-
-    @pytest.fixture
     def standard_conversation_id(self):
         """Create a standard conversation ID for testing"""
         return "discord_FeKw08M4keuw8e9gnsQZ"
@@ -60,9 +55,11 @@ class TestThreadHandler:
         )
 
     @pytest.fixture
-    def thread_handler(self, message_cache_mock):
+    def thread_handler(self, cache_mock):
         """Create a ThreadHandler instance for testing"""
-        return ThreadHandler(message_cache_mock)
+        thread_handler = ThreadHandler()
+        thread_handler.cache = cache_mock
+        return thread_handler
 
     @pytest.fixture
     def mock_reference(self):
@@ -198,24 +195,24 @@ class TestThreadHandler:
                 is_from_bot=cached_message.is_from_bot,
                 reply_to_message_id="123"  # This message replies to message 123
             )
-            thread_handler.message_cache.get_message_by_id.return_value = replied_message
 
-            result = await thread_handler.add_thread_info(
-                discord_message, conversation_info
-            )
+            with patch.object(thread_handler.cache.message_cache, "get_message_by_id", return_value=replied_message):
+                result = await thread_handler.add_thread_info(
+                    discord_message, conversation_info
+                )
 
-            assert result is not None
-            assert result.thread_id == "456789"  # Thread ID is the immediate reply target
-            assert result.root_message_id == "123"  # But root ID is from the original thread
-            assert len(result.messages) == 1
+                assert result is not None
+                assert result.thread_id == "456789"  # Thread ID is the immediate reply target
+                assert result.root_message_id == "123"  # But root ID is from the original thread
+                assert len(result.messages) == 1
 
-            assert "456789" in conversation_info.threads
-            assert conversation_info.threads["456789"] == result
+                assert "456789" in conversation_info.threads
+                assert conversation_info.threads["456789"] == result
 
-            thread_handler.message_cache.get_message_by_id.assert_called_with(
-                conversation_id=conversation_info.conversation_id,
-                message_id="456789"
-            )
+                thread_handler.cache.message_cache.get_message_by_id.assert_called_with(
+                    conversation_id=conversation_info.conversation_id,
+                    message_id="456789"
+                )
 
     class TestRemoveThreadInfo:
         """Tests for remove_thread_info method"""

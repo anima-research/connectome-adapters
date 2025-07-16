@@ -6,9 +6,9 @@ import pytest
 
 from unittest.mock import AsyncMock, MagicMock, patch
 from src.adapters.discord_webhook_adapter.adapter import Adapter
-from src.adapters.discord_webhook_adapter.attachment_loaders.uploader import Uploader
 from src.adapters.discord_webhook_adapter.conversation.data_classes import ConversationInfo
-from src.adapters.discord_webhook_adapter.event_processors.outgoing_event_processor import OutgoingEventProcessor
+from src.adapters.discord_webhook_adapter.event_processing.attachment_loaders.uploader import Uploader
+from src.adapters.discord_webhook_adapter.event_processing.outgoing_event_processor import OutgoingEventProcessor
 
 class TestSocketIOToDiscordWebhookFlowIntegration:
     """Integration tests for socket.io to Discord webhook flow"""
@@ -89,14 +89,6 @@ class TestSocketIOToDiscordWebhookFlowIntegration:
         uploader_mock.upload_attachment = MagicMock(return_value=[])
         uploader_mock.clean_up_uploaded_files = MagicMock()
         return uploader_mock
-
-    @pytest.fixture
-    def rate_limiter_mock(self):
-        """Create a mock rate limiter"""
-        rate_limiter = AsyncMock()
-        rate_limiter.limit_request = AsyncMock(return_value=None)
-        rate_limiter.get_wait_time = AsyncMock(return_value=0)
-        return rate_limiter
 
     @pytest.fixture
     def adapter(self,

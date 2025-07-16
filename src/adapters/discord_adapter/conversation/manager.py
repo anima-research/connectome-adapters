@@ -10,12 +10,10 @@ from src.adapters.discord_adapter.conversation.data_classes import ConversationI
 from src.adapters.discord_adapter.conversation.message_builder import MessageBuilder
 from src.adapters.discord_adapter.conversation.reaction_handler import ReactionHandler
 from src.adapters.discord_adapter.conversation.thread_handler import ThreadHandler
-from src.adapters.discord_adapter.conversation.user_builder import UserBuilder
 
-from src.core.conversation.base_data_classes import ConversationDelta, ThreadInfo, UserInfo
+from src.core.conversation.base_data_classes import ConversationDelta, ThreadInfo
 from src.core.conversation.base_manager import BaseManager
 from src.core.cache.message_cache import CachedMessage
-from src.core.utils.config import Config
 
 class DiscordEventType(str, Enum):
     """Types of events that can be processed"""
@@ -27,17 +25,6 @@ class DiscordEventType(str, Enum):
 
 class Manager(BaseManager):
     """Tracks and manages information about Discord conversations"""
-
-    def __init__(self, config: Config, start_maintenance=False):
-        """Initialize the conversation manager
-
-        Args:
-            config: Config instance
-            start_maintenance: Whether to start the maintenance loop
-        """
-        super().__init__(config, start_maintenance)
-        self.message_builder = MessageBuilder()
-        self.thread_handler = ThreadHandler(self.message_cache)
 
     async def update_metadata(self, event: Any) -> List[Dict[str, Any]]:
         """Update the conversation metadata
@@ -74,6 +61,14 @@ class Manager(BaseManager):
                 )
 
         return deltas
+
+    def _message_builder_class(self):
+        """Message builder class"""
+        return MessageBuilder
+
+    def _thread_handler_class(self):
+        """Thread handler class"""
+        return ThreadHandler
 
     async def _get_platform_conversation_id(self, message: Any) -> Optional[str]:
         """Get the conversation ID from a Discord message
@@ -170,22 +165,6 @@ class Manager(BaseManager):
             just_started=True
         )
 
-    async def _get_user_info(self,
-                             event: Dict[str, Any],
-                             conversation_info: ConversationInfo) -> UserInfo:
-        """Get the user info for a given event and conversation info
-
-        Args:
-            event: Dictionary containing the event data
-            conversation_info: Conversation info object
-
-        Returns:
-            User info object
-        """
-        return await UserBuilder.add_user_info_to_conversation(
-            self.config, event["message"], conversation_info
-        )
-
     async def _process_event(self,
                              event: Dict[str, Any],
                              conversation_info: ConversationInfo,
@@ -203,54 +182,49 @@ class Manager(BaseManager):
         event_type = event.get("event_type", None)
 
         if event_type == DiscordEventType.EDITED_MESSAGE:
-            cached_msg = await self.message_cache.get_message_by_id(
+            cached_msg = await self.cache.message_cache.get_message_by_id(
                 conversation_id=conversation_info.conversation_id,
                 message_id=str(getattr(event["message"], "message_id", ""))
             )
 
             await self._update_pin_status(conversation_info, cached_msg, event["message"], delta)
-            await self._update_message(cached_msg, event["message"], delta)
+            await self._update_message(event, cached_msg, delta)
             return
 
         if event_type in [DiscordEventType.ADDED_REACTION, DiscordEventType.REMOVED_REACTION]:
             await self._update_reaction(event, conversation_info, delta)
 
     async def _create_message(self,
-                              message: Any,
+                              event: Any,
                               conversation_info: ConversationInfo,
-                              user_info: UserInfo,
                               thread_info: ThreadInfo) -> CachedMessage:
         """Create a new message in the cache
 
         Args:
-            message: Discord message object
+            event: Event object
             conversation_info: Conversation info object
-            user_info: User info object
             thread_info: Thread info object
 
         Returns:
             Cached message object
         """
-        cached_msg = await super()._create_message(
-            message, conversation_info, user_info, thread_info
-        )
+        cached_msg = await super()._create_message(event, conversation_info, thread_info)
         conversation_info.messages.add(cached_msg.message_id)
-
         return cached_msg
 
     async def _update_message(self,
+                              event: Any,
                               cached_msg: CachedMessage,
-                              message: Any,
                               delta: ConversationDelta) -> None:
         """Update a message in the cache
 
         Args:
+            event: Event object
             cached_msg: CachedMessage object
-            message: Discord message object
             delta: ConversationDelta object
         """
-        data = getattr(message, "data", None)
-        platform_cached_msg = getattr(message, "cached_message", None)
+        data = getattr(event["message"], "data", None)
+        updated_content = event.get("updated_content", None)
 
         if not cached_msg or not data or cached_msg.text == data.get("content", ""):
             return
@@ -265,17 +239,14 @@ class Manager(BaseManager):
 
         cached_msg.edit_timestamp = int(edit_timestamp.timestamp())
         cached_msg.edited = True
-        cached_msg.text = data.get("content", "")
+        cached_msg.text = updated_content if updated_content else data.get("content", "")
         await self._update_delta_list(
             conversation_id=cached_msg.conversation_id,
             delta=delta,
             list_to_update="updated_messages",
             cached_msg=cached_msg,
             attachments=[],
-            mentions=self._get_bot_mentions(
-                cached_msg,
-                message if not platform_cached_msg else platform_cached_msg
-            )
+            mentions=event.get("mentions", [])
         )
 
     async def _update_pin_status(self,
@@ -323,7 +294,7 @@ class Manager(BaseManager):
             return
 
         reaction = str(getattr(reaction, "name", ""))
-        cached_msg = await self.message_cache.get_message_by_id(
+        cached_msg = await self.cache.message_cache.get_message_by_id(
             conversation_id=conversation_info.conversation_id,
             message_id=message_id
         )
@@ -336,44 +307,6 @@ class Manager(BaseManager):
                 reaction=reaction,
                 delta=delta
             )
-
-    def _get_bot_mentions(self, cached_msg: CachedMessage, message: Any) -> List[str]:
-        """Get bot mentions from a cached message.
-        Extracts mentions of the bot or @all from the message text.
-        Also checks if the message is a reply to the bot.
-
-        Args:
-            cached_msg: The cached message to extract mentions from
-            message: Raw message object from the adapter
-
-        Returns:
-            List of mentions (bot name or "all")
-        """
-        if not cached_msg or not cached_msg.text:
-            return []
-
-        mentions = set()
-        adapter_id = self.config.get_setting("adapter", "adapter_id")
-
-        # Check if the message is a reply to the bot
-        if message.reference and message.reference.resolved:
-            if isinstance(message.reference.resolved, discord.Message):
-                if message.reference.resolved.author.id == int(adapter_id):
-                    mentions.add(adapter_id)
-
-        user_mention_pattern = r"<@(\d+)>"
-        found_user_mentions = re.findall(user_mention_pattern, cached_msg.text)
-
-        # Pattern for Discord user mentions: <@USER_ID>
-        for mention in found_user_mentions:
-            if adapter_id and mention == adapter_id:
-                mentions.add(adapter_id)
-
-        # Check for special mentions (@everyone and @here)
-        if "@everyone" in cached_msg.text or "@here" in cached_msg.text:
-            mentions.add("all")
-
-        return list(mentions)
 
     async def _get_deleted_message_ids(self, event: Dict[str, Any]) -> List[str]:
         """Get the deleted message IDs from an event

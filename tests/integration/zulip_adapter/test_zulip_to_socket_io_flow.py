@@ -6,12 +6,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
 
 from src.adapters.zulip_adapter.adapter import Adapter
-from src.adapters.zulip_adapter.client import Client
-from src.adapters.zulip_adapter.attachment_loaders.uploader import Uploader
 from src.adapters.zulip_adapter.conversation.data_classes import ConversationInfo
-from src.adapters.zulip_adapter.event_processors.incoming_event_processor import IncomingEventProcessor
-from src.adapters.zulip_adapter.event_processors.outgoing_event_processor import OutgoingEventProcessor
-from src.core.conversation.base_data_classes import UserInfo
+from src.adapters.zulip_adapter.event_processing.incoming_event_processor import IncomingEventProcessor
+from src.adapters.zulip_adapter.event_processing.outgoing_event_processor import OutgoingEventProcessor
+from src.core.cache.user_cache import UserInfo
 from src.core.utils.emoji_converter import EmojiConverter
 
 class TestZulipToSocketIOFlowIntegration:
@@ -105,10 +103,7 @@ class TestZulipToSocketIOFlowIntegration:
                 platform_conversation_id="101_789",
                 conversation_id=standard_private_conversation_id,
                 conversation_type="private",
-                known_members={
-                    "101": UserInfo(user_id="101", username="Test User", email="test@example.com"),
-                    "789": UserInfo(user_id="789", username="Bot User", email="adapter_email@example.com")
-                }
+                known_members={"101", "789"}
             )
             adapter.conversation_manager.conversations[standard_private_conversation_id] = conversation
             return conversation
@@ -134,10 +129,10 @@ class TestZulipToSocketIOFlowIntegration:
         return _setup
 
     @pytest.fixture
-    def setup_message(self, adapter):
+    def setup_message(self, cache_mock, adapter):
         """Setup a test message in the cache"""
         async def _setup(conversation_id, message_id="12345", reactions=None):
-            cached_msg = await adapter.conversation_manager.message_cache.add_message({
+            cached_msg = await cache_mock.message_cache.add_message({
                 "message_id": message_id,
                 "conversation_id": conversation_id,
                 "text": "Test message",
@@ -239,6 +234,7 @@ class TestZulipToSocketIOFlowIntegration:
 
     @pytest.mark.asyncio
     async def test_receive_private_message_flow(self,
+                                                cache_mock,
                                                 adapter,
                                                 create_zulip_event,
                                                 standard_private_conversation_id):
@@ -252,7 +248,7 @@ class TestZulipToSocketIOFlowIntegration:
         assert standard_private_conversation_id in adapter.conversation_manager.conversations
         assert adapter.conversation_manager.conversations[standard_private_conversation_id].conversation_type == "private"
 
-        conversation_messages = adapter.conversation_manager.message_cache.messages.get(standard_private_conversation_id, {})
+        conversation_messages = cache_mock.message_cache.messages.get(standard_private_conversation_id, {})
         assert len(conversation_messages) == 1
 
         cached_message = next(iter(conversation_messages.values()))
@@ -261,6 +257,7 @@ class TestZulipToSocketIOFlowIntegration:
 
     @pytest.mark.asyncio
     async def test_receive_stream_message_flow(self,
+                                               cache_mock,
                                                adapter,
                                                create_zulip_event,
                                                standard_stream_conversation_id):
@@ -274,7 +271,7 @@ class TestZulipToSocketIOFlowIntegration:
         assert standard_stream_conversation_id in adapter.conversation_manager.conversations
         assert adapter.conversation_manager.conversations[standard_stream_conversation_id].conversation_type == "stream"
 
-        conversation_messages = adapter.conversation_manager.message_cache.messages.get(standard_stream_conversation_id, {})
+        conversation_messages = cache_mock.message_cache.messages.get(standard_stream_conversation_id, {})
         assert len(conversation_messages) == 1
 
         cached_message = next(iter(conversation_messages.values()))
@@ -313,6 +310,7 @@ class TestZulipToSocketIOFlowIntegration:
 
     @pytest.mark.asyncio
     async def test_update_message_flow(self,
+                                       cache_mock,
                                        adapter,
                                        setup_private_conversation,
                                        setup_message,
@@ -336,7 +334,7 @@ class TestZulipToSocketIOFlowIntegration:
         assert update_event["data"]["conversation_id"] == standard_private_conversation_id
         assert update_event["data"]["new_text"] == "Updated message content"
 
-        cached_message = adapter.conversation_manager.message_cache.messages[standard_private_conversation_id]["12345"]
+        cached_message = cache_mock.message_cache.messages[standard_private_conversation_id]["12345"]
         assert cached_message.text == "Updated message content"
 
     @pytest.mark.asyncio
@@ -365,6 +363,7 @@ class TestZulipToSocketIOFlowIntegration:
 
     @pytest.mark.asyncio
     async def test_add_reaction_flow(self,
+                                     cache_mock,
                                      adapter,
                                      emoji_converter_mock,
                                      setup_private_conversation,
@@ -392,12 +391,13 @@ class TestZulipToSocketIOFlowIntegration:
             assert reaction_event["data"]["conversation_id"] == standard_private_conversation_id
             assert reaction_event["data"]["emoji"] == "thumbs_up"
 
-            cached_message = adapter.conversation_manager.message_cache.messages[standard_private_conversation_id]["12345"]
+            cached_message = cache_mock.message_cache.messages[standard_private_conversation_id]["12345"]
             assert "thumbs_up" in cached_message.reactions
             assert cached_message.reactions["thumbs_up"] == 1
 
     @pytest.mark.asyncio
     async def test_remove_reaction_flow(self,
+                                        cache_mock,
                                         adapter,
                                         emoji_converter_mock,
                                         setup_private_conversation,
@@ -429,7 +429,7 @@ class TestZulipToSocketIOFlowIntegration:
             assert reaction_event["data"]["conversation_id"] == standard_private_conversation_id
             assert reaction_event["data"]["emoji"] == "thumbs_up"
 
-            cached_message = adapter.conversation_manager.message_cache.messages[standard_private_conversation_id]["12345"]
+            cached_message = cache_mock.message_cache.messages[standard_private_conversation_id]["12345"]
             assert "thumbs_up" not in cached_message.reactions
             assert "thumbs_down" in cached_message.reactions
             assert cached_message.reactions["thumbs_down"] == 1

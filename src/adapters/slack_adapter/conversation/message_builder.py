@@ -19,7 +19,11 @@ class MessageBuilder(BaseMessageBuilder):
         self.message_data["edited"] = edit_timestamp is not None
         return self
 
-    def with_content(self, message: Any) -> 'MessageBuilder':
+    def with_content(self, event: Any) -> 'MessageBuilder':
         """Add message content"""
-        self.message_data["text"] = message.get("text", "")
+        if "updated_content" in event and event["updated_content"]:
+            self.message_data["text"] = event["updated_content"]
+        else:
+            self.message_data["text"] = event["message"].get("text", "")
+
         return self

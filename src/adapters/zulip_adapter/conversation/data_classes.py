@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
-from typing import Optional, List, Set, Union
+from typing import Optional, List, Set
 
+from src.core.cache.cache import Cache
 from src.core.conversation.base_data_classes import BaseConversationInfo
 
 @dataclass
@@ -19,7 +20,11 @@ class ConversationInfo(BaseConversationInfo):
     def emails(self) -> List[str]:
         """Get the emails for the conversation"""
         emails = []
-        for _, user_info in self.known_members.items():
-            if user_info.email:
+        user_cache = Cache.get_instance().user_cache
+
+        for user_id in self.known_members:
+            user_info = user_cache.get_user_by_id(user_id)
+            if user_info and user_info.email:
                 emails.append(user_info.email)
+
         return emails

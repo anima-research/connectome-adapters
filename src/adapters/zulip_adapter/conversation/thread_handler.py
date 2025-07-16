@@ -2,16 +2,11 @@ import re
 from typing import Any, Optional, Tuple
 
 from src.adapters.zulip_adapter.conversation.data_classes import ConversationInfo
-
-from src.core.cache.message_cache import MessageCache
 from src.core.conversation.base_data_classes import ThreadInfo
 from src.core.conversation.base_thread_handler import BaseThreadHandler
 
 class ThreadHandler(BaseThreadHandler):
     """Handles thread information for Zulip messages"""
-
-    def __init__(self, message_cache: MessageCache):
-        super().__init__(message_cache)
 
     async def update_thread_info(self,
                                  message: Any,

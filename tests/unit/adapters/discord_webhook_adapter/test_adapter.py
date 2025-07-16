@@ -2,12 +2,9 @@ import pytest
 import asyncio
 import discord
 import aiohttp
-from unittest.mock import AsyncMock, MagicMock, patch
 
+from unittest.mock import AsyncMock, MagicMock, patch
 from src.adapters.discord_webhook_adapter.adapter import Adapter
-from src.adapters.discord_webhook_adapter.conversation.manager import Manager
-from src.adapters.discord_webhook_adapter.client import Client
-from src.adapters.discord_webhook_adapter.event_processors.outgoing_event_processor import OutgoingEventProcessor
 
 class TestWebhookAdapter:
     """Tests for the Discord Webhook Adapter class"""

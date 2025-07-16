@@ -9,6 +9,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from src.adapters.slack_adapter.adapter import Adapter
+from src.core.cache.cache import Cache
 from src.core.rate_limiter.rate_limiter import RateLimiter
 from src.core.socket_io.server import SocketIOServer
 from src.core.utils.logger import setup_logging
@@ -28,12 +29,13 @@ async def main():
         config = Config("config/slack_config.yaml")
         EmojiConverter.get_instance(config)
         RateLimiter.get_instance(config)
+        Cache.get_instance(config, True)
         setup_logging(config)
 
         logging.info("Starting Slack adapter")
 
         socketio_server = SocketIOServer(config)
-        adapter = Adapter(config, socketio_server, start_maintenance=True)
+        adapter = Adapter(config, socketio_server)
         socketio_server.set_adapter(adapter)
 
         if sys.platform != "win32":

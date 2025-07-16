@@ -10,6 +10,7 @@ from enum import Enum
 from pydantic import BaseModel
 from typing import Any, Dict, List
 
+from src.core.cache.cache import Cache
 from src.core.conversation.base_data_classes import BaseConversationInfo, UserInfo
 from src.core.events.builders.outgoing_event_builder import OutgoingEventBuilder
 from src.core.rate_limiter.rate_limiter import RateLimiter
@@ -355,45 +356,3 @@ class BaseOutgoingEventProcessor(ABC):
             message_parts.append(remaining_text)
 
         return message_parts
-
-    def _mention_users(self,
-                       conversation_info: BaseConversationInfo,
-                       mentions: List[str],
-                       text: str) -> str:
-        """Mention users in a message
-
-        Args:
-            conversation_info: Conversation info
-            mentions: List of user ids to mention
-            text: Message text
-
-        Returns:
-            str: Message text with users mentioned
-        """
-        if not mentions:
-            return text
-
-        users = ""
-
-        for mention in mentions:
-            if mention == "all":
-                users += self._adapter_specific_mention_all()
-                continue
-
-            user_info = self.conversation_manager.get_conversation_member(
-                conversation_info.conversation_id, mention
-            )
-            if user_info:
-                users += self._adapter_specific_mention_user(user_info)
-
-        return users + text
-
-    @abstractmethod
-    def _adapter_specific_mention_all(self) -> str:
-        """Mention all users in a conversation"""
-        raise NotImplementedError("Child classes must implement _adapter_specific_mention_all")
-
-    @abstractmethod
-    def _adapter_specific_mention_user(self, user_info: UserInfo) -> str:
-        """Mention a user in a conversation"""
-        raise NotImplementedError("Child classes must implement _adapter_specific_mention_user")

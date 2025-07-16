@@ -1,18 +1,20 @@
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from datetime import datetime
 
 from src.adapters.telegram_adapter.conversation.data_classes import ConversationInfo
 from src.adapters.telegram_adapter.conversation.message_builder import MessageBuilder
-from src.core.conversation.base_data_classes import UserInfo, ThreadInfo
+from src.core.cache.cache import Cache
+from src.core.cache.user_cache import UserInfo
+from src.core.conversation.base_data_classes import ThreadInfo
 
 class TestMessageBuilder:
     """Tests for the MessageBuilder class"""
 
     @pytest.fixture
-    def builder(self, telegram_config):
+    def builder(self):
         """Create a fresh MessageBuilder for each test"""
-        return MessageBuilder(telegram_config)
+        return MessageBuilder()
 
     @pytest.fixture
     def mock_message(self):
@@ -87,21 +89,16 @@ class TestMessageBuilder:
         assert builder.message_data["is_direct_message"] is True
         assert result is builder
 
-    def test_with_sender_info(self, builder, mock_user_info):
+    def test_with_sender_id(self, cache_mock, builder, mock_user_info):
         """Test adding sender information"""
-        result = builder.with_sender_info(mock_user_info)
+        with patch.object(cache_mock.user_cache, "get_user_by_id", return_value=mock_user_info):
+            with patch.object(Cache, "get_instance", return_value=cache_mock):
+                result = builder.with_sender_id(mock_user_info.user_id)
 
-        assert builder.message_data["sender_id"] == 789
-        assert builder.message_data["sender_name"] == "Test User"
-        assert builder.message_data["is_from_bot"] is False
-        assert result is builder
-
-    def test_with_sender_info_none(self, builder):
-        """Test adding sender information when sender is None"""
-        result = builder.with_sender_info(None)
-
-        assert builder.message_data["is_from_bot"] is True
-        assert result is builder
+                assert builder.message_data["sender_id"] == 789
+                assert builder.message_data["sender_name"] == "Test User"
+                assert builder.message_data["is_from_bot"] is False
+                assert result is builder
 
     def test_with_thread_info(self, builder, mock_thread_info):
         """Test adding thread information"""
@@ -121,7 +118,7 @@ class TestMessageBuilder:
 
     def test_with_content(self, builder, mock_message):
         """Test adding message content"""
-        result = builder.with_content(mock_message)
+        result = builder.with_content({"message": mock_message})
 
         assert builder.message_data["text"] == "Test message content"
         assert result is builder
@@ -132,7 +129,7 @@ class TestMessageBuilder:
         message.id = 123
         message = None
 
-        result = builder.with_content(message)
+        result = builder.with_content({"message": message})
         assert builder.message_data["text"] == ""
         assert result is builder
 
@@ -152,6 +149,7 @@ class TestMessageBuilder:
         assert result["text"] == "Test message"
 
     def test_full_build_chain(self,
+                              cache_mock,
                               builder,
                               mock_message,
                               mock_user_info,
@@ -159,23 +157,25 @@ class TestMessageBuilder:
                               mock_conversation_info,
                               standard_conversation_id):
         """Test a complete builder chain"""
-        result = builder.reset() \
-            .with_basic_info(mock_message, mock_conversation_info) \
-            .with_sender_info(mock_user_info) \
-            .with_thread_info(mock_thread_info) \
-            .with_content(mock_message) \
-            .build()
+        with patch.object(cache_mock.user_cache, "get_user_by_id", return_value=mock_user_info):
+            with patch.object(Cache, "get_instance", return_value=cache_mock):
+                result = builder.reset() \
+                    .with_basic_info(mock_message, mock_conversation_info) \
+                    .with_sender_id(mock_user_info.user_id) \
+                    .with_thread_info(mock_thread_info) \
+                    .with_content({"message": mock_message}) \
+                    .build()
 
-        assert result["message_id"] == "123"
-        assert result["conversation_id"] == standard_conversation_id
-        assert result["timestamp"] == int(mock_message.date.timestamp())
-        assert result["sender_id"] == 789
-        assert result["sender_name"] == "Test User"
-        assert result["is_from_bot"] is False
-        assert result["thread_id"] == "122"
-        assert result["reply_to_message_id"] == "122"
-        assert result["text"] == "Test message content"
-        assert result["is_direct_message"] is True
+                assert result["message_id"] == "123"
+                assert result["conversation_id"] == standard_conversation_id
+                assert result["timestamp"] == int(mock_message.date.timestamp())
+                assert result["sender_id"] == 789
+                assert result["sender_name"] == "Test User"
+                assert result["is_from_bot"] is False
+                assert result["thread_id"] == "122"
+                assert result["reply_to_message_id"] == "122"
+                assert result["text"] == "Test message content"
+                assert result["is_direct_message"] is True
 
     def test_build_independence(self, builder):
         """Test that subsequent builds don't affect each other"""

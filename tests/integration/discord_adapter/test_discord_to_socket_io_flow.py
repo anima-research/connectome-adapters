@@ -8,9 +8,9 @@ from datetime import datetime, timezone
 
 from src.adapters.discord_adapter.adapter import Adapter
 from src.adapters.discord_adapter.conversation.data_classes import ConversationInfo
-from src.adapters.discord_adapter.event_processors.outgoing_event_processor import OutgoingEventProcessor
-from src.adapters.discord_adapter.event_processors.incoming_event_processor import IncomingEventProcessor
-
+from src.adapters.discord_adapter.event_processing.outgoing_event_processor import OutgoingEventProcessor
+from src.adapters.discord_adapter.event_processing.incoming_event_processor import IncomingEventProcessor
+from src.adapters.discord_adapter.event_processing.user_info_preprocessor import UserInfoPreprocessor
 class TestDiscordToSocketIOFlowIntegration:
     """Integration tests for Discord to socket.io flow"""
 
@@ -46,14 +46,6 @@ class TestDiscordToSocketIOFlowIntegration:
         downloader_mock = AsyncMock()
         downloader_mock.download_attachment = AsyncMock(return_value=[])
         return downloader_mock
-
-    @pytest.fixture
-    def rate_limiter_mock(self):
-        """Create a mock rate limiter"""
-        rate_limiter = AsyncMock()
-        rate_limiter.limit_request = AsyncMock(return_value=None)
-        rate_limiter.get_wait_time = AsyncMock(return_value=0)
-        return rate_limiter
 
     @pytest.fixture
     def adapter(self,
@@ -98,14 +90,14 @@ class TestDiscordToSocketIOFlowIntegration:
         return _setup
 
     @pytest.fixture
-    def setup_message(self, adapter):
+    def setup_message(self, cache_mock, adapter):
         """Setup a test message in the cache"""
         async def _setup(conversation_id,
                          message_id="111222333",
                          reactions=None,
                          thread_id=None,
                          is_pinned=False):
-            cached_msg = await adapter.conversation_manager.message_cache.add_message({
+            cached_msg = await cache_mock.message_cache.add_message({
                 "message_id": message_id,
                 "conversation_id": conversation_id,
                 "text": "Test message",
@@ -250,6 +242,7 @@ class TestDiscordToSocketIOFlowIntegration:
 
     @pytest.mark.asyncio
     async def test_receive_message_with_attachment_flow(self,
+                                                        cache_mock,
                                                         adapter,
                                                         create_discord_event,
                                                         standard_conversation_id):
@@ -282,14 +275,14 @@ class TestDiscordToSocketIOFlowIntegration:
             assert standard_conversation_id in adapter.conversation_manager.conversations
             assert len(adapter.conversation_manager.conversations[standard_conversation_id].messages) == 1
 
-            conversation_messages = adapter.conversation_manager.message_cache.messages.get(standard_conversation_id, {})
+            conversation_messages = cache_mock.message_cache.messages.get(standard_conversation_id, {})
             assert len(conversation_messages) == 1
 
             cached_message = next(iter(conversation_messages.values()))
             assert cached_message.text == "Hello from Discord!"
             assert cached_message.sender_id == "123456789"
 
-            cached_attachments = adapter.conversation_manager.attachment_cache.attachments
+            cached_attachments = cache_mock.attachment_cache.attachments
             assert len(cached_attachments) == 1
             assert "discord_4567" in cached_attachments
             assert cached_attachments["discord_4567"].attachment_id == "discord_4567"
@@ -302,96 +295,115 @@ class TestDiscordToSocketIOFlowIntegration:
 
     @pytest.mark.asyncio
     async def test_edited_message_flow(self,
+                                       cache_mock,
                                        adapter,
                                        setup_channel_conversation,
                                        setup_message,
                                        create_discord_event,
                                        standard_conversation_id):
         """Test flow from Discord edited message to socket.io event"""
-        setup_channel_conversation()
-        await setup_message(standard_conversation_id, message_id="111222333")
+        with patch.object(
+            UserInfoPreprocessor,
+            "process_incoming_event",
+            return_value={"user_id": None,"updated_content": None, "mentions": []}
+        ):
+            setup_channel_conversation()
+            await setup_message(standard_conversation_id, message_id="111222333")
 
-        event = create_discord_event(event_type="edited_message", message_type="channel")
-        result = await adapter.incoming_events_processor.process_event(event)
+            event = create_discord_event(event_type="edited_message", message_type="channel")
+            result = await adapter.incoming_events_processor.process_event(event)
 
-        assert isinstance(result, list), "Expected process_event to return a list of events"
-        assert len(result) > 0, "Expected at least one event to be generated"
+            assert isinstance(result, list), "Expected process_event to return a list of events"
+            assert len(result) > 0, "Expected at least one event to be generated"
 
-        assert result[0]["event_type"] == "message_updated"
-        assert result[0]["data"]["conversation_id"] == standard_conversation_id
-        assert result[0]["data"]["message_id"] == "111222333"
-        assert result[0]["data"]["new_text"] == "Edited message content"
+            assert result[0]["event_type"] == "message_updated"
+            assert result[0]["data"]["conversation_id"] == standard_conversation_id
+            assert result[0]["data"]["message_id"] == "111222333"
+            assert result[0]["data"]["new_text"] == "Edited message content"
 
-        conversation_messages = adapter.conversation_manager.message_cache.messages.get(standard_conversation_id, {})
-        assert len(conversation_messages) == 1
+            conversation_messages = cache_mock.message_cache.messages.get(standard_conversation_id, {})
+            assert len(conversation_messages) == 1
 
-        cached_message = next(iter(conversation_messages.values()))
-        assert cached_message.text == "Edited message content"
+            cached_message = next(iter(conversation_messages.values()))
+            assert cached_message.text == "Edited message content"
 
     @pytest.mark.asyncio
     async def test_pin_message_flow(self,
+                                    cache_mock,
                                     adapter,
                                     setup_channel_conversation,
                                     setup_message,
                                     create_discord_event,
                                     standard_conversation_id):
         """Test flow from Discord pin message to socket.io event"""
-        setup_channel_conversation()
-        await setup_message(standard_conversation_id, message_id="111222333", is_pinned=False)
+        with patch.object(
+            UserInfoPreprocessor,
+            "process_incoming_event",
+            return_value={"user_id": None,"updated_content": None, "mentions": []}
+        ):
+            setup_channel_conversation()
+            await setup_message(standard_conversation_id, message_id="111222333", is_pinned=False)
 
-        event = create_discord_event(event_type="edited_message", message_type="channel", is_pinned=True)
-        result = await adapter.incoming_events_processor.process_event(event)
+            event = create_discord_event(event_type="edited_message", message_type="channel", is_pinned=True)
+            result = await adapter.incoming_events_processor.process_event(event)
 
-        assert isinstance(result, list), "Expected process_event to return a list of events"
-        assert len(result) == 2, "Expected two events to be generated: message update and pin"
+            assert isinstance(result, list), "Expected process_event to return a list of events"
+            assert len(result) == 2, "Expected two events to be generated: message update and pin"
 
-        update_event = [e for e in result if e["event_type"] == "message_updated"][0]
-        assert update_event["data"]["conversation_id"] == standard_conversation_id
-        assert update_event["data"]["message_id"] == "111222333"
+            update_event = [e for e in result if e["event_type"] == "message_updated"][0]
+            assert update_event["data"]["conversation_id"] == standard_conversation_id
+            assert update_event["data"]["message_id"] == "111222333"
 
-        pin_event = [e for e in result if e["event_type"] == "message_pinned"][0]
-        assert pin_event["data"]["conversation_id"] == standard_conversation_id
-        assert pin_event["data"]["message_id"] == "111222333"
+            pin_event = [e for e in result if e["event_type"] == "message_pinned"][0]
+            assert pin_event["data"]["conversation_id"] == standard_conversation_id
+            assert pin_event["data"]["message_id"] == "111222333"
 
-        conversation = adapter.conversation_manager.conversations[standard_conversation_id]
-        assert "111222333" in conversation.pinned_messages
+            conversation = adapter.conversation_manager.conversations[standard_conversation_id]
+            assert "111222333" in conversation.pinned_messages
 
-        cached_message = adapter.conversation_manager.message_cache.messages[standard_conversation_id]["111222333"]
-        assert cached_message.is_pinned is True
+            cached_message = cache_mock.message_cache.messages[standard_conversation_id]["111222333"]
+            assert cached_message.is_pinned is True
 
     @pytest.mark.asyncio
     async def test_unpin_message_flow(self,
+                                      cache_mock,
                                       adapter,
                                       setup_channel_conversation,
                                       setup_message,
                                       create_discord_event,
                                       standard_conversation_id):
         """Test flow from Discord unpin message to socket.io event"""
-        setup_channel_conversation()
-        await setup_message(standard_conversation_id, message_id="111222333", is_pinned=True)
+        with patch.object(
+            UserInfoPreprocessor,
+            "process_incoming_event",
+            return_value={"user_id": None,"updated_content": None, "mentions": []}
+        ):
+            setup_channel_conversation()
+            await setup_message(standard_conversation_id, message_id="111222333", is_pinned=True)
 
-        event = create_discord_event(event_type="edited_message", message_type="channel", is_pinned=False)
-        result = await adapter.incoming_events_processor.process_event(event)
+            event = create_discord_event(event_type="edited_message", message_type="channel", is_pinned=False)
+            result = await adapter.incoming_events_processor.process_event(event)
 
-        assert isinstance(result, list), "Expected process_event to return a list of events"
-        assert len(result) == 2, "Expected two events to be generated: message update and unpin"
+            assert isinstance(result, list), "Expected process_event to return a list of events"
+            assert len(result) == 2, "Expected two events to be generated: message update and unpin"
 
-        update_event = [e for e in result if e["event_type"] == "message_updated"][0]
-        assert update_event["data"]["conversation_id"] == standard_conversation_id
-        assert update_event["data"]["message_id"] == "111222333"
+            update_event = [e for e in result if e["event_type"] == "message_updated"][0]
+            assert update_event["data"]["conversation_id"] == standard_conversation_id
+            assert update_event["data"]["message_id"] == "111222333"
 
-        unpin_event = [e for e in result if e["event_type"] == "message_unpinned"][0]
-        assert unpin_event["data"]["conversation_id"] == standard_conversation_id
-        assert unpin_event["data"]["message_id"] == "111222333"
+            unpin_event = [e for e in result if e["event_type"] == "message_unpinned"][0]
+            assert unpin_event["data"]["conversation_id"] == standard_conversation_id
+            assert unpin_event["data"]["message_id"] == "111222333"
 
-        conversation = adapter.conversation_manager.conversations[standard_conversation_id]
-        assert "111222333" not in conversation.pinned_messages
+            conversation = adapter.conversation_manager.conversations[standard_conversation_id]
+            assert "111222333" not in conversation.pinned_messages
 
-        cached_message = adapter.conversation_manager.message_cache.messages[standard_conversation_id]["111222333"]
-        assert cached_message.is_pinned is False
+            cached_message = cache_mock.message_cache.messages[standard_conversation_id]["111222333"]
+            assert cached_message.is_pinned is False
 
     @pytest.mark.asyncio
     async def test_deleted_message_flow(self,
+                                        cache_mock,
                                         adapter,
                                         setup_channel_conversation,
                                         setup_message,
@@ -411,11 +423,12 @@ class TestDiscordToSocketIOFlowIntegration:
         assert result[0]["data"]["message_id"] == "111222333"
 
         conversation = adapter.conversation_manager.conversations[standard_conversation_id]
-        assert "111222333" not in adapter.conversation_manager.message_cache.messages.get(standard_conversation_id, {})
+        assert "111222333" not in cache_mock.message_cache.messages.get(standard_conversation_id, {})
         assert len(conversation.messages) == 0
 
     @pytest.mark.asyncio
     async def test_added_reaction_flow(self,
+                                       cache_mock,
                                        adapter,
                                        setup_channel_conversation,
                                        setup_message,
@@ -435,12 +448,13 @@ class TestDiscordToSocketIOFlowIntegration:
         assert result[0]["data"]["message_id"] == "111222333"
         assert result[0]["data"]["emoji"] == "thumbs_up"
 
-        cached_message = adapter.conversation_manager.message_cache.messages[standard_conversation_id]["111222333"]
+        cached_message = cache_mock.message_cache.messages[standard_conversation_id]["111222333"]
         assert "thumbs_up" in cached_message.reactions, "Reaction should be added to message"
         assert cached_message.reactions["thumbs_up"] == 1, "Reaction count should be 1"
 
     @pytest.mark.asyncio
     async def test_removed_reaction_flow(self,
+                                         cache_mock,
                                          adapter,
                                          setup_channel_conversation,
                                          setup_message,
@@ -460,5 +474,5 @@ class TestDiscordToSocketIOFlowIntegration:
         assert result[0]["data"]["message_id"] == "111222333"
         assert result[0]["data"]["emoji"] == "thumbs_up"
 
-        cached_message = adapter.conversation_manager.message_cache.messages[standard_conversation_id]["111222333"]
+        cached_message = cache_mock.message_cache.messages[standard_conversation_id]["111222333"]
         assert "thumbs_up" not in cached_message.reactions, "Reaction should be removed from message"

@@ -2,7 +2,7 @@ import pytest
 import asyncio
 import discord
 from discord.ext import commands
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.adapters.discord_adapter.client import Client
 

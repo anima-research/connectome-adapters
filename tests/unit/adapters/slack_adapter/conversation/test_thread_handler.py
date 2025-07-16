@@ -2,7 +2,7 @@ import asyncio
 import pytest
 
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 from src.adapters.slack_adapter.conversation.thread_handler import ThreadHandler
 from src.adapters.slack_adapter.conversation.data_classes import ConversationInfo
@@ -50,9 +50,11 @@ class TestThreadHandler:
         )
 
     @pytest.fixture
-    def thread_handler(self):
+    def thread_handler(self, cache_mock):
         """Create a ThreadHandler instance for testing"""
-        return ThreadHandler(AsyncMock())
+        thread_handler = ThreadHandler()
+        thread_handler.cache = cache_mock
+        return thread_handler
 
     @pytest.fixture
     def slack_message_in_thread(self):

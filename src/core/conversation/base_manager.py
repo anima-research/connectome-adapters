@@ -8,29 +8,27 @@ from typing import Any, Dict, List, Optional
 
 from src.core.conversation.base_data_classes import BaseConversationInfo, ConversationDelta
 
-from src.core.cache.message_cache import MessageCache, CachedMessage
-from src.core.cache.attachment_cache import AttachmentCache
-from src.core.conversation.base_data_classes import BaseConversationInfo, UserInfo, ThreadInfo
+from src.core.cache.cache import Cache
+from src.core.cache.message_cache import CachedMessage
+from src.core.conversation.base_data_classes import BaseConversationInfo, ThreadInfo
 from src.core.utils.config import Config
 
 class BaseManager(ABC):
     """Tracks and manages information about a conversations"""
 
-    def __init__(self, config: Config, start_maintenance=False):
+    def __init__(self, config: Config):
         """Initialize the conversation manager
 
         Args:
             config: Config instance
-            start_maintenance: Whether to start the maintenance loop
         """
         self.config = config
         self.adapter_type = config.get_setting("adapter", "adapter_type")
         self.conversations: Dict[str, BaseConversationInfo] = {}
         self._lock = asyncio.Lock()
-        self.message_cache = MessageCache(config, start_maintenance)
-        self.attachment_cache = AttachmentCache(config, start_maintenance)
-        self.message_builder = None # set by child class
-        self.thread_handler = None # set by child class
+        self.cache = Cache.get_instance()
+        self.message_builder = self._message_builder_class()()
+        self.thread_handler = self._thread_handler_class()()
 
     async def conversation_exists(self, event: Any) -> bool:
         """Check if a conversation exists for a given event
@@ -70,7 +68,7 @@ class BaseManager(ABC):
         """
         result = []
 
-        for msg in self.message_cache.messages.get(conversation_id, {}).values():
+        for msg in self.cache.message_cache.messages.get(conversation_id, {}).values():
             if not msg.text and not msg.attachments:
                 continue
 
@@ -79,7 +77,7 @@ class BaseManager(ABC):
             msg_dict["mentions"] = []
 
             for attachment_id in msg.attachments:
-                cached_attachment = self.attachment_cache.get_attachment(attachment_id)
+                cached_attachment = self.cache.attachment_cache.get_attachment(attachment_id)
                 if cached_attachment:
                     msg_dict["attachments"].append({
                         "attachment_id": cached_attachment.attachment_id,
@@ -94,23 +92,6 @@ class BaseManager(ABC):
             result.append(msg_dict)
 
         return result
-
-    def get_conversation_member(self, conversation_id: str, user_id: str) -> Optional[UserInfo]:
-        """Get the member info for a given conversation and user ID
-
-        Args:
-            conversation_id: The ID of the conversation to get member info for
-            user_id: The ID of the user to get info for
-
-        Returns:
-            The member info for the given conversation and user ID, or None if it doesn't exist
-        """
-        conversation = self.get_conversation(conversation_id)
-
-        if not conversation:
-            return None
-
-        return conversation.known_members.get(user_id, None)
 
     async def add_to_conversation(self, event: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new conversation or add a message to an existing conversation
@@ -135,10 +116,13 @@ class BaseManager(ABC):
             if not conversation_info:
                 return {}
 
+            user_id = event.get("user_id", None)
+            if user_id:
+                conversation_info.known_members.add(user_id)
+
             cached_msg = await self._create_message(
-                message,
+                event,
                 conversation_info,
-                await self._get_user_info(event, conversation_info),
                 await self.thread_handler.add_thread_info(message, conversation_info)
             )
 
@@ -151,7 +135,6 @@ class BaseManager(ABC):
 
             delta = self._create_conversation_delta(event, conversation_info)
             delta.message_id = cached_msg.message_id
-            mentions = self._get_mentions(delta, cached_msg, message)
 
             await self._update_delta_list(
                 conversation_id=conversation_info.conversation_id,
@@ -159,7 +142,7 @@ class BaseManager(ABC):
                 list_to_update="added_messages",
                 cached_msg=cached_msg,
                 attachments=attachments,
-                mentions=mentions
+                mentions=event.get("mentions", [])
             )
 
             return delta.to_dict()
@@ -215,7 +198,7 @@ class BaseManager(ABC):
 
         async with self._lock:
             for msg_id in deleted_ids:
-                cached_msg = await self.message_cache.get_message_by_id(
+                cached_msg = await self.cache.message_cache.get_message_by_id(
                     conversation_id=conversation_info.conversation_id,
                     message_id=msg_id
                 )
@@ -226,7 +209,7 @@ class BaseManager(ABC):
                     self.thread_handler.remove_thread_info(
                         conversation_info, cached_msg
                     )
-                    await self.message_cache.delete_message(
+                    await self.cache.message_cache.delete_message(
                         conversation_info.conversation_id, msg_id
                     )
 
@@ -255,7 +238,7 @@ class BaseManager(ABC):
             if not attachment:
                 continue
 
-            await self.attachment_cache.add_attachment(
+            await self.cache.attachment_cache.add_attachment(
                 conversation_info.conversation_id, attachment
             )
             conversation_info.attachments.add(attachment["attachment_id"])
@@ -328,28 +311,12 @@ class BaseManager(ABC):
         """
         name = "DM"
 
-
-        for user in conversation_info.known_members.values():
-            if not user.is_bot:
+        for user_id in conversation_info.known_members:
+            user = self.cache.user_cache.get_user_by_id(user_id)
+            if user and not user.is_bot:
                 name += f"_{user.display_name.replace(' ', '_')}"
 
         return name
-
-    def _get_mentions(self, delta: ConversationDelta, cached_msg: CachedMessage, message: Any) -> List[str]:
-        """Get the mentions for a given cached message
-
-        Args:
-            delta: Conversation delta object
-            cached_msg: Cached message object
-            message: Raw message object from the adapter
-
-        Returns:
-            List of mentions
-        """
-        if delta.history_fetching_in_progress:
-            return []
-
-        return self._get_bot_mentions(cached_msg, message)
 
     def _create_conversation_delta(self,
                                    event: Dict[str, Any],
@@ -381,28 +348,26 @@ class BaseManager(ABC):
         return delta
 
     async def _create_message(self,
-                              message: Any,
+                              event: Any,
                               conversation_info: BaseConversationInfo,
-                              user_info: UserInfo,
                               thread_info: ThreadInfo) -> CachedMessage:
         """Create a new message in the cache
 
         Args:
-            message: Message object
+            event: Event object
             conversation_info: Conversation info object
-            user_info: User info object
             thread_info: Thread info object
 
         Returns:
             Cached message object
         """
         message_data = self.message_builder.reset() \
-            .with_basic_info(message, conversation_info) \
-            .with_sender_info(user_info) \
+            .with_basic_info(event["message"], conversation_info) \
+            .with_sender_id(event["user_id"]) \
             .with_thread_info(thread_info) \
-            .with_content(message) \
+            .with_content(event) \
             .build()
-        cached_msg = await self.message_cache.add_message(message_data)
+        cached_msg = await self.cache.message_cache.add_message(message_data)
 
         return cached_msg
 
@@ -429,7 +394,7 @@ class BaseManager(ABC):
             return
 
         if not cached_msg:
-            cached_msg = await self.message_cache.get_message_by_id(conversation_id, message_id)
+            cached_msg = await self.cache.message_cache.get_message_by_id(conversation_id, message_id)
 
         if cached_msg and (cached_msg.text or attachments):
             getattr(delta, list_to_update).append({
@@ -465,6 +430,7 @@ class BaseManager(ABC):
         """
         if conversation.server_id != server_id:
             return False
+
         conversation.server_name = new_name
         return True
 
@@ -485,8 +451,19 @@ class BaseManager(ABC):
         if conversation.platform_conversation_id != platform_conversation_id or \
            conversation.conversation_name == new_name:
             return False
+
         conversation.conversation_name = new_name
         return True
+
+    @abstractmethod
+    def _message_builder_class(self):
+        """Message builder class"""
+        raise NotImplementedError("Child classes must implement _message_builder_class")
+
+    @abstractmethod
+    def _thread_handler_class(self):
+        """Thread handler class"""
+        raise NotImplementedError("Child classes must implement _thread_handler_class")
 
     @abstractmethod
     async def update_metadata(self, event: Any) -> Dict[str, Any]:
@@ -521,16 +498,6 @@ class BaseManager(ABC):
                                   server: Optional[Any] = None) -> BaseConversationInfo:
         """Create a conversation info object"""
         raise NotImplementedError("Child classes must implement create_conversation_info")
-
-    @abstractmethod
-    async def _get_user_info(self, event: Dict[str, Any], conversation_info: BaseConversationInfo) -> UserInfo:
-        """Get the user info for a given event and conversation info"""
-        raise NotImplementedError("Child classes must implement _get_user_info")
-
-    @abstractmethod
-    def _get_bot_mentions(self, cached_msg: CachedMessage, message: Any) -> List[str]:
-        """Get the bot mentions for a given conversation info and cached message"""
-        raise NotImplementedError("Child classes must implement _get_bot_mentions")
 
     @abstractmethod
     async def _get_deleted_message_ids(self, event: Any) -> List[str]:

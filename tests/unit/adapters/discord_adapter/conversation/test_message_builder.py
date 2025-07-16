@@ -1,9 +1,10 @@
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from datetime import datetime, timezone
 
 from src.adapters.discord_adapter.conversation.data_classes import ConversationInfo
 from src.adapters.discord_adapter.conversation.message_builder import MessageBuilder
+from src.core.cache.cache import Cache
 from src.core.conversation.base_data_classes import UserInfo, ThreadInfo
 
 class TestMessageBuilder:
@@ -86,28 +87,32 @@ class TestMessageBuilder:
         assert builder.message_data["edited"] is False
         assert result is builder
 
-    def test_with_sender_info(self, builder, mock_sender):
+    def test_with_sender_id(self, cache_mock, builder, mock_sender):
         """Test adding sender information"""
-        result = builder.with_sender_info(mock_sender)
+        with patch.object(cache_mock.user_cache, "get_user_by_id", return_value=mock_sender):
+            with patch.object(Cache, "get_instance", return_value=cache_mock):
+                result = builder.with_sender_id("789123456")
 
-        assert builder.message_data["sender_id"] == "789123456"
-        assert builder.message_data["sender_name"] == "Discord User"
-        assert builder.message_data["is_from_bot"] is False
-        assert result is builder
+                assert builder.message_data["sender_id"] == "789123456"
+                assert builder.message_data["sender_name"] == "Discord User"
+                assert builder.message_data["is_from_bot"] is False
+                assert result is builder
 
-    def test_with_sender_info_none(self, builder):
+    def test_with_sender_id_none(self, cache_mock, builder):
         """Test adding None as sender information"""
-        result = builder.with_sender_info(None)
+        with patch.object(cache_mock.user_cache, "get_user_by_id", return_value=None):
+            with patch.object(Cache, "get_instance", return_value=cache_mock):
+                result = builder.with_sender_id(None)
 
-        # No sender keys should be added
-        assert "sender_id" not in builder.message_data
-        assert "sender_name" not in builder.message_data
-        assert "is_from_bot" not in builder.message_data
-        assert result is builder
+                # No sender keys should be added
+                assert "sender_id" not in builder.message_data
+                assert "sender_name" not in builder.message_data
+                assert "is_from_bot" not in builder.message_data
+                assert result is builder
 
     def test_with_content(self, builder, mock_discord_message):
         """Test adding message content"""
-        result = builder.with_content(mock_discord_message)
+        result = builder.with_content({"message": mock_discord_message})
 
         assert builder.message_data["text"] == "Test message content"
         assert result is builder
@@ -145,6 +150,7 @@ class TestMessageBuilder:
         assert result["text"] == "Test Discord message"
 
     def test_full_build_chain(self,
+                              cache_mock,
                               builder,
                               mock_discord_message,
                               mock_sender,
@@ -152,21 +158,23 @@ class TestMessageBuilder:
                               mock_conversation_info,
                               standard_conversation_id):
         """Test a complete builder chain"""
-        result = builder.reset() \
-            .with_basic_info(mock_discord_message, mock_conversation_info) \
-            .with_sender_info(mock_sender) \
-            .with_content(mock_discord_message) \
-            .with_thread_info(mock_thread_info) \
-            .build()
+        with patch.object(cache_mock.user_cache, "get_user_by_id", return_value=mock_sender):
+            with patch.object(Cache, "get_instance", return_value=cache_mock):
+                result = builder.reset() \
+                    .with_basic_info(mock_discord_message, mock_conversation_info) \
+                    .with_sender_id(mock_sender.user_id) \
+                    .with_content({"message": mock_discord_message}) \
+                    .with_thread_info(mock_thread_info) \
+                    .build()
 
-        assert result["message_id"] == "123"
-        assert result["conversation_id"] == standard_conversation_id
-        assert result["timestamp"] == 1609502400
-        assert result["sender_id"] == "789123456"
-        assert result["sender_name"] == "Discord User"
-        assert result["is_from_bot"] is False
-        assert result["text"] == "Test message content"
-        assert result["thread_id"] == "456"
-        assert result["reply_to_message_id"] == "456"
-        assert result["edit_timestamp"] is None
-        assert result["edited"] is False
+                assert result["message_id"] == "123"
+                assert result["conversation_id"] == standard_conversation_id
+                assert result["timestamp"] == 1609502400
+                assert result["sender_id"] == "789123456"
+                assert result["sender_name"] == "Discord User"
+                assert result["is_from_bot"] is False
+                assert result["text"] == "Test message content"
+                assert result["thread_id"] == "456"
+                assert result["reply_to_message_id"] == "456"
+                assert result["edit_timestamp"] is None
+                assert result["edited"] is False

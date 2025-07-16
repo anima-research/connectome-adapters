@@ -3,14 +3,9 @@ from typing import Any, Optional
 
 from src.core.conversation.base_data_classes import UserInfo
 from src.core.conversation.base_message_builder import BaseMessageBuilder
-from src.core.utils.config import Config
 
 class MessageBuilder(BaseMessageBuilder):
     """Builds message objects from Telethon events"""
-
-    def __init__(self, config: Config):
-        self.config = config
-        self.reset()
 
     def with_basic_info(self, message: Any, conversation: Any) -> 'MessageBuilder':
         """Add basic message info"""
@@ -31,20 +26,10 @@ class MessageBuilder(BaseMessageBuilder):
         self.message_data["edited"] = edit_timestamp is not None
         return self
 
-    def with_sender_info(self, sender: Optional[UserInfo]) -> 'MessageBuilder':
-        """Add sender information"""
-        if sender:
-            self.message_data["sender_id"] = sender.user_id
-            self.message_data["sender_name"] = sender.display_name
-            self.message_data["is_from_bot"] = (
-                str(sender.user_id) == self.config.get_setting("adapter", "adapter_id")
-            )
-        else:
-            self.message_data["is_from_bot"] = True
-
-        return self
-
-    def with_content(self, message: Any) -> 'MessageBuilder':
+    def with_content(self, event: Any) -> 'MessageBuilder':
         """Add message content"""
-        self.message_data["text"] = getattr(message, 'message', '')
+        if "updated_content" in event and event["updated_content"]:
+            self.message_data["text"] = event["updated_content"]
+        else:
+            self.message_data["text"] = getattr(event["message"], "message", "")
         return self

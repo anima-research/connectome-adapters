@@ -6,7 +6,6 @@ This package contains unit tests for:
 - MessageBuilder: For building message information
 - ReactionHandler: For handling reactions
 - ThreadHandler: For handling threads
-- UserBuilder: For building user information
 """
 
 __author__ = "Your Name"

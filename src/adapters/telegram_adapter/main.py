@@ -9,6 +9,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from src.adapters.telegram_adapter.adapter import Adapter
+from src.core.cache.cache import Cache
 from src.core.rate_limiter.rate_limiter import RateLimiter
 from src.core.utils.logger import setup_logging
 from src.core.utils.config import Config
@@ -26,12 +27,13 @@ async def main():
     try:
         config = Config("config/telegram_config.yaml")
         RateLimiter.get_instance(config)
+        Cache.get_instance(config, True)
         setup_logging(config)
 
         logging.info("Starting Telegram adapter")
 
         socketio_server = SocketIOServer(config)
-        adapter = Adapter(config, socketio_server, start_maintenance=True)
+        adapter = Adapter(config, socketio_server)
         socketio_server.set_adapter(adapter)
 
         if sys.platform != "win32":

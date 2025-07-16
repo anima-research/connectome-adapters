@@ -24,14 +24,6 @@ class TestClient:
         return client
 
     @pytest.fixture
-    def rate_limiter_mock(self):
-        """Create a mock rate limiter"""
-        rate_limiter = AsyncMock()
-        rate_limiter.limit_request = AsyncMock(return_value=None)
-        rate_limiter.get_wait_time = AsyncMock(return_value=0)
-        return rate_limiter
-
-    @pytest.fixture
     def slack_client(self, slack_config, rate_limiter_mock):
         """Create a client with mocked dependencies"""
         client = Client(slack_config, AsyncMock())
