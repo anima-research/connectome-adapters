@@ -23,61 +23,6 @@ Currently, the project supports the following communication platforms:
 * Zulip: engage with Zulip streams and topics
 * Text File: work with local filesystem for text file operations
 
-### Project Structure
-The connectome-adapters codebase is organized into two main directories.
-
-##### Core Directory
-The src/core/ directory contains shared functionality that's reused across all adapters:
-
-1) Socket.IO Client
-* Manages communication between adapters and the connectome framework
-* Handles event emission and reception
-* Provides connection management and error handling
-
-2) Rate Limiting
-* Implements configurable rate limiting for all platform operations
-* Prevents API quota violations
-* Supports global, per-conversation, and per-operation limits
-
-3) Caching
-* Attachment Cache (short-term storage for media files)
-* Message Cache (short-term storage for message history and context)
-
-4) Base Conversation Management
-* Base classes for tracking conversation state
-* Methods for adding, updating, and deleting conversations
-* Conversation context and history handling
-
-5) Base Event Processing
-* Base Incoming Event Processor standardizes platform events
-* Base Outgoing Event Processor handles requests from the framework
-* Event validation and transformation
-
-6) Utilities...
-
-##### Adapters Directory
-The src/adapters/ directory contains platform-specific implementations:
-
-1) Platform-Specific Clients
-* Connection management for each platform
-* Authentication handling
-* Native API integration
-
-2) Platform-Specific Event Processors
-* Transform platform-specific events to standardized format
-* Handle platform-specific message formats and features
-* Process platform-specific attachment types
-
-3) Platform-Specific Conversation Managers
-* Track conversation entities unique to each platform
-* Handle platform-specific conversation features (threads, channels, etc.)
-* Maintain platform-specific user information
-
-4) Platform-Specific Attachment Handlers
-* Download and process platform-specific media formats
-* Handle platform-specific attachment limits and requirements
-* Implement platform-specific upload functionality
-
 ### Architecture
 The connectome-adapters project follows a modular, event-driven architecture. The typical flow of an event through the system:
 
@@ -373,9 +318,9 @@ file_content = base64.b64decode(attachment.content)
 ##### Data Handling and Caching
 connectome-adapters is designed with a strong focus on data minimization and ephemeral processing. Two key systems handle temporary data storage:
 
-1) Message Caching System. The message cache is designed for temporary storage of conversation context. Messages are stored only in memory, not persisted to disk. There is no permanent storage of message content. Message data is used only for context maintenance and history retrieval. It has automatic cleanup that runs at configurable intervals. Messages older than the configured time-to-live (TTL) are automatically removed. Default TTL is typically set to 24 hours but can be configured based on requirements. The message cache also follows the principle of minimal data retention. It only stores information needed for conversation tracking. It maintains just enough context for the connectome to engage effectively. Configuration options to limit the number of messages stored per conversation are also available.
+1) Message Caching System. The message cache is designed for temporary storage of conversation context. Messages are stored only in memory, not persisted to disk. There is no permanent storage of message content. Message data is used only for context maintenance and history retrieval. It has automatic cleanup that runs at configurable intervals.
 
-2) Attachment Cache. The attachment cache is designed for temporary storage of media files. Files are downloaded and stored in a temporary directory. The cache is used to avoid downloading the same file multiple times. When an adapter starts, it checks the configured `storage_dir` location. Any existing attachments in this directory are automatically added to the cache. This allows persistence across adapter restarts. A background task periodically runs to clean the attachment cache. Two main cleanup criteria are enforced: `max_age_days` (attachments older than this are removed) and `max_total_attachments` (if exceeded, oldest attachments are removed first). This ensures the cache doesn't grow unbounded; also, due to this the attachment cache follows the principle of minimal data retention. IMPORTANT! For security purposes, attachments must be manually deleted when an adapter is permanently decommissioned.
+2) Attachment Cache. The attachment cache is designed for temporary storage of media files. Files are downloaded and stored in a temporary directory. The cache is used to avoid downloading the same file multiple times. A background task periodically runs to clean the attachment cache. Two main cleanup criteria are enforced: `max_age_days` (attachments older than this are removed) and `max_total_attachments` (if exceeded, oldest attachments are removed first). This ensures the cache doesn't grow unbounded; also, due to this the attachment cache follows the principle of minimal data retention. IMPORTANT! For security purposes, attachments must be manually deleted when an adapter is permanently decommissioned.
 
 ##### Important Flow Rules
 1) Conversation Initialization Requirement. The adapter must have received at least one message from a conversation before it will send anything to that conversation. This ensures that bot only responds in channels where it's added and where there is new messages activity.
@@ -392,8 +337,53 @@ connectome-adapters is designed with a strong focus on data minimization and eph
 12) Notification Filtering Policy. Adapters track all messages internally, but only notify models about message events (creation/editing/deletion) when they are initiated by external users. Events triggered by the connectome framework itself are not reported back to the model to prevent redundant information and notification loops. While this filtering reduces noise, it means the model won't be notified if an administrator deletes one of the framework's messages. This design prioritizes clean conversation flow over complete event tracking.
 13) Admin Actions (Pin/Unpin). The connectome-adapters support pinning and unpinning messages on Slack, Discord (excluding webhook connections), and Telegram platforms. These actions typically require the bot to have appropriate permissions configured on the platform (e.g., "Manage Messages" in Discord, "pins:write" scope in Slack). The framework does not support pinning in Zulip, which uses a different organizational model based on topics.
 
-### Configuration
-The adapters' configuration is stored in YAML format. What can be configured is listed in README.md-s of relevant adapters.
+### Code Structure
+This section is primarily about platforms' adapters (Discord, Slack, Telegram and Zulip). The code of other adapters is explained in relevant README-s.
+
+The connectome-adapters codebase is organized into two main directories. The src/core/ directory contains shared functionality that's reused across all adapters. The src/adapters/ directory contains platform-specific implementations.
+
+#### Core
+##### Configuration
+Each platform adapter's behavior is governed by settings defined in a dedicated configuration file located at `config/<adapter-type>_config.yaml`. When an adapter initializes, this file is parsed and its settings are stored in an instance of the `Config` class (defined in `src/core/utils/config.py`). Configuration settings are organized into logical categories (for example, "adapter", "caching", "logging") making them easier to manage and access. To retrieve a setting in your code, use the `get_setting` method with the category name and setting name as arguments.
+```python
+config.get_setting("adapter", "new_setting")
+```
+If you need to add a new setting to an existing category, simply add it to the appropriate section in the configuration file. However, if you need to create an entirely new category, you must modify the Config class to ensure it recognizes and properly parses the new category during initialization.
+
+##### Rate Limiting
+The `RateLimiter` class (defined in `src/core/rate_limiter/rate_limiter.py`) is a singleton class that prevents adapters from overwhelming platform APIs with too many requests. This service can be called from anywhere in the adapter code using the `limit_request` method, which calculates appropriate waiting times before new requests are sent. The rate limits are calculated on the basis of three key metrics:
+* `global_rpm`. The total number of all requests (including operations like `get_user`, `add_reaction`, etc.) sent from the adapter per minute
+* `per_conversation_rpm`. The number of requests sent within a single conversation per minute
+* `message_rpm`. The number of messages sent from the adapter per minute
+
+##### Caching System
+The `Cache` singleton (defined in `src/core/cache/cache.py`) serves as a central access point for three specialized cache types: `MessageCache`, `AttachmentCache`, and `UserCache`.
+
+##### Message Caching
+The `MessageCache` (defined in `src/core/cache/message_cache.py`) stores conversation messages in a nested dictionary structure where messages can be accessed via conversation IDs and message IDs. The cache tracks the total number of stored messages and provides methods like `get_message_by_id`, `get_messages_by_conversation_id`, `add_message`, and `delete_message` for managing cached content. It also supports message migration between conversations through the `migrate_message` method.
+
+When initializing `MessageCache`, you can enable automatic maintenance by setting the `start_maintenance` parameter to true. This creates an asynchronous background task that periodically checks if cache cleaning is necessary. The maintenance interval is configurable through the `cache_maintenance_interval` setting in the "caching" category. Cache cleaning is triggered when either the number of messages in a conversation exceeds `max_messages_per_conversation` or when the total message count surpasses `max_total_messages`.
+
+##### Attachment Caching
+The `AttachmentCache` (defined in `src/core/cache/attachment_cache.py`) manages file attachments through a dictionary mapping attachment IDs to `CachedAttachment` objects. Similar to the message cache, it provides methods for retrieving, adding, and deleting attachments.
+
+When downloading a new attachment, the cache stores it in a configurable directory specified by the `storage_dir` setting in the "attachments" category. The storage structure is organized first by attachment type (document, image, etc.), then by attachment ID. For example, if the storage directory is set to `/our_downloads` and an image with ID `unique_image_id_123` is downloaded, the resulting structure would be.
+```bash
+our_downloads/
+our_downloads/image/
+our_downloads/image/unique_image_id_123/
+our_downloads/image/unique_image_id_123/unique_image_id_123.jpg
+our_downloads/image/unique_image_id_123/unique_image_id_123.json
+```
+Attachments are preserved on disk because re-downloading them would be resource-intensive. When the adapter restarts, the attachment cache repopulates itself by reading metadata from JSON files using the private `_upload_existing_attachments` method.
+
+The attachment cache also supports maintenance through the `start_maintenance` parameter, which launches a background task that runs every `cleanup_interval_hours` (configurable in the "attachments" category). Cleaning occurs when either the total attachment count exceeds `max_total_attachments` or when attachments age beyond `max_age_days`.
+
+##### User Caching
+The `UserCache` (defined in `src/core/cache/user_cache.py`) stores information about platform users in a dictionary mapping user IDs to `UserInfo` objects. Like other caches, it provides methods for retrieving, adding, and removing users through `get_user_by_id`, `add_user`, and `delete_user` methods.
+
+##### Emoji Conversion
+The `EmojiConverter` (defined in `src/core/utils/emoji_converter.py`) service standardizes emoji handling across platforms. Different platforms represent reactions in varying formats - Zulip might use emoji names like "red_heart" while Discord uses actual emoji characters. To provide a consistent experience, the adapter architecture converts all emoji to standard names before sending them to the LLM. For platforms like Zulip and Slack, the converter uses a CSV mapping file that translates platform-specific emoji names to the corresponding Python emoji library names. This mapping file only needs to include emoji names that differ from the standard Python emoji library format. By standardizing emoji across all platforms, the adapter ensures consistent representation regardless of the originating platform, simplifying emoji handling for LLMs.
 
 ### Privacy Considerations
 * Message Content: Processed ephemerally and not stored permanently

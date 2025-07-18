@@ -61,7 +61,6 @@ class MessageCache:
         self.messages: Dict[str, Dict[str, CachedMessage]] = {}  # conversation_id -> message_id -> message
         self.max_messages_per_conversation = self.config.get_setting("caching", "max_messages_per_conversation")
         self.max_total_messages = self.config.get_setting("caching", "max_total_messages")
-        self.max_age_seconds = self.config.get_setting("caching", "max_age_hours") * 3600
         self._lock = asyncio.Lock()
         self.maintenance_task = asyncio.create_task(self._maintenance_loop()) if start_maintenance else None
 

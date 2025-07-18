@@ -77,7 +77,7 @@ class BaseManager(ABC):
             msg_dict["mentions"] = []
 
             for attachment_id in msg.attachments:
-                cached_attachment = self.cache.attachment_cache.get_attachment(attachment_id)
+                cached_attachment = self.cache.attachment_cache.get_attachment_by_id(attachment_id)
                 if cached_attachment:
                     msg_dict["attachments"].append({
                         "attachment_id": cached_attachment.attachment_id,

@@ -46,7 +46,6 @@ def basic_config_data():
         "caching": {
             "max_messages_per_conversation": 100,
             "max_total_messages": 1000,
-            "max_age_hours": 24,
             "cache_maintenance_interval": 3600,
             "cache_fetched_history": True
         },

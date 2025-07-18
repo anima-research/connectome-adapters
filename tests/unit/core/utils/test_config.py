@@ -23,8 +23,7 @@ class TestConfig:
                 "message_rpm": 3
             },
             "caching": {
-                "max_total_messages": 1000,
-                "max_age_hours": 24
+                "max_total_messages": 1000
             },
             "logging": {
                 "level": "INFO"

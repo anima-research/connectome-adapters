@@ -88,7 +88,7 @@ class BaseOutgoingEventProcessor(ABC):
             Dict[str, Any]: Dictionary containing the status and content
         """
         try:
-            attachment = self.conversation_manager.attachment_cache.get_attachment(data.attachment_id)
+            attachment = self.conversation_manager.attachment_cache.get_attachment_by_id(data.attachment_id)
 
             if attachment:
                 local_file_path = os.path.join(

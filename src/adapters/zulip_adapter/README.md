@@ -55,7 +55,6 @@ attachments:
 caching:
   max_messages_per_conversation: 100                 # Maximum messages to cache per conversation
   max_total_messages: 1000                           # Maximum total messages in cache
-  max_age_hours: 24                                  # Maximum age of cached messages
   cache_maintenance_interval: 3600                   # Seconds between cache cleanup runs
   cache_fetched_history: True                        # Whether to cache fetched history messages
 

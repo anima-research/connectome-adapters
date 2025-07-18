@@ -186,21 +186,21 @@ class TestAttachmentCache:
             assert len(result.conversations) == 1
             assert "conv123" in result.conversations
 
-    class TestRemoveAttachment:
-        """Tests for the remove_attachment method"""
+    class TestDeleteAttachment:
+        """Tests for the delete_attachment method"""
 
         @pytest.mark.asyncio
-        async def test_remove_attachment_without_files(self, attachment_cache, sample_attachment_info):
+        async def test_rdelete_attachment_without_files(self, attachment_cache, sample_attachment_info):
             """Test removing an attachment from the cache"""
             await attachment_cache.add_attachment("conv123", sample_attachment_info)
             assert sample_attachment_info["attachment_id"] in attachment_cache.attachments
 
             with patch("os.path.exists", return_value=False):
-                await attachment_cache.remove_attachment(sample_attachment_info["attachment_id"])
+                await attachment_cache.delete_attachment(sample_attachment_info["attachment_id"])
             assert sample_attachment_info["attachment_id"] not in attachment_cache.attachments
 
         @pytest.mark.asyncio
-        async def test_remove_attachment_with_files(self, attachment_cache, sample_attachment_info):
+        async def test_delete_attachment_with_files(self, attachment_cache, sample_attachment_info):
             """Test removing an attachment including its files"""
             await attachment_cache.add_attachment("conv123", sample_attachment_info)
 
@@ -214,7 +214,7 @@ class TestAttachmentCache:
                             with patch("os.path.dirname", return_value="/fake/dir"):
                                 with patch("os.listdir", return_value=[]):
                                     with patch("os.rmdir") as os_rmdir_mock:
-                                        await attachment_cache.remove_attachment(sample_attachment_info["attachment_id"])
+                                        await attachment_cache.delete_attachment(sample_attachment_info["attachment_id"])
 
                                         assert os_remove_mock.call_count == 2
                                         os_remove_mock.assert_any_call("/fake/dir/test123.jpg")
@@ -237,7 +237,7 @@ class TestAttachmentCache:
             old_info["created_at"] = datetime.now() - timedelta(days=31)  # Older than max_age_days
             await attachment_cache.add_attachment("conv123", old_info)
 
-            with patch.object(attachment_cache, "remove_attachment") as remove_mock:
+            with patch.object(attachment_cache, "delete_attachment") as remove_mock:
                 await attachment_cache._enforce_age_limit()
                 remove_mock.assert_called_once_with("old123")
 
@@ -261,7 +261,7 @@ class TestAttachmentCache:
                 await attachment_cache.add_attachment(f"conv{i}", info)
             assert len(attachment_cache.attachments) == 5
 
-            with patch.object(attachment_cache, "remove_attachment") as remove_mock:
+            with patch.object(attachment_cache, "delete_attachment") as remove_mock:
                 await attachment_cache._enforce_total_limit()
 
                 assert remove_mock.call_count == 3

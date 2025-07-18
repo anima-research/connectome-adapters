@@ -14,7 +14,6 @@ class TestMessageCache:
             "caching": {
                 "max_messages_per_conversation": 100,
                 "max_total_messages": 1000,
-                "max_age_hours": 24,
                 "cache_maintenance_interval": 300,
             }
         }.get(section, {}).get(key, default)

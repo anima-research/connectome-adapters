@@ -121,7 +121,7 @@ class AttachmentCache:
                     to_remove.append(attachment_id)
 
             for attachment_id in to_remove:
-                await self.remove_attachment(attachment_id)
+                await self.delete_attachment(attachment_id)
 
             logging.info(f"Removed {len(to_remove)} attachments due to age limit")
 
@@ -139,11 +139,11 @@ class AttachmentCache:
             )
 
             for attachment_id, _ in sorted_attachments[:to_remove_count]:
-                await self.remove_attachment(attachment_id)
+                await self.delete_attachment(attachment_id)
 
             logging.info(f"Removed attachments due to total limit")
 
-    def get_attachment(self, attachment_id: str) -> Optional[CachedAttachment]:
+    def get_attachment_by_id(self, attachment_id: str) -> Optional[CachedAttachment]:
         """Get an attachment from the cache
 
         Args:
@@ -177,7 +177,7 @@ class AttachmentCache:
             self.attachments[attachment_info["attachment_id"]].conversations.add(conversation_id)
             return self.attachments[attachment_info["attachment_id"]]
 
-    async def remove_attachment(self, attachment_id: str) -> None:
+    async def delete_attachment(self, attachment_id: str) -> None:
         """Remove an attachment from the cache
 
         Args:

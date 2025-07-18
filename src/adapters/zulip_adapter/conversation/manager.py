@@ -95,7 +95,7 @@ class Manager(BaseManager):
                 for attachment_id in attachment_ids:
                     new_conversation.attachments.add(attachment_id)
 
-                    attachment = self.cache.attachment_cache.get_attachment(attachment_id)
+                    attachment = self.cache.attachment_cache.get_attachment_by_id(attachment_id)
                     if attachment:
                         attachment.conversations.add(new_conversation.conversation_id)
 
