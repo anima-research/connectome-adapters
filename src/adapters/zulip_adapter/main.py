@@ -50,14 +50,7 @@ async def main():
         await socketio_server.start()
         await adapter.start()
         while adapter.running and not should_shutdown:
-            await asyncio.sleep(10)
-            await adapter.process_outgoing_event({
-                "event_type": "send_message",
-                "data": {
-                    "conversation_id": "zulip_9yCLilqyZ0AKlMqwrvRO",
-                    "text": "Hello, world!"
-                }
-            })
+            await asyncio.sleep(1)
     except (ValueError, FileNotFoundError) as e:
         logging.error(f"Configuration error: {e}")
         logging.error("Please ensure zulip_config.yaml exists with required settings")

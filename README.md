@@ -32,17 +32,6 @@ The connectome-adapters project follows a modular, event-driven architecture. Th
 2) LLM to Platform:
 * connectome framework → Socket.IO Client → Outgoing Event Processor → Platform Client → Platform
 
-##### Socket.IO Server
-The Socket.IO server is a core component that manages real-time communication between the connectome-adapters and the connectome framework. It operates continuously to:
-* Listen for incoming requests from the connectome framework
-* Route platform events to the framework
-
-The server runs as a persistent process that:
-* Listens on a configurable host and port
-* Maintains connections with connectome framework
-* Handles event queueing and processing
-* Ensures reliable message delivery
-
 ##### Outgoing Event Handling (LLM to Platform)
 Currently, the server reacts to the following set of events.
 
