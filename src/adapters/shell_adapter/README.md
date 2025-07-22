@@ -175,7 +175,7 @@ The `Session` class, defined in `src/adapters/shell_adapter/session/session.py`,
 
 When a session is created, it doesn't immediately start a subprocess. Instead, the actual shell process is created when the `open()` method is called. This method uses `asyncio.create_subprocess_shell` to create an asynchronous shell subprocess, allowing the adapter to interact with the shell without blocking other operations. The `execute_command` method is responsible for running commands within the session's shell process. This method sends the command to the shell subprocess, captures both standard output (stdout) and standard error (stderr), and returns a structured result containing all output information. The `close` method is particularly important for resource management as it properly terminates the main shell subprocess and ensures all child processes spawned by the shell are also terminated. Another valuable feature of the `Session` class is its `get_resource_usage` method, which provides real-time information about CPU and memory usage of the session and its child processes to be used in resource monitoring done by the `CommandExecutor`.
 
-#### Metadat Fetching
+#### Metadata Fetching
 The `MetadataFetcher` class, defined in `src/adapters/shell_adapter/shell/metadata_fetcher.py`, serves as an information gathering utility that provides essential details about the execution environment. This component helps LLMs understand the system context in which commands will be executed. It collects two primary categories of information:
 * Operating System Details. Gathers information about the host operating system, returning it in a standardized format:
 ```python

@@ -1,7 +1,6 @@
 # Telegram Adapter Documentation
 
 ### Purpose
-
 The Telegram Adapter enables integration between the connectome framework and Telegram, allowing LLM-s to participate in Telegram chats, groups, and channels. This adapter facilitates:
 * Receiving messages from Telegram chats, groups, and channels
 * Sending messages to Telegram conversations
@@ -11,7 +10,6 @@ The Telegram Adapter enables integration between the connectome framework and Te
 * Managing file attachments between Telegram and the LLM
 
 ### Telethon Library
-
 The adapter uses the Telethon library to interact with the Telegram API. This provides:
 
 * API Layer Implementation. Complete implementation of Telegram's MTProto protocol
@@ -20,33 +18,11 @@ The adapter uses the Telethon library to interact with the Telegram API. This pr
 * Media Handling. Robust file upload and download capabilities
 
 ### Telegram connection
-
 The adapter can connect either as a bot or a user. While the first option is recommended, the second one provides more options to interact with the Telegram content via tracking deleted messages, adding/removing reactions and fetching history.
 
 There is no automatic reconnection mechanism for Telegram; if anything fails, it should be restarted manually.
 
-### Client Implementation
-
-The Telegram client implementation leverages Telethon's event system to process incoming messages and other events. For that the set of event handlers is implemented.
-```python
-def _setup_event_handlers(self) -> None:
-    ...
-    @self.client.on(events.NewMessage())
-    async def on_new_message(event):
-        ...
-    @self.client.on(events.MessageEdited()) # also, handles message reactions
-    async def on_edited_message(event):
-        ...
-    @self.client.on(events.MessageDeleted())
-    async def on_deleted_message(event):
-        ...
-    @self.client.on(events.ChatAction())  # handles pin/unpin events
-    async def on_chat_action(event):
-        ...
-```
-
 ### Configuration
-
 The Telegram adapter is configured through a YAML file with the following settings.
 
 ```yaml
@@ -98,7 +74,5 @@ socketio:
 ```
 
 ### Telegram-specific features
-
 1) Conversation Migrations. Telegram sometimes migrates groups to supergroups. The adapter does not track these migrations, however, it handles them anyway. Once the migration happens and the conversation continues, the adapter receives the first new message and retrieves the history that is sent to the connectome framework. After that, the old conversation will be removed from the adapter's cache as a result of standard cleanup process, while the new one will be maintained as usual.
-
 2) Telegram's File Expiration Policy. Attachments from older messages (typically more than a few days old) may no longer be downloadable, even though the messages themselves are still visible in history.

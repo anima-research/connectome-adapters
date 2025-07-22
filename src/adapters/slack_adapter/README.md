@@ -1,7 +1,6 @@
 # Slack Adapter Documentation
 
 ### Purpose
-
 The Slack Adapter enables integration between the connectome framework and Slack, allowing LLM-s to participate in Slack channels, respond to messages, and interact with users. This adapter facilitates:
 * Receiving messages from Slack channels and direct messages
 * Sending messages to Slack conversations
@@ -10,7 +9,6 @@ The Slack Adapter enables integration between the connectome framework and Slack
 * Managing file attachments between Slack and the LLM
 
 ### Slack SDK Integration
-
 The adapter uses the official Slack SDK to interact with the Slack API. This provides:
 * Socket Mode Connection. Establishes a WebSocket connection for real-time events
 * Web Client API. Handles all Slack API calls for sending messages and interactions
@@ -22,13 +20,11 @@ The adapter requires two types of tokens:
 * App Token (xapp- prefix). For Socket Mode connection to receive events
 
 ### Slack connection
-
 The adapter connects to Slack as a bot user.
 
 The adapter employs a sophisticated reconnection mechanism specially designed for Socket Mode connections, which are used for real-time event delivery. When connectivity issues are detected, the adapter properly cleans up existing socket connections and tasks before establishing a new WebSocket connection, while preserving all object references to maintain system integrity. This implementation carefully manages asynchronous tasks with appropriate timeouts to prevent resource leaks, and includes proper state tracking to ensure the adapter can resume operations seamlessly after network interruptions. The reconnection logic is integrated with Slack's API authentication to verify both socket health and API access, providing comprehensive recovery capabilities for various failure scenarios.
 
 ### Configuration
-
 The Slack adapter is configured through a YAML file with the following settings.
 
 ```yaml
@@ -75,7 +71,3 @@ socketio:
   port: 8085                          # Socket.IO server port on which the adapter is running
   cors_allowed_origins: "*"           # CORS allowed origins
 ```
-
-### Slack-specific features
-
-1) Emoji Translation. Slack uses a different emoji format than most platforms. The adapter translates between Slack's string format and standard Unicode emojis that can be found in `emoji` library. Custom mapping file allows customization of emoji translations.

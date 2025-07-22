@@ -1,7 +1,6 @@
 # Discord Adapter Documentation
 
 ### Purpose
-
 The Discord Adapter enables integration between the connectome framework and Discord, allowing LLM-s to participate in Discord channels, respond to messages, and interact with users. This adapter facilitates:
 * Receiving messages from Discord channels and DMs
 * Sending messages to Discord conversations
@@ -10,7 +9,6 @@ The Discord Adapter enables integration between the connectome framework and Dis
 * Managing file attachments between Discord and the LLM
 
 ### Discord.py Library
-
 The adapter uses the official discord.py library to interact with the Discord API. This library handles authentication and security. For example, it uses:
 * Bot Authentication. Applies Discord's bot token system for secure authentication.
 * Privileged Gateway Intents. Requests specific permissions based on functionality needs.
@@ -18,46 +16,9 @@ The adapter uses the official discord.py library to interact with the Discord AP
 * Secure WebSocket Connection. Establishes an encrypted connection to Discord's gateway.
 
 ### Discord connection
-
-The adapter connects to Discord as a bot user.
-
-In case of lost connection with Discord server discord.py handles attempt to reconnect without any additional help.
-
-### Discord client Implementation
-
-The Discord client implementation connects to Discord's real-time gateway API and listens for events with the help of event handlers.
-```python
-    @self.bot.event
-    async def on_ready():
-        ...
-    @self.bot.event
-    async def on_message(message):
-        ...
-    @self.bot.event
-    async def on_raw_message_edit(payload):
-        ...
-    @self.bot.event
-    async def on_raw_message_delete(payload):
-        ...
-    @self.bot.event
-    async def on_raw_reaction_add(payload):
-        ...
-    @self.bot.event
-    async def on_raw_reaction_remove(payload):
-        ...
-    @self.bot.event
-    async def on_guild_channel_update(_, after):
-        ...
-    @self.bot.event
-    async def on_thread_update(_, after):
-        ...
-    @self.bot.event
-    async def on_guild_update(before, after):
-        ...
-```
+The adapter connects to Discord as a bot user. In case of lost connection with Discord server discord.py handles attempt to reconnect without any additional help.
 
 ### Configuration
-
 The Discord adapter is configured through a YAML file with the following settings:
 ```yaml
 adapter:

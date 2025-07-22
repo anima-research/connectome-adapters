@@ -19,22 +19,22 @@ The adapter operates exclusively on the host OS where the adapter is running. It
 
 #### Communication Protocol
 The adapter communicates through socket.io, following the established pattern with `bot_response` events. Incoming Request Structure:
-```json
+```python
 {
   "event_type": "command_name",
   "data": {
-    // Command-specific parameters
+    # Command-specific parameters
   }
 }
 ```
 
 Response Types:
-```json
+```python
 {
   "request_success": {
     "adapter_type": "file",
     "request_id": "uuid-string",
-    // Additional command-specific data
+    # Additional command-specific data
   }
 }
 {
@@ -73,7 +73,7 @@ The Text File Adapter implements several security measures:
 
 #### Adapter Specific Features
 1) Path Handling. Supports both absolute and relative paths. Relative paths are resolved against the base directory. Absolute paths are checked against allowed directories. Both are sanitized. For move operations both paths should end with file names (either for renaming or moving). For example:
-```json
+```python
 {
   "event_type": "move",
   "data": {
@@ -82,7 +82,7 @@ The Text File Adapter implements several security measures:
   }
 }
 ```
-```json
+```python
 {
   "event_type": "move",
   "data": {
