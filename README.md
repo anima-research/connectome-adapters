@@ -1,7 +1,7 @@
 # Connectome Activity adapters
 
 See [main repository](https://github.com/antra-tess/connectome) for more information.
-For details on architecture see [docs]().
+For details on architecture see [docs](https://github.com/antra-tess/connectome-adapters/tree/master/docs).
 
 ### Project Overview
 connectome-adapters is a framework that enables Large Language Models (LLMs) to interact with various messaging and communication platforms through a unified interface. This system allows LLMs to send and receive messages, process attachments, and maintain conversation context across multiple platforms.

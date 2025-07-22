@@ -296,7 +296,6 @@ class TestOutgoingEventProcessor:
 
             assert response["request_completed"] is True
             zulip_client_mock.call_endpoint.assert_called_once_with("messages/789",method="DELETE")
-            processor.conversation_manager.delete_from_conversation.assert_called_once()
 
         @pytest.mark.asyncio
         async def test_delete_message_missing_required_fields(self,
@@ -332,9 +331,7 @@ class TestOutgoingEventProcessor:
                 }
             }
             response = await processor.process_event(event_data)
-
             assert response["request_completed"] is False
-            processor.conversation_manager.delete_from_conversation.assert_not_called()
 
     class TestReactions:
         """Tests for reaction-related methods"""

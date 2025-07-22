@@ -10,15 +10,14 @@ from enum import Enum
 from pydantic import BaseModel
 from typing import Any, Dict
 
-from src.adapters.shell_adapter.event_processor.outgoing_events import OutgoingEventBuilder
-from src.adapters.shell_adapter.session.command_executor import CommandExecutor
+from src.adapters.shell_adapter.event_processing.outgoing_events import OutgoingEventBuilder
 from src.adapters.shell_adapter.session.manager import Manager
 from src.adapters.shell_adapter.shell.metadata_fetcher import MetadataFetcher
 
 from src.core.utils.config import Config
 
-class FileEventType(str, Enum):
-    """Event types supported by the OutgoingEventProcessor"""
+class ShellEventType(str, Enum):
+    """Event types supported by the Processor"""
     OPEN_SESSION = "open_session"
     CLOSE_SESSION = "close_session"
     EXECUTE_COMMAND = "execute_command"
@@ -50,10 +49,10 @@ class Processor():
         """
         try:
             event_handlers = {
-                FileEventType.OPEN_SESSION: self._handle_open_session_event,
-                FileEventType.CLOSE_SESSION: self._handle_close_session_event,
-                FileEventType.EXECUTE_COMMAND: self._handle_execute_command_event,
-                FileEventType.SHELL_METADATA: self._handle_shell_metadata_event,
+                ShellEventType.OPEN_SESSION: self._handle_open_session_event,
+                ShellEventType.CLOSE_SESSION: self._handle_close_session_event,
+                ShellEventType.EXECUTE_COMMAND: self._handle_execute_command_event,
+                ShellEventType.SHELL_METADATA: self._handle_shell_metadata_event,
             }
 
             outgoing_event = self.outgoing_event_builder.build(data)

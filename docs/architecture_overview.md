@@ -266,15 +266,15 @@ The connectome-adapters framework provides a comprehensive system for processing
 
 3) Encoding and Format
 
-For Slack, Telegram, Zulip, and Discord platforms attachment content is standardized with the help of base64 encoding. All file content is encoded as base64 strings when transmitted through the Socket.IO interface. When sending attachments to platforms, provide the file content as a base64-encoded string. When receiving attachments from platforms, file content (if included) will be provided as a base64-encoded string.
+* For Slack, Telegram, Zulip, and Discord platforms attachment content is standardized with the help of base64 encoding. All file content is encoded as base64 strings when transmitted through the Socket.IO interface. When sending attachments to platforms, provide the file content as a base64-encoded string. When receiving attachments from platforms, file content (if included) will be provided as a base64-encoded string.
 
-Downloader code.
+* Downloader code.
 ```python
 with open(local_file_path, "rb") as f:
     file_content = base64.b64encode(f.read()).decode("utf-8")
 ```
 
-Uploader code (before we load content to the file and send that file to the platform).
+* Uploader code (before we load content to the file and send that file to the platform).
 ```python
 file_content = base64.b64decode(attachment.content)
 ```

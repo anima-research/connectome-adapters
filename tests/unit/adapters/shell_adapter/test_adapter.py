@@ -3,7 +3,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch, call
 
 from src.adapters.shell_adapter.adapter import Adapter
-from src.adapters.shell_adapter.event_processor.processor import Processor
+from src.adapters.shell_adapter.event_processing.processor import Processor
 from src.adapters.shell_adapter.session.manager import Manager
 
 class TestShellAdapter:

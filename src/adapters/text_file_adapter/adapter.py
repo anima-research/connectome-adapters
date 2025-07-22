@@ -2,8 +2,8 @@ import asyncio
 import logging
 
 from typing import Any, Dict
-from src.adapters.text_file_adapter.event_processor.file_event_cache import FileEventCache
-from src.adapters.text_file_adapter.event_processor.processor import Processor
+from src.adapters.text_file_adapter.event_processing.file_event_cache import FileEventCache
+from src.adapters.text_file_adapter.event_processing.processor import Processor
 from src.core.utils.config import Config
 
 class Adapter():

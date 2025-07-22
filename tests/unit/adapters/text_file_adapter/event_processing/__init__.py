@@ -1,5 +1,5 @@
 """
-Unit tests for the adapter event processor.
+Unit tests for the adapter event processor and related components.
 
 This package contains unit tests for the core adapter components including:
 - FileValidator: For file validation

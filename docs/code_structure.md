@@ -83,9 +83,9 @@ async def process_outgoing_event(self, data: Any) -> Dict[str, Any]:
 The `Adapter` class actively monitors its connection to the platform through an asynchronous background process defined in the `_monitor_connection` method. This process periodically checks if the established connection remains active. If the connection is lost, the adapter attempts to automatically reconnect. After exhausting all reconnection attempts, it raises a `RuntimeError` with the message "Connection check failed." When the connection is healthy - either maintained from the original connection or successfully reestablished - the adapter periodically emits a `connect` event to inform Connectome of its operational status.
 
 The reconnection mechanism varies significantly between platforms.
-Slack: The adapter explicitly attempts reconnection with `await self.client.reconnect()`.
-Discord: No explicit reconnection logic is implemented as the official `discord.py` library handles reconnection automatically.
-Telegram: Explicit reconnection is avoided to prevent Flood errors and excessive timeouts, requiring more careful manual handling.
+Slack: the adapter explicitly attempts reconnection with `await self.client.reconnect()`.
+Discord: no explicit reconnection logic is implemented as the official `discord.py` library handles reconnection automatically.
+Telegram: explicit reconnection is avoided to prevent Flood errors and excessive timeouts, requiring more careful manual handling.
 
 The Adapter class also handles error conditions by emitting `disconnect` events when the connection fails or when the adapter is intentionally shutting down.
 
@@ -113,15 +113,13 @@ async def connect(self) -> bool:
     # ...
 
 async def _handle_slack_event(self, _: Any, request: Any) -> None:
-    try:
-        response = SocketModeResponse(envelope_id=request.envelope_id)
-        # ...
-        event = request.payload.get("event", {})
-        # ...
-        event_type = event.get("type", None)
-        event_subtype = event.get("subtype", None)
-        # ...
-        await self.process_event({"type": event_subtype or event_type, "event": event})
+    # ...
+    response = SocketModeResponse(envelope_id=request.envelope_id)
+    event = request.payload.get("event", {})
+    event_type = event.get("type", None)
+    event_subtype = event.get("subtype", None)
+    await self.process_event({"type": event_subtype or event_type, "event": event})
+    # ...
 ```
 
 Example of Telegram event handling.
@@ -156,7 +154,7 @@ async def _polling_loop(self) -> None:
 #### Incoming Events Processor
 The `IncomingEventsProcessor` is derived from an abstract parent class `BaseIncomingEventProcessor` defined in `src/core/events/processors/base_incoming_event_processor.py`. This processor acts as an intermediary between the `Adapter` and the conversation manager, enriching incoming platform events with additional context before forwarding them.
 
-The central method of this class is process_event, which routes events to appropriate handlers based on their type.
+The central method of this class is `process_event`, which routes events to appropriate handlers based on their type.
 ```python
 async def process_event(self, event: Any) -> List[Dict[str, Any]]:
     # ...
@@ -193,7 +191,7 @@ def _get_event_handlers(self) -> Dict[str, Callable]:
 
 Although all adapters process similar events (message creation/update/deletion, pinning/unpinning, and reaction changes), each platform's unique data structures necessitate custom handling methods. The exceptions are history fetching and rename events (when a Discord server, Slack team, or Zulip channel changes its name), which share common logic defined in the base class.
 
-Before sending events to the conversation manager, the processor may preprocess them, particularly for new or updated messages (see Event Preprocessing). After processing, the `Manager` returns a delta of changes to the `IncomingEventProcessor`. The processor checks if additional actions are needed (such as history fetching), then generates a set of internal events that are returned to the `Adapter`. These events are sent to Connectome and the LLM via the `SocketIOServer` using Pydantic models (see the Connectome-adapters documentation for details on Pydantic model usage).
+Before sending events to the conversation manager, the processor may preprocess them, particularly for new or updated messages (see Event Preprocessing). After processing, the `Manager` returns a delta of changes to the `IncomingEventProcessor`. The processor checks if additional actions are needed (such as history fetching), then generates a set of internal events that are returned to the `Adapter`. These events are sent to Connectome and the LLM via the `SocketIOServer` using Pydantic models (see details on event generation and Pydantic model usage).
 
 To add support for a new incoming event type, several changes are required:
 1. Update the `Client` class if necessary to track the new event
@@ -202,9 +200,9 @@ To add support for a new incoming event type, several changes are required:
 4. Implement a handler method for the new event
 5. Make any other necessary changes to support the new event type  (see "Event Communication and Pydantic Models")
 
-#### Event Preprocessing
+#### Incoming Event Preprocessing
 This preprocessing typically involves two steps:
-1. Attachment Download. Using the `Downloader` class (defined in `src/adapters/your_adapter/event_processing/attachment_loaders/downloader.py`), the processor downloads any attachments included in the message. This step is always performed for new messages, while for message updates, it depends on the platform's capabilities - Zulip allows adding attachments during edits, whereas Telegram does not.
+1. Attachment Download. Using the `Downloader` class (defined in `src/adapters/your_adapter/event_processing/attachment_loaders/downloader.py`), the processor downloads any attachments included in the message. This step is always performed for new messages, while for message updates, it depends on the platform's capabilities - Zulip allows adding new attachments during edits, whereas Telegram does not.
 2. User Information Processing. Through the `UserInfoPreprocessor` (defined in `src/adapters/your_adapter/event_processing/user_info_preprocessor.py`), the processor updates the `UserCache` with information about the message author (only for new messages) and any mentioned users (for new and updated messages). It also standardizes user mentions in the text, replacing platform-specific formats with a unified `<@{user.display_name}>` tag.
 
 #### Conversation Management
@@ -225,14 +223,14 @@ attachments: Set[str] = field(default_factory=set)              # Attachment IDs
 ```
 
 The `Manager` class provides several key methods:
-* `conversation_exists`, checks if a conversation exists based on an event
-* `get_conversation`, retrieves a cached conversation by ID
+* `conversation_exists` checks if a conversation exists based on an event
+* `get_conversation` retrieves a cached conversation by ID
 * `get_conversation_cache`, gets cached messages for a conversation in dictionary format
-* `add_to_conversation`, adds a new message to a conversation
-* `update_conversation`, updates existing messages in a conversation
-* `delete_from_conversation`, removes messages from a conversation
+* `add_to_conversation` adds a new message to a conversation
+* `update_conversation` updates existing messages in a conversation
+* `delete_from_conversation` removes messages from a conversation
 
-The Manager's architecture organizes event handling around three primary methods (`add_to_conversation`, `update_conversation`, and `delete_from_conversation`), which handle most incoming events. This structure reflects how platforms handle message-related events - all clearly distinguish new and deleted messages, but some treat edits, reactions, and pin/unpin operations as distinct events while others group them under message updates. The base class defines the logical flow for these methods, while platform-specific details are implemented in subclasses.
+The Manager's architecture organizes event handling around three primary methods (`add_to_conversation`, `update_conversation`, and `delete_from_conversation`), which handle most incoming events. This structure reflects how platforms handle message-related events - all clearly distinguish new and deleted messages, but some treat edits, reactions, and pin/unpin operations as separate events while others group them under message updates and issue the same event for all of them (for example, Telegram will issue the same `edited_message` message event for the change of message text, the addition of a new reaction and for the removal of existing one; Discord will issue the same event in case of the change of message text and of the change of its pin status). The base class defines the logical flow for these methods, while platform-specific details are implemented in subclasses.
 
 ##### Message Addition Flow
 When a new message arrives, the `add_to_conversation` method does the following things in exactly that order:
@@ -296,7 +294,7 @@ async def process_event(self, data: Dict[str, Any]) -> Dict[str, Any]:
     return await handler(outgoing_event.data)
     # ...
 ```
-Each event type has a corresponding handler method in the base class that provides common error handling and logging. These handlers delegate to abstract methods that must be implemented by platform-specific subclasses. For example:
+Each event type has a corresponding handler method in the base class that provides common error handling and logging. These handlers delegate to abstract methods that must be implemented by platform-specific subclasses.
 ```python
 async def _handle_delete_message_event(self, data: BaseModel) -> Dict[str, Any]:
     try:
@@ -317,14 +315,11 @@ Meanwhile, each platform implements the abstract methods differently to accommod
 Zulip Implementation
 ```python
 async def _delete_message(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
-    # ...
     await self.rate_limiter.limit_request("delete_message", data.conversation_id)
     self._check_api_request_success(
         self.client.call_endpoint(f"messages/{int(data.message_id)}", method="DELETE"),
         "delete message"
     )
-    await self.conversation_manager.delete_from_conversation(outgoing_event={"message_id": data.message_id, "conversation_id": data.conversation_id})
-    # ...
     return {"request_completed": True}
 ```
 
@@ -393,6 +388,7 @@ During processing, the adapter emits system events to inform Connectome about th
 * `request_queued`. Sent when the request has been received and is being processed
 * `request_success`. Sent when the request has been successfully completed
 * `request_failed`. Sent when the request encountered an error or could not be completed
+
 These system events create a feedback loop that keeps Connectome informed about the progress and outcome of its requests to the platform. They are captured by separate event handlers in `connectome/host/modules/activities/activity_client.py`.
 
 To ensure consistent and well-structured event data, the adapter system uses Pydantic models. These models define the structure, validation rules, and documentation for each event type. The models are organized in the following files:
@@ -439,6 +435,7 @@ These handlers ensure that the server responds appropriately to connection event
 The server provides two primary lifecycle methods:
 * `start()`. Initializes and starts the Socket.IO server
 * `stop()`. Gracefully shuts down the server and cleans up any pending requests
+
 For sending events to Connectome and LLMs, the server provides specialized methods: `emit_event()`, `emit_request_queued_event()`, `emit_request_failed_event()`, `emit_request_success_event()`.
 
 When Connectome sends a request to the adapter, the server follows a structured processing flow:

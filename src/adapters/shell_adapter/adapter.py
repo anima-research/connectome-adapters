@@ -3,7 +3,7 @@ import logging
 
 from typing import Any, Dict
 
-from src.adapters.shell_adapter.event_processor.processor import Processor
+from src.adapters.shell_adapter.event_processing.processor import Processor
 from src.adapters.shell_adapter.session.manager import Manager
 from src.core.utils.config import Config
 

@@ -115,12 +115,6 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
             ),
             "delete message"
         )
-        await self.conversation_manager.delete_from_conversation(
-            outgoing_event={
-                "message_id": data.message_id,
-                "conversation_id": data.conversation_id
-            }
-        )
 
         logging.info(f"Message {data.message_id} deleted successfully")
         return {"request_completed": True}

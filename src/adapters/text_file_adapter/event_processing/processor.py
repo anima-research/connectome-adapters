@@ -13,9 +13,9 @@ from pydantic import BaseModel
 from typing import Any, Dict
 from uuid import uuid4
 
-from src.adapters.text_file_adapter.event_processor.file_event_cache import FileEventCache
-from src.adapters.text_file_adapter.event_processor.file_validator import FileValidator
-from src.adapters.text_file_adapter.event_processor.outgoing_events import OutgoingEventBuilder
+from src.adapters.text_file_adapter.event_processing.file_event_cache import FileEventCache
+from src.adapters.text_file_adapter.event_processing.file_validator import FileValidator
+from src.adapters.text_file_adapter.event_processing.outgoing_events import OutgoingEventBuilder
 from src.core.utils.config import Config
 
 class FileEventType(str, Enum):

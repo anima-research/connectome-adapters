@@ -5,7 +5,7 @@ import shutil
 import tempfile
 
 from unittest.mock import MagicMock, AsyncMock, patch
-from src.adapters.text_file_adapter.event_processor.file_event_cache import FileEventCache
+from src.adapters.text_file_adapter.event_processing.file_event_cache import FileEventCache
 
 class TestFileEventCache:
     """Tests for the FileEventCache class"""

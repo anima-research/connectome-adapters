@@ -1,7 +1,6 @@
 # Discord Webhook Adapter Documentation
 
 ### Purpose
-
 The Discord Webhook Adapter provides a simplified, one-way integration with Discord that allows the connectome framework to send messages to Discord channels through webhooks. Unlike the full Discord adapter, this adapter:
 * Focuses primarily on outgoing messages to Discord
 * Uses Discord's webhook system rather than a full bot presence
@@ -10,7 +9,6 @@ The Discord Webhook Adapter provides a simplified, one-way integration with Disc
 This adapter is ideal for use cases where the LLM only needs to respond in specific channels without tracking all channel activity.
 
 ### Discord.py and Webhook Integration
-
 The adapter uses a hybrid approach combining:
 * discord.py library: for initial setup and webhook creation
 * aiohttp: for direct webhook interactions
@@ -20,7 +18,6 @@ The client maintains two critical components:
 * HTTP Session. For direct webhook message delivery.
 
 ### Client Implementation
-
 The webhook client manages both bot connections and webhook interactions:
 ```python
 class Client:
@@ -82,18 +79,18 @@ async def get_or_create_webhook(self, conversation_id: str) -> Optional[Dict[str
 The webhook adapter uses discord.py, which handles reconnection automatically, to manage webhooks. Meanwhile, the primary functionality of this adapter is sending webhook requests via HTTP. The aiohttp.ClientSession being used doesn't have built-in reconnection because webhook requests are stateless, each is a separate HTTP call. As a result, there's no persistent "connection" that needs to be maintained with webhooks. Failed webhook requests can simply be retried on the next attempt.
 
 ### Multi-Bot Support
-
 The webhook adapter supports multiple bot tokens to access different Discord servers.
 
 ### Pre-configured Webhooks
-
 It is possible to specify existing webhooks without needing to create them. This is useful for:
 * Channels where the bot doesn't have MANAGE_WEBHOOKS permission
 * Using existing webhooks created through Discord's UI
 * Faster startup without webhook creation API calls
 
-### Configuration
+### Code structure
+The same as in any platform adapter, see [PLatform Adapters Code Structure](https://github.com/antra-tess/connectome-adapters/blob/master/docs/code_structure.md). However, due to the nature of the adapter, it works only with outgoing events and has nothing to do with the incoming ones. As a result, any infrastructure for handling incoming events is not present in the adapter.
 
+### Configuration
 The Discord Webhook adapter is configured through a YAML file.
 ```yaml
 adapter:
@@ -137,16 +134,12 @@ socketio:
 ```
 
 ### Discord webhook specific features
-
 1) Conversation Mapping. Like the standard Discord adapter, conversations are identified using a composite ID formed from both the guild (server) ID and the channel ID: `guild_id/channel_id`. However, the webhook adapter does not handle threads or direct messages as these aren't supported by Discord webhooks.
-
 2) Limited Functionality. The webhook adapter specifically focuses only on:
 * Message Sending (creating new messages in channels)
 * Message Editing (modifying previously sent messages)
 * Message Deletion (removing messages sent through the webhook)
-
 3) Message edits and deletes only work for messages sent by the same webhook.
-
 4) Simplified flow compared to the full Discord adapter.
 * Initial Setup. Connects bots during startup and loads existing webhooks from Discord and configuration.
 * Request Handling. Receives requests from the connectome framework, retrieves or creates webhooks as needed, sends received requests and returns Discord's identifiers for new messages.

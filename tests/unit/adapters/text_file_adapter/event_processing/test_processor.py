@@ -6,9 +6,9 @@ import shutil
 import tempfile
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from src.adapters.text_file_adapter.event_processor.processor import Processor, FileEventType
-from src.adapters.text_file_adapter.event_processor.file_event_cache import FileEventCache
-from src.adapters.text_file_adapter.event_processor.file_validator import FileValidator
+from src.adapters.text_file_adapter.event_processing.processor import Processor
+from src.adapters.text_file_adapter.event_processing.file_event_cache import FileEventCache
+from src.adapters.text_file_adapter.event_processing.file_validator import FileValidator
 
 class TestProcessor:
     """Tests for the Text File Adapter Processor class"""

@@ -5,7 +5,7 @@ import tempfile
 
 from typing import List
 from unittest.mock import MagicMock
-from src.adapters.text_file_adapter.event_processor.file_validator import FileValidator, SecurityMode
+from src.adapters.text_file_adapter.event_processing.file_validator import FileValidator, SecurityMode
 
 class TestFileValidator:
     """Tests for the FileValidator class"""

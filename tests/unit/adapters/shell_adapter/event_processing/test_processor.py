@@ -4,8 +4,8 @@ import logging
 from unittest.mock import MagicMock, AsyncMock, patch
 from enum import Enum
 
-from src.adapters.shell_adapter.event_processor.processor import Processor
-from src.adapters.shell_adapter.event_processor.outgoing_events import OutgoingEventBuilder
+from src.adapters.shell_adapter.event_processing.processor import Processor
+from src.adapters.shell_adapter.event_processing.outgoing_events import OutgoingEventBuilder
 from src.adapters.shell_adapter.session.manager import Manager
 from src.adapters.shell_adapter.shell.metadata_fetcher import MetadataFetcher
 
