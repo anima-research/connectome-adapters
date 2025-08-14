@@ -349,3 +349,27 @@ class TestSocketIOToDiscordFlowIntegration:
             channel_mock.fetch_message.assert_called_once_with(111222333)
             message = channel_mock.fetch_message.return_value
             message.unpin.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_send_typing_indicator_flow(self,
+                                              adapter,
+                                              setup_channel_conversation,
+                                              channel_mock,
+                                              standard_conversation_id):
+        """Test the complete flow from socket.io send_typing_indicator to Discord call"""
+        setup_channel_conversation()
+
+        with patch.object(
+            adapter.outgoing_events_processor,
+            "_get_channel",
+            return_value=channel_mock
+        ):
+            response = await adapter.outgoing_events_processor.process_event({
+                "event_type": "send_typing_indicator",
+                "data": {
+                    "conversation_id": standard_conversation_id,
+                }
+            })
+            assert response["request_completed"] is True
+
+            channel_mock.typing.assert_called_once()

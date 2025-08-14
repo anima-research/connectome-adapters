@@ -32,6 +32,7 @@ from src.core.events.models.outgoing_events import (
     ReactionData,
     FetchHistoryData,
     PinStatusData,
+    SendTypingIndicatorData,
     BaseOutgoingEvent,
     SendMessageEvent,
     EditMessageEvent,
@@ -40,7 +41,8 @@ from src.core.events.models.outgoing_events import (
     RemoveReactionEvent,
     FetchHistoryEvent,
     PinMessageEvent,
-    UnpinMessageEvent
+    UnpinMessageEvent,
+    SendTypingIndicatorEvent
 )
 from src.core.events.models.request_events import (
     FetchedAttachmentData,
@@ -81,6 +83,7 @@ __all__ = [
     "ReactionData",
     "FetchHistoryData",
     "PinStatusData",
+    "SendTypingIndicatorData",
     "BaseOutgoingEvent",
     "SendMessageEvent",
     "EditMessageEvent",
@@ -90,6 +93,7 @@ __all__ = [
     "FetchHistoryEvent",
     "PinMessageEvent",
     "UnpinMessageEvent",
+    "SendTypingIndicatorEvent",
     "FetchedAttachmentData",
     "FetchAttachmentEvent",
     "SentMessageData",

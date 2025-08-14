@@ -52,6 +52,7 @@ The Socket.IO server handles the following event types from the connectome frame
 | unpin_message    | Unpin message                            | { <br>&nbsp;&nbsp;"event_type": "pin_message", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"message_id": str <br>&nbsp;&nbsp;} <br>}|
 | fetch_history   | Request conversation history (for more details on history fetching see "Important Flow Rules" section)             | { <br>&nbsp;&nbsp;"event_type": "fetch_history", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str, <br>&nbsp;&nbsp;&nbsp;&nbsp;"limit": int, <br>&nbsp;&nbsp;&nbsp;&nbsp;"before": int <br>&nbsp;&nbsp;} <br>}|
 | fetch_attachment | Request attachment                       | { <br>&nbsp;&nbsp;"event_type": "fetch_attachment", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"attachment_id": str <br>&nbsp;&nbsp;} <br>}|
+| send_typing_indicator | Send a typing indicator to a conversation | { <br>&nbsp;&nbsp;"event_type": "send_typing_indicator", <br>&nbsp;&nbsp;"data": { <br>&nbsp;&nbsp;&nbsp;&nbsp;"conversation_id": str <br>&nbsp;&nbsp;} <br>}|
 
 ### Examples of outgoing event flow
 1) Send message from the connectome framework to the adapter
@@ -300,6 +301,7 @@ connectome-adapters is designed with a strong focus on data minimization and eph
 11) Mentions. It is possible to mention users or the whole set of conversation members during sending or editing messages. To mention ereyone it is necessary to submit `all` in the `mentions` array. To mention a certain user it is necessary to submit that user ID in the `mentions` array. Keep in mind, that the connectome adapter receives user ID either through history fetching, or processing new platform messages. These values should be used for mentioning.
 12) Notification Filtering Policy. Adapters track all messages internally, but only notify models about message events (creation/editing/deletion) when they are initiated by external users. Events triggered by the connectome framework itself are not reported back to the model to prevent redundant information and notification loops. While this filtering reduces noise, it means the model won't be notified if an administrator deletes one of the framework's messages. This design prioritizes clean conversation flow over complete event tracking.
 13) Admin Actions (Pin/Unpin). The connectome-adapters support pinning and unpinning messages on Slack, Discord (excluding webhook connections), and Telegram platforms. These actions typically require the bot to have appropriate permissions configured on the platform (e.g., "Manage Messages" in Discord, "pins:write" scope in Slack). The framework does not support pinning in Zulip, which uses a different organizational model based on topics.
+14) Send Typing Indicator. Adapters (except for Slack) support sending a typing indicator to a conversation. The duration of typing indicator display varies between platforms: Discord - approximately 10 seconds, Telegram and Zulip - 5 seconds.
 
 ### Privacy Considerations
 * Message Content: Processed ephemerally and not stored permanently

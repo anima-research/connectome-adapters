@@ -49,7 +49,7 @@ async def main():
         await socketio_server.start()
         await adapter.start()
         while adapter.running and not should_shutdown:
-            await asyncio.sleep(10)
+            await asyncio.sleep(1)
     except (ValueError, FileNotFoundError) as e:
         print(f"Configuration error: {e}")
         print("Please ensure discord_config.yaml exists with required settings")

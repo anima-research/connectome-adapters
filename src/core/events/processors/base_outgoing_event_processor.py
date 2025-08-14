@@ -27,6 +27,7 @@ class OutgoingEventType(str, Enum):
     FETCH_ATTACHMENT = "fetch_attachment"
     PIN_MESSAGE = "pin_message"
     UNPIN_MESSAGE = "unpin_message"
+    SEND_TYPING_INDICATOR = "send_typing_indicator"
 
 class BaseOutgoingEventProcessor(ABC):
     """Processes events from socket.io and sends them to adapter client"""
@@ -65,7 +66,8 @@ class BaseOutgoingEventProcessor(ABC):
                 OutgoingEventType.FETCH_HISTORY: self._handle_fetch_history_event,
                 OutgoingEventType.FETCH_ATTACHMENT: self._handle_fetch_attachment_event,
                 OutgoingEventType.PIN_MESSAGE: self._handle_pin_event,
-                OutgoingEventType.UNPIN_MESSAGE: self._handle_unpin_event
+                OutgoingEventType.UNPIN_MESSAGE: self._handle_unpin_event,
+                OutgoingEventType.SEND_TYPING_INDICATOR: self._handle_send_typing_indicator_event
             }
             outgoing_event = self.outgoing_event_builder.build(data)
             handler = event_handlers.get(outgoing_event.event_type)
@@ -292,6 +294,30 @@ class BaseOutgoingEventProcessor(ABC):
     async def _unpin_message(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
         """Unpin a message"""
         raise NotImplementedError("Child classes must implement _unpin_message")
+
+    async def _handle_send_typing_indicator_event(self, data: BaseModel) -> Dict[str, Any]:
+        """Send a typing indicator
+
+        Args:
+            data: Event data containing
+                  conversation_id
+
+        Returns:
+            Dict[str, Any]: Dictionary containing the status
+        """
+        try:
+            return await self._send_typing_indicator(self._find_conversation(data.conversation_id), data)
+        except Exception as e:
+            logging.error(f"Failed to send typing indicator {data.conversation_id}: {e}", exc_info=True)
+            return {
+                "request_completed": False,
+                "error": f"Failed to send typing indicator: {e}"
+            }
+
+    @abstractmethod
+    async def _send_typing_indicator(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
+        """Send a typing indicator"""
+        raise NotImplementedError("Child classes must implement _send_typing_indicator")
 
     def _find_conversation(self, conversation_id: str) -> Any:
         """Find a conversation by id

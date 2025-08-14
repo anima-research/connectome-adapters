@@ -216,3 +216,14 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         logging.info(f"Message {data.message_id} unpinned successfully")
 
         return {"request_completed": True}
+
+    async def _send_typing_indicator(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
+        """Send a typing indicator
+
+        Args:
+            data: Event data containing conversation_id
+
+        Returns:
+            Dict[str, Any]: Dictionary containing the status
+        """
+        raise NotImplementedError("typing indicator is not supported in the newer versions of slack_sdk AsyncWebClient")

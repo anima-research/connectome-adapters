@@ -161,6 +161,37 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         logging.info(f"Reaction {data.emoji} removed from message {data.message_id}")
         return {"request_completed": True}
 
+    async def _send_typing_indicator(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
+        """Send a typing indicator
+
+        Args:
+            data: Event data containing conversation_id
+
+        Returns:
+            Dict[str, Any]: Dictionary containing the status
+        """
+        request = {}
+
+        if conversation_info.conversation_type == "stream":
+            request["type"] = "stream"
+            request["topic"] = conversation_info.stream_topic
+            request["stream_id"] = int(conversation_info.stream_id)
+        else:
+            request["to"] = [int(user_id) for user_id in conversation_info.known_members]
+
+        request["op"] = "start"
+        await self.rate_limiter.limit_request("send_typing_indicator", data.conversation_id)
+        self.client.call_endpoint(url="typing", method="POST", request=request)
+
+        await asyncio.sleep(5)
+
+        request["op"] = "stop"
+        await self.rate_limiter.limit_request("send_typing_indicator", data.conversation_id)
+        self.client.call_endpoint(url="typing", method="POST", request=request)
+
+        logging.info(f"Typing indicator sent to {data.conversation_id}")
+        return {"request_completed": True}
+
     async def _pin_message(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
         """Pin a message. Not supported for Zulip adapter"""
         raise NotImplementedError("pinning messages is not supported for Zulip adapter")

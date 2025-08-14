@@ -55,6 +55,10 @@ class FetchAttachmentData(BaseModel):
     """Fetch attachment request data model"""
     attachment_id: str
 
+class SendTypingIndicatorData(BaseModel):
+    """Send typing indicator request data model"""
+    conversation_id: str
+
 # Complete request models
 class SendMessageEvent(BaseOutgoingEvent):
     """Complete send message event model"""
@@ -100,3 +104,8 @@ class UnpinMessageEvent(BaseOutgoingEvent):
     """Complete unpin message event model"""
     event_type: str = "unpin_message"
     data: PinStatusData
+
+class SendTypingIndicatorEvent(BaseOutgoingEvent):
+    """Complete send typing indicator event model"""
+    event_type: str = "send_typing_indicator"
+    data: SendTypingIndicatorData

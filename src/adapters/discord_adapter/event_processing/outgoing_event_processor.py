@@ -185,6 +185,25 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         logging.info(f"Message {data.message_id} unpinned successfully")
         return {"request_completed": True}
 
+    async def _send_typing_indicator(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
+        """Send a typing indicator
+
+        Args:
+            data: Event data containing conversation_id
+
+        Returns:
+            Dict[str, Any]: Dictionary containing the status
+        """
+        channel = await self._get_channel(conversation_info.platform_conversation_id)
+
+        await self.rate_limiter.limit_request("send_typing_indicator", data.conversation_id)
+        # channel.typing() causes typing notification display that lasts ~10 seconds;
+        # channel.send() triggered by adapter via `send_message` event will stop notification earlier
+        await channel.typing()
+
+        logging.info(f"Typing indicator sent to {data.conversation_id}")
+        return {"request_completed": True}
+
     async def _get_channel(self, conversation_id: str) -> Optional[Any]:
         """Get a channel from a conversation_id
 

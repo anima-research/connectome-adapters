@@ -461,3 +461,32 @@ class TestSocketIOToTelegramFlowIntegration:
             telethon_client_mock.get_entity.assert_called_once()
             mock_functions.messages.UpdatePinnedMessageRequest.assert_called_once()
             assert "123" not in adapter.conversation_manager.conversations[standard_conversation_id].pinned_messages
+
+    @pytest.mark.asyncio
+    async def test_send_typing_indicator_flow(self,
+                                              adapter,
+                                              telethon_client_mock,
+                                              setup_conversation,
+                                              setup_conversation_known_member,
+                                              standard_conversation_id):
+        """Test the complete flow from socket.io send_typing_indicator to Telethon call"""
+        telethon_client_mock.get_entity.return_value = MagicMock()
+
+        with patch(
+            "src.adapters.telegram_adapter.event_processing.outgoing_event_processor.functions"
+        ) as mock_functions:
+
+            mock_functions.messages.SetTypingRequest.return_value = MagicMock()
+            setup_conversation()
+            setup_conversation_known_member()
+
+            response = await adapter.outgoing_events_processor.process_event({
+                "event_type": "send_typing_indicator",
+                "data": {
+                    "conversation_id": standard_conversation_id,
+                }
+            })
+            assert response["request_completed"] is True
+
+            telethon_client_mock.get_entity.assert_called_once()
+            mock_functions.messages.SetTypingRequest.assert_called_once()

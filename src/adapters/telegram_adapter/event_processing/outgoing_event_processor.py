@@ -6,7 +6,7 @@ import os
 import telethon
 
 from pydantic import BaseModel
-from telethon import functions
+from telethon import functions, types
 from telethon.tl.types import ReactionEmoji
 from typing import Any, Dict, List, Union
 
@@ -255,6 +255,25 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
             })
 
         logging.info(f"Message {data.message_id} unpinned in conversation {data.conversation_id}")
+        return {"request_completed": True}
+
+    async def _send_typing_indicator(self, conversation_info: Any, data: BaseModel) -> Dict[str, Any]:
+        """Send a typing indicator
+
+        Args:
+            data: Event data containing conversation_id
+
+        Returns:
+            Dict[str, Any]: Dictionary containing the status
+        """
+        entity = await self._get_entity(conversation_info)
+        await self.rate_limiter.limit_request("send_typing_indicator", data.conversation_id)
+
+        # typing notification lasts ~5 seconds;
+        # `send_message` event will stop notification earlier
+        await self.client(functions.messages.SetTypingRequest(peer=entity, action=types.SendMessageTypingAction()))
+
+        logging.info(f"Typing indicator sent to {data.conversation_id}")
         return {"request_completed": True}
 
     def _format_conversation_id(self, conversation_id: Union[str, int]) -> Union[str, int]:

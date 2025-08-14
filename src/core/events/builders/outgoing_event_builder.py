@@ -8,6 +8,7 @@ from src.core.events.models.outgoing_events import (
     FetchHistoryData,
     FetchAttachmentData,
     PinStatusData,
+    SendTypingIndicatorData,
     BaseOutgoingEvent,
     SendMessageEvent,
     EditMessageEvent,
@@ -17,7 +18,8 @@ from src.core.events.models.outgoing_events import (
     FetchHistoryEvent,
     FetchAttachmentEvent,
     PinMessageEvent,
-    UnpinMessageEvent
+    UnpinMessageEvent,
+    SendTypingIndicatorEvent
 )
 
 class OutgoingEventBuilder:
@@ -95,6 +97,12 @@ class OutgoingEventBuilder:
             return UnpinMessageEvent(
                 event_type=event_type,
                 data=PinStatusData(**event_data)
+            )
+
+        if event_type == "send_typing_indicator":
+            return SendTypingIndicatorEvent(
+                event_type=event_type,
+                data=SendTypingIndicatorData(**event_data)
             )
 
         raise ValueError(f"Unknown event type: {event_type}")

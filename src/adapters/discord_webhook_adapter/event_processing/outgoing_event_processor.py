@@ -213,6 +213,10 @@ class OutgoingEventProcessor(BaseOutgoingEventProcessor):
         """Unpin a message. Not supported for webhooks adapter"""
         raise NotImplementedError("unpinning messages is not supported for webhooks adapter")
 
+    async def _send_typing_indicator(self, _: Any, data: BaseModel) -> Dict[str, Any]:
+        """Send a typing indicator. Not supported for webhooks adapter"""
+        raise NotImplementedError("typing indicator is not supported for webhooks adapter")
+
     def _find_conversation(self, _: str) -> Any:
         """Find a conversation by id
 

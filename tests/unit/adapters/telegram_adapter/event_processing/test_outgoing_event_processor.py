@@ -537,3 +537,38 @@ class TestOutgoingEventProcessor:
                 "data": {"conversation_id": standard_conversation_id}
             })
             assert response["request_completed"] is False
+
+    class TestSendTypingIndicator:
+        """Tests for send_typing_indicator method"""
+
+        @pytest.mark.asyncio
+        async def test_send_typing_indicator_success(self,
+                                                     processor,
+                                                     telethon_client_mock,
+                                                     standard_conversation_id):
+            """Test successfully sending a typing indicator"""
+            telethon_client_mock.return_value = MagicMock()
+            telethon_client_mock.get_entity.return_value = "entity"
+
+            response = await processor.process_event({
+                "event_type": "send_typing_indicator",
+                "data": {
+                    "conversation_id": standard_conversation_id,
+                }
+            })
+
+            assert response["request_completed"] is True
+            telethon_client_mock.assert_called_once()
+            processor.rate_limiter.limit_request.assert_called_with(
+                "send_typing_indicator", standard_conversation_id
+            )
+
+        @pytest.mark.asyncio
+        async def test_send_typing_indicator_missing_required_fields(self, processor):
+            """Test sending a typing indicator with missing required fields"""
+            # Missing conversation_id
+            response = await processor.process_event({
+                "event_type": "send_typing_indicator",
+                "data": {}
+            })
+            assert response["request_completed"] is False

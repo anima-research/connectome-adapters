@@ -486,6 +486,35 @@ class TestOutgoingEventProcessor:
                 response = await processor.process_event(event_data)
                 assert response["request_completed"] is False
 
+    class TestSendTypingIndicator:
+        """Tests for send_typing_indicator method"""
+
+        @pytest.mark.asyncio
+        async def test_send_typing_indicator_success(self,
+                                             processor,
+                                             zulip_client_mock,
+                                             standard_private_conversation_id):
+            """Test successfully adding a reaction"""
+            event_data = {
+                "event_type": OutgoingEventType.SEND_TYPING_INDICATOR,
+                "data": {
+                    "conversation_id": standard_private_conversation_id,
+                }
+            }
+
+            response = await processor.process_event(event_data)
+            assert response["request_completed"] is True
+            zulip_client_mock.call_endpoint.call_count == 2
+
+        @pytest.mark.asyncio
+        async def test_send_typing_indicator_missing_required_fields(self, processor):
+            """Test adding a reaction with missing required fields"""
+            # Missing conversation_id
+            response = await processor.process_event({
+                "event_type": OutgoingEventType.SEND_TYPING_INDICATOR, "data": {}
+            })
+            assert response["request_completed"] is False
+
     class TestFetchHistory:
         """Tests for the fetch_history method"""
 

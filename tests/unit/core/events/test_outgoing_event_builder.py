@@ -10,6 +10,7 @@ from src.core.events.models.outgoing_events import (
     FetchHistoryData,
     FetchAttachmentData,
     PinStatusData,
+    SendTypingIndicatorData,
     SendMessageEvent,
     EditMessageEvent,
     DeleteMessageEvent,
@@ -18,7 +19,8 @@ from src.core.events.models.outgoing_events import (
     FetchHistoryEvent,
     FetchAttachmentEvent,
     PinMessageEvent,
-    UnpinMessageEvent
+    UnpinMessageEvent,
+    SendTypingIndicatorEvent
 )
 from src.core.events.builders.outgoing_event_builder import OutgoingEventBuilder
 
@@ -140,6 +142,16 @@ class TestOutgoingEventBuilder:
             "data": {
                 "conversation_id": "conv_123",
                 "message_id": "msg_456"
+            }
+        }
+
+    @pytest.fixture
+    def sample_send_typing_indicator_data(self):
+        """Fixture for sample send typing indicator data."""
+        return {
+            "event_type": "send_typing_indicator",
+            "data": {
+                "conversation_id": "conv_123"
             }
         }
 
@@ -271,6 +283,15 @@ class TestOutgoingEventBuilder:
         assert isinstance(event.data, PinStatusData)
         assert event.data.conversation_id == sample_unpin_message_data["data"]["conversation_id"]
         assert event.data.message_id == sample_unpin_message_data["data"]["message_id"]
+
+    def test_build_send_typing_indicator(self, event_builder, sample_send_typing_indicator_data):
+        """Test building a send_typing_indicator event."""
+        event = event_builder.build(sample_send_typing_indicator_data)
+
+        assert isinstance(event, SendTypingIndicatorEvent)
+        assert event.event_type == "send_typing_indicator"
+        assert isinstance(event.data, SendTypingIndicatorData)
+        assert event.data.conversation_id == sample_send_typing_indicator_data["data"]["conversation_id"]
 
     def test_unknown_event_type(self, event_builder):
         """Test handling of unknown event types."""

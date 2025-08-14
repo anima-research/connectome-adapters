@@ -362,3 +362,22 @@ class TestSocketIOToZulipFlowIntegration:
                 "message_id": 12345,
                 "emoji_name": "+1"
             })
+
+    @pytest.mark.asyncio
+    async def test_send_typing_indicator_flow(self,
+                                              adapter,
+                                              zulip_client_mock,
+                                              setup_private_conversation,
+                                              standard_private_conversation_id):
+        """Test the complete flow from socket.io send_typing_indicator to Zulip call"""
+        setup_private_conversation()
+
+        response = await adapter.outgoing_events_processor.process_event({
+            "event_type": "send_typing_indicator",
+            "data": {
+                "conversation_id": standard_private_conversation_id,
+            }
+        })
+
+        assert response["request_completed"] is True
+        zulip_client_mock.call_endpoint.call_count == 2

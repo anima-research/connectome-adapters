@@ -387,3 +387,22 @@ class TestOutgoingEventProcessor:
                 }
             })
             assert response["request_completed"] is False
+
+    class TestSendTypingIndicator:
+        """Tests for send_typing_indicator method"""
+
+        @pytest.mark.asyncio
+        async def test_send_typing_indicator_success(self, processor, channel_mock):
+            """Test successfully sending a typing indicator"""
+            response = await processor.process_event({
+                "event_type": "send_typing_indicator",
+                "data": {
+                    "conversation_id": "123456789",
+                }
+            })
+            assert response["request_completed"] is True
+
+            processor.rate_limiter.limit_request.assert_called_once_with(
+                "send_typing_indicator", "123456789"
+            )
+            channel_mock.typing.assert_called_once()
